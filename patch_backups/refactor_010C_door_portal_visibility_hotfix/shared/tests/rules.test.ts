@@ -303,7 +303,7 @@ describe('Refactor 009 window transit rules', () => {
 });
 
 
-import { DOOR_PROXIMITY_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_SCOPE_DEPTH, WINDOW_PORTAL_VIEW_DEPTH, WINDOW_PROXIMITY_BALANCE, crossSpaceOpening, doorPortalOpening, explosionExposureMultiplier, motorcycleExplosionDamage, motorcyclePlayerCollisionDamage, motorcycleProjectileDamage, motorcycleWallCollisionDamage, portalPolygon, portalTarget, radialExplosionDamage, segmentClearOfRects, selectActivePortal, selectActiveWindow, targetVisibilitySamples, visibilitySampleResult, windowOpeningCenter, windowPortalPolygon, windowPortalTarget } from '../src/index.js';
+import { MOTORCYCLE_DESTRUCTION_BALANCE, WINDOW_PORTAL_SCOPE_DEPTH, WINDOW_PORTAL_VIEW_DEPTH, WINDOW_PROXIMITY_BALANCE, crossSpaceOpening, explosionExposureMultiplier, motorcycleExplosionDamage, motorcyclePlayerCollisionDamage, motorcycleProjectileDamage, motorcycleWallCollisionDamage, radialExplosionDamage, segmentClearOfRects, selectActiveWindow, targetVisibilitySamples, visibilitySampleResult, windowOpeningCenter, windowPortalPolygon, windowPortalTarget } from '../src/index.js';
 
 describe('Refactor 010 window combat and vehicle destruction rules', () => {
   it('limits window sight to a local expanding portal instead of an endless strip', () => {
@@ -361,52 +361,6 @@ describe('Refactor 010 window combat and vehicle destruction rules', () => {
     expect(selectActiveWindow(farInside,center.x-farInside.x,center.y-farInside.y,'',false,BUILDING_VISIBILITY_ZONES)).toBeNull();
     const aimOutside={x:center.x-points.outside.x,y:center.y-points.outside.y};
     expect(selectActiveWindow({...points.outside,buildingId:''},aimOutside.x,aimOutside.y,'',false,BUILDING_VISIBILITY_ZONES)?.windowId).toBe(window.id);
-  });
-
-  it('selects one nearby aimed door or window as a unified portal', () => {
-    const zone=BUILDING_VISIBILITY_ZONES[0]!;
-    const door=doorPortalOpening(zone,zone.doors[0]!);
-    const center=windowOpeningCenter(door);
-    const outward=door.side==='north'?{x:0,y:-1}:door.side==='south'?{x:0,y:1}:door.side==='west'?{x:-1,y:0}:{x:1,y:0};
-    const inside={x:center.x-outward.x*70,y:center.y-outward.y*70,buildingId:zone.id};
-    const outside={x:center.x+outward.x*70,y:center.y+outward.y*70,buildingId:''};
-    const selectedInside=selectActivePortal(inside,center.x-inside.x,center.y-inside.y,'',false,BUILDING_VISIBILITY_ZONES);
-    expect(selectedInside).toMatchObject({openingId:door.id,kind:'door',buildingId:zone.id});
-    const selectedOutside=selectActivePortal(outside,center.x-outside.x,center.y-outside.y,'',false,BUILDING_VISIBILITY_ZONES);
-    expect(selectedOutside).toMatchObject({openingId:door.id,kind:'door'});
-    expect(PORTAL_SELECTION_BALANCE.maxActivePortals).toBe(1);
-  });
-
-  it('requires door proximity and limits door sight to a local portal volume', () => {
-    const zone=BUILDING_VISIBILITY_ZONES[0]!;
-    const door=doorPortalOpening(zone,zone.doors[0]!);
-    const center=windowOpeningCenter(door);
-    const outward=door.side==='north'?{x:0,y:-1}:door.side==='south'?{x:0,y:1}:door.side==='west'?{x:-1,y:0}:{x:1,y:0};
-    const nearInside={x:center.x-outward.x*80,y:center.y-outward.y*80,buildingId:zone.id};
-    const farInside={x:center.x-outward.x*(DOOR_PROXIMITY_BALANCE.insideNormalActivationDistance+25),y:center.y-outward.y*(DOOR_PROXIMITY_BALANCE.insideNormalActivationDistance+25),buildingId:zone.id};
-    expect(selectActivePortal(nearInside,center.x-nearInside.x,center.y-nearInside.y,'',false,BUILDING_VISIBILITY_ZONES)?.openingId).toBe(door.id);
-    expect(selectActivePortal(farInside,center.x-farInside.x,center.y-farInside.y,'',false,BUILDING_VISIBILITY_ZONES)).toBeNull();
-    const polygon=portalPolygon(door,'door','outside',false);
-    expect(polygon).toHaveLength(4);
-    const nearWidth=distance(polygon[0]!.x,polygon[0]!.y,polygon[1]!.x,polygon[1]!.y);
-    const farWidth=distance(polygon[2]!.x,polygon[2]!.y,polygon[3]!.x,polygon[3]!.y);
-    expect(farWidth).toBeGreaterThan(nearWidth);
-    const nearTarget={x:center.x+outward.x*120,y:center.y+outward.y*120,buildingId:''};
-    const farTarget={x:center.x+outward.x*(DOOR_PROXIMITY_BALANCE.insideToOutsideNormalDepth+30),y:center.y+outward.y*(DOOR_PROXIMITY_BALANCE.insideToOutsideNormalDepth+30),buildingId:''};
-    expect(portalTarget(door,'door',nearTarget.x,nearTarget.y,'',false).visible).toBe(true);
-    expect(portalTarget(door,'door',farTarget.x,farTarget.y,'',false).visible).toBe(false);
-    expect(crossSpaceOpening(nearInside,nearTarget,false,BUILDING_VISIBILITY_ZONES,door.id)?.kind).toBe('door');
-    expect(crossSpaceOpening(nearInside,farTarget,false,BUILDING_VISIBILITY_ZONES,door.id)).toBeNull();
-  });
-
-  it('blocks every cross-space portal when no nearby portal is selected', () => {
-    const zone=BUILDING_VISIBILITY_ZONES[0]!;
-    const door=doorPortalOpening(zone,zone.doors[0]!);
-    const center=windowOpeningCenter(door);
-    const outward=door.side==='north'?{x:0,y:-1}:door.side==='south'?{x:0,y:1}:door.side==='west'?{x:-1,y:0}:{x:1,y:0};
-    const inside={x:center.x-outward.x*70,y:center.y-outward.y*70,buildingId:zone.id};
-    const outside={x:center.x+outward.x*70,y:center.y+outward.y*70,buildingId:''};
-    expect(crossSpaceOpening(inside,outside,false,BUILDING_VISIBILITY_ZONES,'')).toBeNull();
   });
 
   it('samples the target center and both sides for partial window exposure', () => {

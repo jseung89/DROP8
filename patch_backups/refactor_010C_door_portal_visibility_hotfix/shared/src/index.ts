@@ -234,25 +234,9 @@ export const WINDOW_PROXIMITY_BALANCE = {
   outsideToInsideScopeDepth:165,
   normalExpansionRatio:.08,
   scopeExpansionRatio:.05,
-} as const;
-// DROP8_REFACTOR_010C_DOOR_PORTAL_VISIBILITY
-export const DOOR_PROXIMITY_BALANCE = {
-  insideNormalActivationDistance:145,
-  insideScopeActivationDistance:175,
-  outsideNormalActivationDistance:120,
-  outsideScopeActivationDistance:150,
-  insideToOutsideNormalDepth:220,
-  insideToOutsideScopeDepth:330,
-  outsideToInsideNormalDepth:145,
-  outsideToInsideScopeDepth:210,
-  normalExpansionRatio:.10,
-  scopeExpansionRatio:.06,
-} as const;
-export const PORTAL_SELECTION_BALANCE = {
-  newSelectionAngleDeg:24,
-  retainedSelectionAngleDeg:30,
-  passageHoldMs:300,
-  maxActivePortals:1,
+  newWindowSelectionAngleDeg:22,
+  retainedWindowSelectionAngleDeg:28,
+  maxActiveWindows:1,
 } as const;
 export const WINDOW_PORTAL_VIEW_DEPTH=WINDOW_PROXIMITY_BALANCE.insideToOutsideNormalDepth;
 export const WINDOW_PORTAL_SCOPE_DEPTH=WINDOW_PROXIMITY_BALANCE.insideToOutsideScopeDepth;
@@ -339,113 +323,79 @@ function openingConnects(a:{x:number;y:number},b:{x:number;y:number},opening:{x:
   return segmentRectIntersectionT(a.x,a.y,b.x,b.y,{x:opening.x,y:opening.y,w:opening.width,h:opening.height})!==null;
 }
 
-export type PortalKind='door'|'window';
-export type CrossSpaceOpeningResult={kind:'same'|PortalKind;openingId:string;buildingId:string;depth:number;lateral:number;maxDepth:number};
-export type ActivePortalSelection={openingId:string;buildingId:string;kind:PortalKind;distance:number;angleDifferenceDeg:number};
+export type CrossSpaceOpeningResult={kind:'same'|'door'|'window';openingId:string;buildingId:string;depth:number;lateral:number;maxDepth:number};
 export type ActiveWindowSelection={windowId:string;buildingId:string;distance:number;angleDifferenceDeg:number};
 
 export function windowOpeningCenter(window:WindowOpening){return{x:window.x+window.width/2,y:window.y+window.height/2};}
 
-function openingSideFromZone(opening:{x:number;y:number;width:number;height:number},zone:BuildingVisibilityZone):DoorSide{
-  const cx=opening.x+opening.width/2,cy=opening.y+opening.height/2;
-  const candidates:[DoorSide,number][]=[
-    ['north',Math.abs(cy-zone.interior.y)],
-    ['south',Math.abs(cy-(zone.interior.y+zone.interior.h))],
-    ['west',Math.abs(cx-zone.interior.x)],
-    ['east',Math.abs(cx-(zone.interior.x+zone.interior.w))],
-  ];
-  candidates.sort((a,b)=>a[1]-b[1]);
-  return candidates[0]![0];
-}
-
-export function doorPortalOpening(zone:BuildingVisibilityZone,door:DoorVisibilityZone):WindowOpening{
-  return{...door,side:openingSideFromZone(door,zone),offset:.5,vaultable:false,allowsVision:true,allowsBullets:true};
-}
-
-function portalActivationDistance(viewerBuildingId:string,kind:PortalKind,opening:WindowOpening,scoped:boolean){
-  const inside=viewerBuildingId===opening.buildingId;
-  const balance=kind==='door'?DOOR_PROXIMITY_BALANCE:WINDOW_PROXIMITY_BALANCE;
+function windowActivationDistance(viewerBuildingId:string,window:WindowOpening,scoped:boolean){
+  const inside=viewerBuildingId===window.buildingId;
   return inside
-    ? scoped?balance.insideScopeActivationDistance:balance.insideNormalActivationDistance
-    : scoped?balance.outsideScopeActivationDistance:balance.outsideNormalActivationDistance;
-}
-
-export function selectActivePortal(
-  viewer:{x:number;y:number;buildingId?:string},aimX:number,aimY:number,currentOpeningId:string,scoped=false,
-  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,
-):ActivePortalSelection|null{
-  const viewerId=viewer.buildingId??'';
-  const aimLength=Math.hypot(aimX,aimY);
-  if(!Number.isFinite(aimLength)||aimLength<.0001)return null;
-  const nx=aimX/aimLength,ny=aimY/aimLength;
-  const candidates:ActivePortalSelection[]=[];
-  const addCandidate=(zone:BuildingVisibilityZone,opening:WindowOpening,kind:PortalKind)=>{
-    if(!opening.allowsVision)return;
-    const center=windowOpeningCenter(opening),dx=center.x-viewer.x,dy=center.y-viewer.y,distanceToOpening=Math.hypot(dx,dy);
-    if(distanceToOpening>portalActivationDistance(viewerId,kind,opening,scoped)||distanceToOpening<.001)return;
-    const dot=clamp((dx/distanceToOpening)*nx+(dy/distanceToOpening)*ny,-1,1);
-    const angleDifferenceDeg=Math.acos(dot)*180/Math.PI;
-    candidates.push({openingId:opening.id,buildingId:zone.id,kind,distance:distanceToOpening,angleDifferenceDeg});
-  };
-  for(const zone of zones){
-    if(viewerId&&zone.id!==viewerId)continue;
-    for(const door of zone.doors)addCandidate(zone,doorPortalOpening(zone,door),'door');
-    for(const window of zone.windows)addCandidate(zone,window,'window');
-  }
-  const retained=candidates.find((candidate)=>candidate.openingId===currentOpeningId&&candidate.angleDifferenceDeg<=PORTAL_SELECTION_BALANCE.retainedSelectionAngleDeg);
-  if(retained)return retained;
-  return candidates
-    .filter((candidate)=>candidate.angleDifferenceDeg<=PORTAL_SELECTION_BALANCE.newSelectionAngleDeg)
-    .sort((a,b)=>a.angleDifferenceDeg-b.angleDifferenceDeg||a.distance-b.distance)[0]??null;
+    ? scoped?WINDOW_PROXIMITY_BALANCE.insideScopeActivationDistance:WINDOW_PROXIMITY_BALANCE.insideNormalActivationDistance
+    : scoped?WINDOW_PROXIMITY_BALANCE.outsideScopeActivationDistance:WINDOW_PROXIMITY_BALANCE.outsideNormalActivationDistance;
 }
 
 export function selectActiveWindow(
   viewer:{x:number;y:number;buildingId?:string},aimX:number,aimY:number,currentWindowId:string,scoped=false,
   zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,
 ):ActiveWindowSelection|null{
-  const selected=selectActivePortal(viewer,aimX,aimY,currentWindowId,scoped,zones);
-  return selected?.kind==='window'?{windowId:selected.openingId,buildingId:selected.buildingId,distance:selected.distance,angleDifferenceDeg:selected.angleDifferenceDeg}:null;
+  const viewerId=viewer.buildingId??'';
+  const aimLength=Math.hypot(aimX,aimY);
+  if(!Number.isFinite(aimLength)||aimLength<.0001)return null;
+  const nx=aimX/aimLength,ny=aimY/aimLength;
+  const candidates:ActiveWindowSelection[]=[];
+  for(const zone of zones){
+    if(viewerId&&zone.id!==viewerId)continue;
+    for(const window of zone.windows){
+      if(!window.allowsVision)continue;
+      const center=windowOpeningCenter(window),dx=center.x-viewer.x,dy=center.y-viewer.y,distanceToWindow=Math.hypot(dx,dy);
+      if(distanceToWindow>windowActivationDistance(viewerId,window,scoped)||distanceToWindow<.001)continue;
+      const dot=clamp((dx/distanceToWindow)*nx+(dy/distanceToWindow)*ny,-1,1);
+      const angleDifferenceDeg=Math.acos(dot)*180/Math.PI;
+      candidates.push({windowId:window.id,buildingId:zone.id,distance:distanceToWindow,angleDifferenceDeg});
+    }
+  }
+  const retained=candidates.find((candidate)=>candidate.windowId===currentWindowId&&candidate.angleDifferenceDeg<=WINDOW_PROXIMITY_BALANCE.retainedWindowSelectionAngleDeg);
+  if(retained)return retained;
+  return candidates
+    .filter((candidate)=>candidate.angleDifferenceDeg<=WINDOW_PROXIMITY_BALANCE.newWindowSelectionAngleDeg)
+    .sort((a,b)=>a.angleDifferenceDeg-b.angleDifferenceDeg||a.distance-b.distance)[0]??null;
 }
 
-function portalAxes(opening:WindowOpening,toward:'inside'|'outside'){
-  const outward=opening.side==='north'?{x:0,y:-1}:opening.side==='south'?{x:0,y:1}:opening.side==='west'?{x:-1,y:0}:{x:1,y:0};
+function windowPortalAxes(window:WindowOpening,toward:'inside'|'outside'){
+  const outward=window.side==='north'?{x:0,y:-1}:window.side==='south'?{x:0,y:1}:window.side==='west'?{x:-1,y:0}:{x:1,y:0};
   const normal=toward==='outside'?outward:{x:-outward.x,y:-outward.y};
   const tangent={x:-normal.y,y:normal.x};
   return{normal,tangent};
 }
 
-function portalDepth(kind:PortalKind,toward:'inside'|'outside',scoped:boolean){
-  const balance=kind==='door'?DOOR_PROXIMITY_BALANCE:WINDOW_PROXIMITY_BALANCE;
-  if(toward==='outside')return scoped?balance.insideToOutsideScopeDepth:balance.insideToOutsideNormalDepth;
-  return scoped?balance.outsideToInsideScopeDepth:balance.outsideToInsideNormalDepth;
+function windowPortalDepth(toward:'inside'|'outside',scoped:boolean){
+  if(toward==='outside')return scoped?WINDOW_PROXIMITY_BALANCE.insideToOutsideScopeDepth:WINDOW_PROXIMITY_BALANCE.insideToOutsideNormalDepth;
+  return scoped?WINDOW_PROXIMITY_BALANCE.outsideToInsideScopeDepth:WINDOW_PROXIMITY_BALANCE.outsideToInsideNormalDepth;
 }
 
-function portalExpansion(kind:PortalKind,scoped:boolean){
-  const balance=kind==='door'?DOOR_PROXIMITY_BALANCE:WINDOW_PROXIMITY_BALANCE;
-  return scoped?balance.scopeExpansionRatio:balance.normalExpansionRatio;
-}
+function windowPortalExpansion(scoped:boolean){return scoped?WINDOW_PROXIMITY_BALANCE.scopeExpansionRatio:WINDOW_PROXIMITY_BALANCE.normalExpansionRatio;}
 
-export function portalTarget(opening:WindowOpening,kind:PortalKind,targetX:number,targetY:number,targetBuildingId:string,scoped=false){
-  const toward=targetBuildingId===opening.buildingId?'inside':'outside';
-  const {normal,tangent}=portalAxes(opening,toward);
-  const centerX=opening.x+opening.width/2,centerY=opening.y+opening.height/2;
+export function windowPortalTarget(window:WindowOpening,targetX:number,targetY:number,targetBuildingId:string,scoped=false){
+  const toward=targetBuildingId===window.buildingId?'inside':'outside';
+  const {normal,tangent}=windowPortalAxes(window,toward);
+  const centerX=window.x+window.width/2,centerY=window.y+window.height/2;
   const dx=targetX-centerX,dy=targetY-centerY;
   const depth=dx*normal.x+dy*normal.y;
   const lateral=Math.abs(dx*tangent.x+dy*tangent.y);
-  const openingWidth=opening.side==='north'||opening.side==='south'?opening.width:opening.height;
-  const maxDepth=portalDepth(kind,toward,scoped);
-  const nearPadding=kind==='door'?12:10;
-  const widthAtDepth=openingWidth/2+nearPadding+Math.max(0,depth)*portalExpansion(kind,scoped);
+  const openingWidth=window.side==='north'||window.side==='south'?window.width:window.height;
+  const maxDepth=windowPortalDepth(toward,scoped);
+  const widthAtDepth=openingWidth/2+10+Math.max(0,depth)*windowPortalExpansion(scoped);
   return{visible:depth>=-BUILDING_WALL&&depth<=maxDepth&&lateral<=widthAtDepth,depth,lateral,maxDepth,widthAtDepth,toward};
 }
 
-export function portalPolygon(opening:WindowOpening,kind:PortalKind,toward:'inside'|'outside',scoped=false,extraDepth=0){
-  const {normal,tangent}=portalAxes(opening,toward);
-  const centerX=opening.x+opening.width/2,centerY=opening.y+opening.height/2;
-  const openingWidth=opening.side==='north'||opening.side==='south'?opening.width:opening.height;
-  const maxDepth=Math.max(8,portalDepth(kind,toward,scoped)+extraDepth);
-  const nearHalf=openingWidth/2+(kind==='door'?10:8);
-  const farHalf=nearHalf+maxDepth*portalExpansion(kind,scoped);
+export function windowPortalPolygon(window:WindowOpening,toward:'inside'|'outside',scoped=false,extraDepth=0){
+  const {normal,tangent}=windowPortalAxes(window,toward);
+  const centerX=window.x+window.width/2,centerY=window.y+window.height/2;
+  const openingWidth=window.side==='north'||window.side==='south'?window.width:window.height;
+  const maxDepth=Math.max(8,windowPortalDepth(toward,scoped)+extraDepth);
+  const nearHalf=openingWidth/2+8;
+  const farHalf=nearHalf+maxDepth*windowPortalExpansion(scoped);
   const nearX=centerX+normal.x*2,nearY=centerY+normal.y*2;
   const farX=centerX+normal.x*maxDepth,farY=centerY+normal.y*maxDepth;
   return[
@@ -456,12 +406,9 @@ export function portalPolygon(opening:WindowOpening,kind:PortalKind,toward:'insi
   ];
 }
 
-export function windowPortalTarget(window:WindowOpening,targetX:number,targetY:number,targetBuildingId:string,scoped=false){return portalTarget(window,'window',targetX,targetY,targetBuildingId,scoped);}
-export function windowPortalPolygon(window:WindowOpening,toward:'inside'|'outside',scoped=false,extraDepth=0){return portalPolygon(window,'window',toward,scoped,extraDepth);}
-
 export function crossSpaceOpening(
   viewer:{x:number;y:number;buildingId?:string},target:{x:number;y:number;buildingId?:string},scoped=false,
-  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,allowedOpeningId?:string,
+  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,allowedWindowId?:string,
 ):CrossSpaceOpeningResult|null{
   const viewerId=viewer.buildingId??'',targetId=target.buildingId??'';
   if(viewerId===targetId)return{kind:'same',openingId:'',buildingId:viewerId,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY};
@@ -471,19 +418,14 @@ export function crossSpaceOpening(
   if(!zone)return null;
   const candidates:Array<{t:number;result:CrossSpaceOpeningResult}>=[];
   for(const door of zone.doors){
-    if(allowedOpeningId!==undefined&&door.id!==allowedOpeningId)continue;
-    const opening=doorPortalOpening(zone,door);
     const t=segmentRectIntersectionT(viewer.x,viewer.y,target.x,target.y,{x:door.x,y:door.y,w:door.width,h:door.height});
-    if(t===null)continue;
-    const portal=portalTarget(opening,'door',target.x,target.y,targetId,scoped);
-    if(!portal.visible)continue;
-    candidates.push({t,result:{kind:'door',openingId:door.id,buildingId:zone.id,depth:portal.depth,lateral:portal.lateral,maxDepth:portal.maxDepth}});
+    if(t!==null)candidates.push({t,result:{kind:'door',openingId:door.id,buildingId:zone.id,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY}});
   }
   for(const window of zone.windows){
-    if(!window.allowsVision||(allowedOpeningId!==undefined&&window.id!==allowedOpeningId))continue;
+    if(!window.allowsVision||(allowedWindowId!==undefined&&window.id!==allowedWindowId))continue;
     const t=segmentRectIntersectionT(viewer.x,viewer.y,target.x,target.y,{x:window.x,y:window.y,w:window.width,h:window.height});
     if(t===null)continue;
-    const portal=portalTarget(window,'window',target.x,target.y,targetId,scoped);
+    const portal=windowPortalTarget(window,target.x,target.y,targetId,scoped);
     if(!portal.visible)continue;
     candidates.push({t,result:{kind:'window',openingId:window.id,buildingId:zone.id,depth:portal.depth,lateral:portal.lateral,maxDepth:portal.maxDepth}});
   }

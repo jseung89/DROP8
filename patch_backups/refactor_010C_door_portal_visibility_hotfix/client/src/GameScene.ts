@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import {
   BUSH_HIDE_DISTANCE, LOOT_COLORS, LOOT_LABELS, MELEE_WEAPONS, MOTORCYCLE_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, MOTORCYCLE_DIRECT_ACCELERATION, MOTORCYCLE_DIRECT_DECELERATION, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_MOUNT_DISTANCE, MOTORCYCLE_RADIUS, MOTORCYCLE_ROTATION_RESPONSE, MOTORCYCLE_SCOPE_SPEED_RATIO, PLAYER_BODY_RADIUS, PLAYER_HIT_RADIUS, PLAYER_SEPARATION_RADIUS, PLAYER_SPEED, SNIPER_SCOPE_MOVE_MULTIPLIER,
-  REGION_THEMES, RENDER_DEPTH, WEAPONS, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_FEATHER, buildingIdAt, buildingSpacesInteractable, buildingZoneById, circleHitsRect, clamp, crossSpaceOpening, distance, doorPortalOpening, findWindowVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, motorcycleSpreadRadians, normalizeAimVector, normalizeMovementInput, pointInDirectionalScope, portalPolygon, regionAt, segmentClearOfRects, selectActivePortal, targetVisibilitySamples,
+  REGION_THEMES, RENDER_DEPTH, WEAPONS, WINDOW_PORTAL_FEATHER, buildingIdAt, buildingSpacesInteractable, buildingZoneById, circleHitsRect, clamp, crossSpaceOpening, distance, findWindowVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, motorcycleSpreadRadians, normalizeAimVector, normalizeMovementInput, pointInDirectionalScope, regionAt, segmentClearOfRects, selectActiveWindow, targetVisibilitySamples, windowPortalPolygon,
   type DecorKind, type EquippedId, type LootKind, type MapConfig, type MapSizeMode, type WeaponId, type MeleeId, type WindowOpening
 } from '@drop8/shared';
 import type { Network } from './network';
@@ -94,10 +94,8 @@ export class GameScene extends Phaser.Scene {
   private viewerPoint:DisplayPoint|null=null;
   private viewerPlayer:any=null;
   private activeBuildingId='';
-  private activePortalId='';
-  private activePortalBuildingId='';
-  private activePortalKind:''|'door'|'window'='';
-  private activePortalSelectedAt=0;
+  private activeWindowId='';
+  private activeWindowBuildingId='';
   private currentRegionId='';
   private chatBlocked=false;
   private playerOverlays=new Map<string,PlayerOverlay>();
@@ -170,7 +168,7 @@ export class GameScene extends Phaser.Scene {
       if(this.scopeCanvas){this.scopeCanvas.classList.add('hidden');const context=this.scopeContext;context?.clearRect(0,0,this.scopeCanvas.width,this.scopeCanvas.height);}
       if(this.windowVisionCanvas){this.windowVisionCanvas.classList.add('hidden');const context=this.windowVisionContext;context?.clearRect(0,0,this.windowVisionCanvas.width,this.windowVisionCanvas.height);}
       this.deathVisuals=[];this.localDeathPoint=null;this.localDeathCameraUntil=0;
-      this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';this.activePortalSelectedAt=0;
+      this.activeWindowId='';this.activeWindowBuildingId='';
       this.remoteBuffers.clear();
       this.displayMotorcycles.clear();
       this.lastVisibility.clear();
@@ -230,7 +228,7 @@ export class GameScene extends Phaser.Scene {
 
       this.viewerPoint={x:shown.x,y:shown.y};
       this.viewerPlayer=target;
-      this.updateActivePortal(target,shown,time);
+      this.updateActiveWindow(target,shown);
       this.updateBuildingPresentation(target);
       this.updateRegionLabel(shown.x,shown.y);
       if(time-this.lastInput>=50){
@@ -245,7 +243,7 @@ export class GameScene extends Phaser.Scene {
       this.updateCombatHud(me,vehicleDisplay??localVehicle,typing,dt);
     }else{
       this.scopeRequested=false;
-      this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';this.activePortalSelectedAt=0;
+      this.activeWindowId='';this.activeWindowBuildingId='';
       this.crosshairG.clear();
       this.updateScopeOverlay(undefined,dt);
     }
@@ -286,7 +284,7 @@ export class GameScene extends Phaser.Scene {
     this.revealStartedAt.clear();
     this.currentRegionId='';
     this.activeBuildingId='';
-    this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';this.activePortalSelectedAt=0;
+    this.activeWindowId='';this.activeWindowBuildingId='';
     this.deathVisuals=[];
     this.localDeathPoint=null;
     this.localDeathCameraUntil=0;
@@ -561,20 +559,13 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private updateActivePortal(viewer:any,point:DisplayPoint,time:number){
-    const selected=selectActivePortal(
+  private updateActiveWindow(viewer:any,point:DisplayPoint){
+    const selected=selectActiveWindow(
       {x:point.x,y:point.y,buildingId:String(viewer?.buildingId??'')},
-      this.localAimX,this.localAimY,this.activePortalId,this.scopeRequested,this.mapConfig.buildingVisibilityZones,
+      this.localAimX,this.localAimY,this.activeWindowId,this.scopeRequested,this.mapConfig.buildingVisibilityZones,
     );
-    if(selected){
-      this.activePortalId=selected.openingId;
-      this.activePortalBuildingId=selected.buildingId;
-      this.activePortalKind=selected.kind;
-      this.activePortalSelectedAt=time;
-      return;
-    }
-    if(this.activePortalId&&time-this.activePortalSelectedAt<=PORTAL_SELECTION_BALANCE.passageHoldMs)return;
-    this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';this.activePortalSelectedAt=0;
+    this.activeWindowId=selected?.windowId??'';
+    this.activeWindowBuildingId=selected?.buildingId??'';
   }
 
   private updateBuildingPresentation(viewer:any){
@@ -588,6 +579,17 @@ export class GameScene extends Phaser.Scene {
     this.updateWindowVisionOverlay(buildingId);
   }
 
+  private openingSide(opening:{x:number;y:number;width:number;height:number},zone:any){
+    const cx=opening.x+opening.width/2,cy=opening.y+opening.height/2;
+    const candidates=[
+      {side:'north' as const,distance:Math.abs(cy-zone.interior.y)},
+      {side:'south' as const,distance:Math.abs(cy-(zone.interior.y+zone.interior.h))},
+      {side:'west' as const,distance:Math.abs(cx-zone.interior.x)},
+      {side:'east' as const,distance:Math.abs(cx-(zone.interior.x+zone.interior.w))},
+    ];
+    candidates.sort((a,b)=>a.distance-b.distance);
+    return candidates[0]!.side;
+  }
 
   private fillCanvasPolygon(context:CanvasRenderingContext2D,points:Array<{x:number;y:number}>,alpha=1){
     if(points.length<3)return;
@@ -619,12 +621,17 @@ export class GameScene extends Phaser.Scene {
     const topLeft=this.worldToScreen(zone.interior.x-3,zone.interior.y-3);
     const bottomRight=this.worldToScreen(zone.interior.x+zone.interior.w+3,zone.interior.y+zone.interior.h+3);
     context.fillRect(topLeft.x,topLeft.y,bottomRight.x-topLeft.x,bottomRight.y-topLeft.y);
-    const selected=this.openingById(this.activePortalBuildingId,this.activePortalId);
-    if(selected.zone?.id===zone.id&&selected.opening&&selected.kind){
-      const feather=portalPolygon(selected.opening,selected.kind,'outside',this.scopeRequested,WINDOW_PORTAL_FEATHER).map((point)=>this.worldToScreen(point.x,point.y));
-      const inner=portalPolygon(selected.opening,selected.kind,'outside',this.scopeRequested,-WINDOW_PORTAL_FEATHER).map((point)=>this.worldToScreen(point.x,point.y));
-      this.fillCanvasPolygon(context,feather,.14);
-      this.fillCanvasPolygon(context,inner,.72);
+    const openings:WindowOpening[]=zone.windows.filter((opening)=>opening.id===this.activeWindowId&&zone.id===this.activeWindowBuildingId);
+    for(const door of zone.doors){
+      openings.push({...door,side:this.openingSide(door,zone),offset:.5,vaultable:false,allowsVision:true,allowsBullets:true} as WindowOpening);
+    }
+    for(const opening of openings){
+      const isDoor=opening.id.endsWith('-door');
+      const extraDepth=isDoor?Math.max(this.scale.width,this.scale.height)/Math.max(.1,this.cameras.main.zoom)+400:0;
+      const feather=windowPortalPolygon(opening,'outside',this.scopeRequested,WINDOW_PORTAL_FEATHER+extraDepth).map((point)=>this.worldToScreen(point.x,point.y));
+      const inner=windowPortalPolygon(opening,'outside',this.scopeRequested,extraDepth).map((point)=>this.worldToScreen(point.x,point.y));
+      this.fillCanvasPolygon(context,feather,.16);
+      this.fillCanvasPolygon(context,inner,.76);
     }
     context.globalAlpha=1;
     context.globalCompositeOperation='source-over';
@@ -639,7 +646,7 @@ export class GameScene extends Phaser.Scene {
     const viewerEntity=this.viewerEntity();
     if(!viewer||!viewerEntity)return false;
     const targetId=targetBuildingId??buildingIdAt(x,y,0,this.mapConfig.buildingVisibilityZones);
-    const opening=crossSpaceOpening({x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??'')},{x,y,buildingId:targetId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId);
+    const opening=crossSpaceOpening({x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??'')},{x,y,buildingId:targetId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activeWindowId);
     return Boolean(opening)&&segmentClearOfRects(viewer.x,viewer.y,x,y,this.mapConfig.visibilityObstacles)&&this.pointInsideScopeView(x,y);
   }
 
@@ -815,7 +822,7 @@ export class GameScene extends Phaser.Scene {
     const targetBuildingId=String(player.buildingId??'');
     let visibleCount=0,centerVisible=false,portalKind:'same'|'door'|'window'|'none'='none',portalOpeningId='';
     for(const sample of targetVisibilitySamples(viewer.x,viewer.y,target.x,target.y,PLAYER_HIT_RADIUS)){
-      const opening=crossSpaceOpening(viewerSpace,{x:sample.x,y:sample.y,buildingId:targetBuildingId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId);
+      const opening=crossSpaceOpening(viewerSpace,{x:sample.x,y:sample.y,buildingId:targetBuildingId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activeWindowId);
       if(!opening)continue;
       if(!segmentClearOfRects(viewer.x,viewer.y,sample.x,sample.y,this.mapConfig.visibilityObstacles))continue;
       if(!this.pointInsideScopeView(sample.x,sample.y))continue;
@@ -834,26 +841,27 @@ export class GameScene extends Phaser.Scene {
 
   private openingById(buildingId:string,openingId:string){
     const zone=buildingZoneById(buildingId,this.mapConfig.buildingVisibilityZones);
-    if(!zone)return{zone,opening:undefined as WindowOpening|undefined,kind:'' as const};
+    if(!zone)return{zone,opening:undefined as WindowOpening|undefined};
     const window=zone.windows.find((opening)=>opening.id===openingId);
-    if(window)return{zone,opening:window,kind:'window' as const};
+    if(window)return{zone,opening:window};
     const door=zone.doors.find((opening)=>opening.id===openingId);
-    return{zone,opening:door?doorPortalOpening(zone,door):undefined,kind:door?'door' as const:'' as const};
+    return{zone,opening:door?({...door,side:this.openingSide(door,zone),offset:.5,vaultable:false,allowsVision:true,allowsBullets:true} as WindowOpening):undefined};
   }
 
   private drawWindowInteriorReveal(buildingId:string,openingId:string){
     const key=`${buildingId}:${openingId}:${this.scopeRequested?'scope':'normal'}`;
     if(this.portalRevealKeys.has(key))return;
-    const {zone,opening,kind}=this.openingById(buildingId,openingId);
-    if(!zone||!opening||!kind)return;
+    const {zone,opening}=this.openingById(buildingId,openingId);
+    if(!zone||!opening)return;
     this.portalRevealKeys.add(key);
     const theme=REGION_THEMES[zone.regionId];
     const clampToInterior=(point:{x:number;y:number})=>({x:clamp(point.x,zone.interior.x,zone.interior.x+zone.interior.w),y:clamp(point.y,zone.interior.y,zone.interior.y+zone.interior.h)});
-    const outer=portalPolygon(opening,kind,'inside',this.scopeRequested,WINDOW_PORTAL_FEATHER).map(clampToInterior);
-    const inner=portalPolygon(opening,kind,'inside',this.scopeRequested,-WINDOW_PORTAL_FEATHER).map(clampToInterior);
+    const outer=windowPortalPolygon(opening,'inside',this.scopeRequested,WINDOW_PORTAL_FEATHER).map(clampToInterior);
+    const inner=windowPortalPolygon(opening,'inside',this.scopeRequested,-WINDOW_PORTAL_FEATHER).map(clampToInterior);
     const vectors=(points:Array<{x:number;y:number}>)=>points.map((point)=>new Phaser.Math.Vector2(point.x,point.y));
     this.windowRevealG.fillStyle(theme.roof,.40).fillPoints(vectors(outer),true);
     this.windowRevealG.fillStyle(theme.ground,.82).fillPoints(vectors(inner),true);
+    this.windowRevealG.lineStyle(2,theme.accent,.34).strokePoints(vectors(inner),true);
     this.windowRevealG.fillStyle(0x07131b,.92).fillRect(opening.x,opening.y,opening.width,opening.height);
     this.windowRevealG.lineStyle(2,0x8ac9d9,.78).strokeRect(opening.x,opening.y,opening.width,opening.height);
   }
@@ -866,7 +874,7 @@ export class GameScene extends Phaser.Scene {
     if(visual.inBush&&!visual.bushRevealed&&!nearby)return{visible:false,portalKind:'none' as const,portalOpeningId:''};
     let portalKind:'same'|'door'|'window'|'none'='none',portalOpeningId='';
     for(const sample of targetVisibilitySamples(viewer.x,viewer.y,visual.x,visual.y,PLAYER_HIT_RADIUS)){
-      const opening=crossSpaceOpening({x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??'')},{x:sample.x,y:sample.y,buildingId:visual.buildingId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId);
+      const opening=crossSpaceOpening({x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??'')},{x:sample.x,y:sample.y,buildingId:visual.buildingId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activeWindowId);
       if(!opening)continue;
       if(!segmentClearOfRects(viewer.x,viewer.y,sample.x,sample.y,this.mapConfig.visibilityObstacles))continue;
       if(!this.pointInsideScopeView(sample.x,sample.y))continue;
