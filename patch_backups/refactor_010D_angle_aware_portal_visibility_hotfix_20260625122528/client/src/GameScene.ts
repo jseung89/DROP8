@@ -1,14 +1,14 @@
 import Phaser from 'phaser';
 import {
   BUSH_HIDE_DISTANCE, LOOT_COLORS, LOOT_LABELS, MELEE_WEAPONS, MOTORCYCLE_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, MOTORCYCLE_DIRECT_ACCELERATION, MOTORCYCLE_DIRECT_DECELERATION, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_MOUNT_DISTANCE, MOTORCYCLE_RADIUS, MOTORCYCLE_ROTATION_RESPONSE, MOTORCYCLE_SCOPE_SPEED_RATIO, PLAYER_BODY_RADIUS, PLAYER_HIT_RADIUS, PLAYER_SEPARATION_RADIUS, PLAYER_SPEED, SNIPER_SCOPE_MOVE_MULTIPLIER,
-  REGION_THEMES, RENDER_DEPTH, WEAPONS, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_FEATHER, angleAwarePortalPolygon, buildingIdAt, buildingSpacesInteractable, buildingZoneById, circleHitsRect, clamp, crossSpaceOpening, distance, doorPortalOpening, findWindowVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, motorcycleSpreadRadians, normalizeAimVector, normalizeMovementInput, pointInDirectionalScope, regionAt, segmentClearOfRects, selectActivePortal, targetVisibilitySamples,
+  REGION_THEMES, RENDER_DEPTH, WEAPONS, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_FEATHER, buildingIdAt, buildingSpacesInteractable, buildingZoneById, circleHitsRect, clamp, crossSpaceOpening, distance, doorPortalOpening, findWindowVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, motorcycleSpreadRadians, normalizeAimVector, normalizeMovementInput, pointInDirectionalScope, portalPolygon, regionAt, segmentClearOfRects, selectActivePortal, targetVisibilitySamples,
   type DecorKind, type EquippedId, type LootKind, type MapConfig, type MapSizeMode, type WeaponId, type MeleeId, type WindowOpening
 } from '@drop8/shared';
 import type { Network } from './network';
 import { pushPositionSnapshot, samplePosition, zoneDirection, type PositionSnapshot, type VisibilityResult } from './interpolation';
 
 type DisplayPoint={x:number;y:number};
-type TargetVisibilityResult=VisibilityResult&{nameplateVisible:boolean;vehicleVisible:boolean;portalKind:'same'|'door'|'window'|'none';portalOpeningId:string;portalViewMode:'front'|'side'|'peripheral'|'none';revealStrength:number};
+type TargetVisibilityResult=VisibilityResult&{nameplateVisible:boolean;vehicleVisible:boolean;portalKind:'same'|'door'|'window'|'none';portalOpeningId:string};
 type CharacterDeathPayload={entityId?:string;entityType?:'player'|'ai';x?:number;y?:number;angle?:number;buildingId?:string;displayName?:string;ai?:boolean;equipped?:EquippedId;killerId?:string;cause?:string;hitDirectionX?:number;hitDirectionY?:number;inBush?:boolean;bushRevealed?:boolean;diedAt?:number};
 type DeathVisual={entityId:string;x:number;y:number;angle:number;buildingId:string;ai:boolean;equipped:EquippedId;cause:string;hitDirectionX:number;hitDirectionY:number;startedAt:number;duration:number;pushDistance:number;inBush:boolean;bushRevealed:boolean;local:boolean};
 type ChatPayload={playerId?:string;sender?:string;nickname?:string;text?:string;channel?:string;time?:number;sentAt?:number};
@@ -620,14 +620,11 @@ export class GameScene extends Phaser.Scene {
     const bottomRight=this.worldToScreen(zone.interior.x+zone.interior.w+3,zone.interior.y+zone.interior.h+3);
     context.fillRect(topLeft.x,topLeft.y,bottomRight.x-topLeft.x,bottomRight.y-topLeft.y);
     const selected=this.openingById(this.activePortalBuildingId,this.activePortalId);
-    const viewer=this.viewerPoint??this.local();
-    if(viewer&&selected.zone?.id===zone.id&&selected.opening&&selected.kind){
-      const featherView=angleAwarePortalPolygon(selected.opening,selected.kind,viewer,'outside',this.scopeRequested,this.localAimX,this.localAimY,WINDOW_PORTAL_FEATHER);
-      const innerView=angleAwarePortalPolygon(selected.opening,selected.kind,viewer,'outside',this.scopeRequested,this.localAimX,this.localAimY,-WINDOW_PORTAL_FEATHER);
-      const feather=featherView.polygon.map((point)=>this.worldToScreen(point.x,point.y));
-      const inner=innerView.polygon.map((point)=>this.worldToScreen(point.x,point.y));
-      this.fillCanvasPolygon(context,feather,.10*featherView.revealStrength);
-      this.fillCanvasPolygon(context,inner,.62*innerView.revealStrength);
+    if(selected.zone?.id===zone.id&&selected.opening&&selected.kind){
+      const feather=portalPolygon(selected.opening,selected.kind,'outside',this.scopeRequested,WINDOW_PORTAL_FEATHER).map((point)=>this.worldToScreen(point.x,point.y));
+      const inner=portalPolygon(selected.opening,selected.kind,'outside',this.scopeRequested,-WINDOW_PORTAL_FEATHER).map((point)=>this.worldToScreen(point.x,point.y));
+      this.fillCanvasPolygon(context,feather,.14);
+      this.fillCanvasPolygon(context,inner,.72);
     }
     context.globalAlpha=1;
     context.globalCompositeOperation='source-over';
@@ -642,7 +639,7 @@ export class GameScene extends Phaser.Scene {
     const viewerEntity=this.viewerEntity();
     if(!viewer||!viewerEntity)return false;
     const targetId=targetBuildingId??buildingIdAt(x,y,0,this.mapConfig.buildingVisibilityZones);
-    const opening=crossSpaceOpening({x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??'')},{x,y,buildingId:targetId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId,{x:this.localAimX,y:this.localAimY});
+    const opening=crossSpaceOpening({x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??'')},{x,y,buildingId:targetId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId);
     return Boolean(opening)&&segmentClearOfRects(viewer.x,viewer.y,x,y,this.mapConfig.visibilityObstacles)&&this.pointInsideScopeView(x,y);
   }
 
@@ -784,7 +781,7 @@ export class GameScene extends Phaser.Scene {
       if(!visibility.visibleInWorld||!inView)continue;
       if(visibility.nameplateVisible)visibleIds.add(p.id);
       const fadeStart=this.revealStartedAt.get(p.id)??time-200;
-      const alpha=local?1:clamp((time-fadeStart)/160,0,1)*clamp(visibility.revealStrength,.22,1);
+      const alpha=local?1:clamp((time-fadeStart)/160,0,1);
       const shown=local?{...p,angle:this.localAimAngle}:p;
       const vaultLift=shown.isVaulting?Math.sin(clamp(Number(shown.vaultProgress)||0,0,1)*Math.PI)*14:0;
       const viewerBuildingId=String(this.viewerEntity()?.buildingId??'');
@@ -811,27 +808,26 @@ export class GameScene extends Phaser.Scene {
     const viewer=this.viewerPoint??this.local();
     const viewerEntity=this.viewerEntity()??viewer;
     const isViewer=player.id===this.net.sessionId||player.id===this.viewerPlayer?.id;
-    if(isViewer){const own={visibleInWorld:true,visibleOnMinimap:true,revealedByShot:false,revealedByHit:false,nameplateVisible:true,vehicleVisible:true,portalKind:'same' as const,portalOpeningId:'',portalViewMode:'front' as const,revealStrength:1};this.frameVisibility.set(player.id,own);return own;}
-    if(!viewer||!viewerEntity){const hidden={visibleInWorld:false,visibleOnMinimap:false,revealedByShot:false,revealedByHit:false,nameplateVisible:false,vehicleVisible:false,portalKind:'none' as const,portalOpeningId:'',portalViewMode:'none' as const,revealStrength:0};this.frameVisibility.set(player.id,hidden);return hidden;}
+    if(isViewer){const own={visibleInWorld:true,visibleOnMinimap:true,revealedByShot:false,revealedByHit:false,nameplateVisible:true,vehicleVisible:true,portalKind:'same' as const,portalOpeningId:''};this.frameVisibility.set(player.id,own);return own;}
+    if(!viewer||!viewerEntity){const hidden={visibleInWorld:false,visibleOnMinimap:false,revealedByShot:false,revealedByHit:false,nameplateVisible:false,vehicleVisible:false,portalKind:'none' as const,portalOpeningId:''};this.frameVisibility.set(player.id,hidden);return hidden;}
     const target=this.framePositions.get(player.id)??player;
     const viewerSpace={x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??'')};
     const targetBuildingId=String(player.buildingId??'');
-    let visibleCount=0,centerVisible=false,portalKind:'same'|'door'|'window'|'none'='none',portalOpeningId='',portalViewMode:'front'|'side'|'peripheral'|'none'='none',revealStrength=0;
+    let visibleCount=0,centerVisible=false,portalKind:'same'|'door'|'window'|'none'='none',portalOpeningId='';
     for(const sample of targetVisibilitySamples(viewer.x,viewer.y,target.x,target.y,PLAYER_HIT_RADIUS)){
-      const opening=crossSpaceOpening(viewerSpace,{x:sample.x,y:sample.y,buildingId:targetBuildingId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId,{x:this.localAimX,y:this.localAimY});
+      const opening=crossSpaceOpening(viewerSpace,{x:sample.x,y:sample.y,buildingId:targetBuildingId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId);
       if(!opening)continue;
       if(!segmentClearOfRects(viewer.x,viewer.y,sample.x,sample.y,this.mapConfig.visibilityObstacles))continue;
       if(!this.pointInsideScopeView(sample.x,sample.y))continue;
       visibleCount++;
       if(sample.kind==='center')centerVisible=true;
-      if(opening.revealStrength>=revealStrength){portalKind=opening.kind;portalOpeningId=opening.openingId;portalViewMode=opening.viewMode;revealStrength=opening.revealStrength;}
+      if(portalKind==='none'||opening.kind==='window'){portalKind=opening.kind;portalOpeningId=opening.openingId;}
     }
     const nearby=distance(viewer.x,viewer.y,target.x,target.y)<=BUSH_HIDE_DISTANCE;
     const concealed=Boolean(player.inBush&&!player.bushRevealed&&!nearby);
-    const characterVisible=visibleCount>0&&!concealed&&revealStrength>.08;
-    const fullInformation=portalViewMode==='front'?(centerVisible||visibleCount>=2):portalViewMode==='side'?(centerVisible&&visibleCount>=2):false;
-    const nameplateVisible=fullInformation&&!concealed;
-    const result={visibleInWorld:characterVisible,visibleOnMinimap:characterVisible&&portalViewMode!=='peripheral',revealedByShot:Boolean(player.bushRevealed),revealedByHit:Boolean(player.bushRevealed),nameplateVisible,vehicleVisible:characterVisible,portalKind:characterVisible?portalKind:'none' as const,portalOpeningId:characterVisible?portalOpeningId:'',portalViewMode:characterVisible?portalViewMode:'none' as const,revealStrength:characterVisible?revealStrength:0};
+    const characterVisible=visibleCount>0&&!concealed;
+    const nameplateVisible=(centerVisible||visibleCount>=2)&&!concealed;
+    const result={visibleInWorld:characterVisible,visibleOnMinimap:characterVisible,revealedByShot:Boolean(player.bushRevealed),revealedByHit:Boolean(player.bushRevealed),nameplateVisible,vehicleVisible:characterVisible,portalKind:characterVisible?portalKind:'none' as const,portalOpeningId:characterVisible?portalOpeningId:''};
     this.frameVisibility.set(player.id,result);
     return result;
   }
@@ -852,37 +848,32 @@ export class GameScene extends Phaser.Scene {
     if(!zone||!opening||!kind)return;
     this.portalRevealKeys.add(key);
     const theme=REGION_THEMES[zone.regionId];
-    const viewer=this.viewerPoint??this.local();
-    if(!viewer)return;
     const clampToInterior=(point:{x:number;y:number})=>({x:clamp(point.x,zone.interior.x,zone.interior.x+zone.interior.w),y:clamp(point.y,zone.interior.y,zone.interior.y+zone.interior.h)});
-    const outerView=angleAwarePortalPolygon(opening,kind,viewer,'inside',this.scopeRequested,this.localAimX,this.localAimY,WINDOW_PORTAL_FEATHER);
-    const innerView=angleAwarePortalPolygon(opening,kind,viewer,'inside',this.scopeRequested,this.localAimX,this.localAimY,-WINDOW_PORTAL_FEATHER);
-    if(outerView.polygon.length<3||innerView.polygon.length<3)return;
-    const outer=outerView.polygon.map(clampToInterior);
-    const inner=innerView.polygon.map(clampToInterior);
+    const outer=portalPolygon(opening,kind,'inside',this.scopeRequested,WINDOW_PORTAL_FEATHER).map(clampToInterior);
+    const inner=portalPolygon(opening,kind,'inside',this.scopeRequested,-WINDOW_PORTAL_FEATHER).map(clampToInterior);
     const vectors=(points:Array<{x:number;y:number}>)=>points.map((point)=>new Phaser.Math.Vector2(point.x,point.y));
-    this.windowRevealG.fillStyle(theme.roof,.30*outerView.revealStrength).fillPoints(vectors(outer),true);
-    this.windowRevealG.fillStyle(theme.ground,.76*innerView.revealStrength).fillPoints(vectors(inner),true);
+    this.windowRevealG.fillStyle(theme.roof,.40).fillPoints(vectors(outer),true);
+    this.windowRevealG.fillStyle(theme.ground,.82).fillPoints(vectors(inner),true);
     this.windowRevealG.fillStyle(0x07131b,.92).fillRect(opening.x,opening.y,opening.width,opening.height);
     this.windowRevealG.lineStyle(2,0x8ac9d9,.78).strokeRect(opening.x,opening.y,opening.width,opening.height);
   }
 
   private deathVisibility(visual:DeathVisual){
-    if(visual.local)return{visible:true,portalKind:'same' as const,portalOpeningId:'',revealStrength:1};
+    if(visual.local)return{visible:true,portalKind:'same' as const,portalOpeningId:''};
     const viewer=this.viewerPoint??this.local(),viewerEntity=this.viewerEntity();
-    if(!viewer||!viewerEntity)return{visible:false,portalKind:'none' as const,portalOpeningId:'',revealStrength:0};
+    if(!viewer||!viewerEntity)return{visible:false,portalKind:'none' as const,portalOpeningId:''};
     const nearby=distance(viewer.x,viewer.y,visual.x,visual.y)<=BUSH_HIDE_DISTANCE;
-    if(visual.inBush&&!visual.bushRevealed&&!nearby)return{visible:false,portalKind:'none' as const,portalOpeningId:'',revealStrength:0};
+    if(visual.inBush&&!visual.bushRevealed&&!nearby)return{visible:false,portalKind:'none' as const,portalOpeningId:''};
     let portalKind:'same'|'door'|'window'|'none'='none',portalOpeningId='';
     for(const sample of targetVisibilitySamples(viewer.x,viewer.y,visual.x,visual.y,PLAYER_HIT_RADIUS)){
-      const opening=crossSpaceOpening({x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??'')},{x:sample.x,y:sample.y,buildingId:visual.buildingId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId,{x:this.localAimX,y:this.localAimY});
+      const opening=crossSpaceOpening({x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??'')},{x:sample.x,y:sample.y,buildingId:visual.buildingId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId);
       if(!opening)continue;
       if(!segmentClearOfRects(viewer.x,viewer.y,sample.x,sample.y,this.mapConfig.visibilityObstacles))continue;
       if(!this.pointInsideScopeView(sample.x,sample.y))continue;
       portalKind=opening.kind;portalOpeningId=opening.openingId;
-      return{visible:opening.revealStrength>.08,portalKind,portalOpeningId,revealStrength:opening.revealStrength};
+      return{visible:true,portalKind,portalOpeningId};
     }
-    return{visible:false,portalKind:'none' as const,portalOpeningId:'',revealStrength:0};
+    return{visible:false,portalKind:'none' as const,portalOpeningId:''};
   }
 
   private drawDeathVisuals(time:number){
@@ -896,17 +887,17 @@ export class GameScene extends Phaser.Scene {
       if(!visibility.visible)continue;
       const throughOpening=(visibility.portalKind==='window'||visibility.portalKind==='door')&&!viewerBuildingId&&Boolean(visual.buildingId);
       if(throughOpening)this.drawWindowInteriorReveal(visual.buildingId,visibility.portalOpeningId);
-      this.drawDeathVisual(throughOpening?this.windowRevealG:this.dynamicG,visual,progress,visibility.revealStrength);
+      this.drawDeathVisual(throughOpening?this.windowRevealG:this.dynamicG,visual,progress);
     }
     this.deathVisuals=next;
     if(this.localDeathPoint&&time>=this.localDeathCameraUntil)this.localDeathPoint=null;
   }
 
-  private drawDeathVisual(g:Phaser.GameObjects.Graphics,visual:DeathVisual,progress:number,visibilityAlpha=1){
+  private drawDeathVisual(g:Phaser.GameObjects.Graphics,visual:DeathVisual,progress:number){
     const ease=1-(1-progress)*(1-progress);
     const x=visual.x+visual.hitDirectionX*visual.pushDistance*ease;
     const y=visual.y+visual.hitDirectionY*visual.pushDistance*ease;
-    const fade=(progress<.55?1:clamp(1-(progress-.55)/.45,0,1))*clamp(visibilityAlpha,.22,1);
+    const fade=progress<.55?1:clamp(1-(progress-.55)/.45,0,1);
     const flash=progress<.10&&Math.floor(progress*100)%2===0;
     const flatten=Phaser.Math.Linear(1,.55,clamp((progress-.12)/.55,0,1));
     const widen=Phaser.Math.Linear(1,1.14,clamp((progress-.12)/.55,0,1));

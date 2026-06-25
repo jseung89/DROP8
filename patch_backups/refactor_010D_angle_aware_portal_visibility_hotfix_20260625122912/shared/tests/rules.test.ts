@@ -303,7 +303,7 @@ describe('Refactor 009 window transit rules', () => {
 });
 
 
-import { ANGLE_AWARE_PORTAL_BALANCE, DOOR_PROXIMITY_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_SCOPE_DEPTH, WINDOW_PORTAL_VIEW_DEPTH, WINDOW_PROXIMITY_BALANCE, angleAwarePortalTarget, crossSpaceOpening, doorPortalOpening, explosionExposureMultiplier, motorcycleExplosionDamage, motorcyclePlayerCollisionDamage, motorcycleProjectileDamage, motorcycleWallCollisionDamage, portalAngularVisibility, portalOpeningGeometry, portalPolygon, portalTarget, portalViewGeometry, radialExplosionDamage, segmentClearOfRects, selectActivePortal, selectActiveWindow, targetVisibilitySamples, visibilitySampleResult, windowOpeningCenter, windowPortalPolygon, windowPortalTarget } from '../src/index.js';
+import { DOOR_PROXIMITY_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_SCOPE_DEPTH, WINDOW_PORTAL_VIEW_DEPTH, WINDOW_PROXIMITY_BALANCE, crossSpaceOpening, doorPortalOpening, explosionExposureMultiplier, motorcycleExplosionDamage, motorcyclePlayerCollisionDamage, motorcycleProjectileDamage, motorcycleWallCollisionDamage, portalPolygon, portalTarget, radialExplosionDamage, segmentClearOfRects, selectActivePortal, selectActiveWindow, targetVisibilitySamples, visibilitySampleResult, windowOpeningCenter, windowPortalPolygon, windowPortalTarget } from '../src/index.js';
 
 describe('Refactor 010 window combat and vehicle destruction rules', () => {
   it('limits window sight to a local expanding portal instead of an endless strip', () => {
@@ -461,98 +461,3 @@ describe('Refactor 010 window combat and vehicle destruction rules', () => {
     expect(throughWindow).toBe(MOTORCYCLE_DESTRUCTION_BALANCE.windowExplosionMultiplier);
   });
 });
-
-describe('Refactor 010D angle-aware portal visibility rules', () => {
-  function doorFixture(){
-    const zone=BUILDING_VISIBILITY_ZONES[0]!;
-    const door=doorPortalOpening(zone,zone.doors[0]!);
-    const geometry=portalOpeningGeometry(door,'outside');
-    const observerAt=(lateral:number,behind=80)=>({
-      x:geometry.center.x-geometry.normal.x*behind+geometry.tangent.x*lateral,
-      y:geometry.center.y-geometry.normal.y*behind+geometry.tangent.y*lateral,
-      buildingId:zone.id,
-    });
-    return{zone,door,geometry,observerAt};
-  }
-
-  it('changes the portal frustum continuously from left through center to right', () => {
-    const {door,geometry,observerAt}=doorFixture();
-    const farShift=(lateral:number)=>{
-      const observer=observerAt(lateral);
-      const aim={x:geometry.center.x-observer.x,y:geometry.center.y-observer.y};
-      const view=portalViewGeometry(door,'door',observer,'outside',false,aim.x,aim.y,true);
-      const farMid={x:(view.polygon[2]!.x+view.polygon[3]!.x)/2,y:(view.polygon[2]!.y+view.polygon[3]!.y)/2};
-      return{view,shift:(farMid.x-geometry.center.x)*geometry.tangent.x+(farMid.y-geometry.center.y)*geometry.tangent.y};
-    };
-    const left=farShift(-40),center=farShift(0),right=farShift(40);
-    expect(left.view.normalizedLateralOffset).toBeLessThan(0);
-    expect(right.view.normalizedLateralOffset).toBeGreaterThan(0);
-    expect(Math.abs(center.shift)).toBeLessThan(1);
-    expect(left.shift*right.shift).toBeLessThan(0);
-    expect(Math.abs(left.shift)).toBeCloseTo(Math.abs(right.shift),5);
-    const smallLeft=farShift(-10).shift,smallRight=farShift(10).shift;
-    expect(smallLeft).toBeGreaterThan(center.shift);
-    expect(smallRight).toBeLessThan(center.shift);
-  });
-
-  it('smoothly attenuates front, side, peripheral, and out-of-view aim', () => {
-    const front=portalAngularVisibility(0),edgeFront=portalAngularVisibility(20),side=portalAngularVisibility(30),sideEdge=portalAngularVisibility(40),peripheral=portalAngularVisibility(50),outside=portalAngularVisibility(61);
-    expect(front).toMatchObject({viewMode:'front',depthFactor:1,revealStrength:1});
-    expect(edgeFront.depthFactor).toBe(1);
-    expect(side.viewMode).toBe('side');
-    expect(side.depthFactor).toBeLessThan(front.depthFactor);
-    expect(side.depthFactor).toBeGreaterThan(sideEdge.depthFactor);
-    expect(peripheral.viewMode).toBe('peripheral');
-    expect(peripheral.depthFactor).toBeLessThan(sideEdge.depthFactor);
-    expect(outside).toMatchObject({viewMode:'none',depthFactor:0,revealStrength:0});
-  });
-
-  it('caps the near-door and near-window render angles', () => {
-    const {door,geometry}=doorFixture();
-    const doorObserver={x:geometry.center.x-geometry.normal.x*5,y:geometry.center.y-geometry.normal.y*5};
-    const doorAim={x:geometry.center.x-doorObserver.x,y:geometry.center.y-doorObserver.y};
-    const doorView=portalViewGeometry(door,'door',doorObserver,'outside',false,doorAim.x,doorAim.y,true);
-    expect(doorView.totalViewAngleDeg).toBeLessThanOrEqual(ANGLE_AWARE_PORTAL_BALANCE.doorMaximumViewAngleDeg+.0001);
-    expect(Math.hypot(doorView.renderObserver.x-geometry.center.x,doorView.renderObserver.y-geometry.center.y)).toBeGreaterThanOrEqual(ANGLE_AWARE_PORTAL_BALANCE.doorMinimumRenderDistance-.001);
-
-    const zone=BUILDING_VISIBILITY_ZONES.find((item)=>item.windows.length>0)!;
-    const window=zone.windows[0]!;
-    const points=windowVaultPoints(window);
-    const windowGeometry=portalOpeningGeometry(window,'outside');
-    const windowObserver={x:windowGeometry.center.x-windowGeometry.normal.x*5,y:windowGeometry.center.y-windowGeometry.normal.y*5};
-    const windowAim={x:windowGeometry.center.x-windowObserver.x,y:windowGeometry.center.y-windowObserver.y};
-    const windowView=portalViewGeometry(window,'window',windowObserver,'outside',false,windowAim.x,windowAim.y,true);
-    expect(windowView.totalViewAngleDeg).toBeLessThanOrEqual(ANGLE_AWARE_PORTAL_BALANCE.windowMaximumViewAngleDeg+.0001);
-    expect(points.inside).toBeDefined();
-  });
-
-  it('uses aim attenuation for actual cross-space visibility without changing bullet geometry', () => {
-    const {zone,door,geometry,observerAt}=doorFixture();
-    const observer=observerAt(0);
-    const target={x:geometry.center.x+geometry.normal.x*55,y:geometry.center.y+geometry.normal.y*55,buildingId:''};
-    const rotate=(degrees:number)=>{
-      const base=Math.atan2(geometry.center.y-observer.y,geometry.center.x-observer.x)+degrees*Math.PI/180;
-      return{x:Math.cos(base),y:Math.sin(base)};
-    };
-    const frontAim=rotate(0),sideAim=rotate(30),peripheralAim=rotate(50),outsideAim=rotate(61);
-    expect(crossSpaceOpening(observer,target,false,BUILDING_VISIBILITY_ZONES,door.id,frontAim)?.viewMode).toBe('front');
-    expect(crossSpaceOpening(observer,target,false,BUILDING_VISIBILITY_ZONES,door.id,sideAim)?.viewMode).toBe('side');
-    expect(crossSpaceOpening(observer,target,false,BUILDING_VISIBILITY_ZONES,door.id,peripheralAim)?.viewMode).toBe('peripheral');
-    expect(crossSpaceOpening(observer,target,false,BUILDING_VISIBILITY_ZONES,door.id,outsideAim)).toBeNull();
-    expect(angleAwarePortalTarget(door,'door',observer,target.x,target.y,'',false,frontAim.x,frontAim.y).visible).toBe(true);
-    expect(portalTarget(door,'door',target.x,target.y,'',false).visible).toBe(true);
-    expect(zone.id).toBe(observer.buildingId);
-  });
-
-  it('retains the current portal for peripheral fade but lets a newly aimed portal win', () => {
-    const {door,geometry,observerAt}=doorFixture();
-    const observer=observerAt(0);
-    const base=Math.atan2(geometry.center.y-observer.y,geometry.center.x-observer.x);
-    const peripheral={x:Math.cos(base+50*Math.PI/180),y:Math.sin(base+50*Math.PI/180)};
-    const retained=selectActivePortal(observer,peripheral.x,peripheral.y,door.id,false,BUILDING_VISIBILITY_ZONES);
-    expect(retained?.openingId).toBe(door.id);
-    expect(retained!.angleDifferenceDeg).toBeGreaterThan(PORTAL_SELECTION_BALANCE.retainedSelectionAngleDeg);
-    expect(retained!.angleDifferenceDeg).toBeLessThan(PORTAL_SELECTION_BALANCE.peripheralReleaseAngleDeg);
-  });
-});
-

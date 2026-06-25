@@ -248,24 +248,11 @@ export const DOOR_PROXIMITY_BALANCE = {
   normalExpansionRatio:.10,
   scopeExpansionRatio:.06,
 } as const;
-// DROP8_REFACTOR_010D_ANGLE_AWARE_PORTAL_VISIBILITY
 export const PORTAL_SELECTION_BALANCE = {
   newSelectionAngleDeg:24,
   retainedSelectionAngleDeg:30,
-  peripheralReleaseAngleDeg:60,
   passageHoldMs:300,
   maxActivePortals:1,
-} as const;
-export const ANGLE_AWARE_PORTAL_BALANCE = {
-  frontAngleDeg:20,
-  sideAngleDeg:40,
-  peripheralAngleDeg:60,
-  sideDepthFactor:.72,
-  sideRevealStrength:.70,
-  windowMinimumRenderDistance:55,
-  doorMinimumRenderDistance:65,
-  windowMaximumViewAngleDeg:30,
-  doorMaximumViewAngleDeg:38,
 } as const;
 export const WINDOW_PORTAL_VIEW_DEPTH=WINDOW_PROXIMITY_BALANCE.insideToOutsideNormalDepth;
 export const WINDOW_PORTAL_SCOPE_DEPTH=WINDOW_PROXIMITY_BALANCE.insideToOutsideScopeDepth;
@@ -353,21 +340,9 @@ function openingConnects(a:{x:number;y:number},b:{x:number;y:number},opening:{x:
 }
 
 export type PortalKind='door'|'window';
-export type PortalViewMode='front'|'side'|'peripheral'|'none';
-export type CrossSpaceOpeningResult={kind:'same'|PortalKind;openingId:string;buildingId:string;depth:number;lateral:number;maxDepth:number;viewMode:PortalViewMode;revealStrength:number;aimAngleDeltaDeg:number};
+export type CrossSpaceOpeningResult={kind:'same'|PortalKind;openingId:string;buildingId:string;depth:number;lateral:number;maxDepth:number};
 export type ActivePortalSelection={openingId:string;buildingId:string;kind:PortalKind;distance:number;angleDifferenceDeg:number};
 export type ActiveWindowSelection={windowId:string;buildingId:string;distance:number;angleDifferenceDeg:number};
-export type PortalOpeningGeometry={
-  center:{x:number;y:number};left:{x:number;y:number};right:{x:number;y:number};
-  normal:{x:number;y:number};tangent:{x:number;y:number};width:number;
-};
-export type PortalViewGeometry={
-  polygon:Array<{x:number;y:number}>;
-  observer:{x:number;y:number};renderObserver:{x:number;y:number};
-  lateralOffset:number;normalizedLateralOffset:number;
-  aimAngleDeltaDeg:number;viewMode:PortalViewMode;
-  depthFactor:number;revealStrength:number;effectiveDepth:number;totalViewAngleDeg:number;
-};
 
 export function windowOpeningCenter(window:WindowOpening){return{x:window.x+window.width/2,y:window.y+window.height/2};}
 
@@ -395,33 +370,6 @@ function portalActivationDistance(viewerBuildingId:string,kind:PortalKind,openin
     : scoped?balance.outsideScopeActivationDistance:balance.outsideNormalActivationDistance;
 }
 
-function portalAxes(opening:WindowOpening,toward:'inside'|'outside'){
-  const outward=opening.side==='north'?{x:0,y:-1}:opening.side==='south'?{x:0,y:1}:opening.side==='west'?{x:-1,y:0}:{x:1,y:0};
-  const normal=toward==='outside'?outward:{x:-outward.x,y:-outward.y};
-  const tangent={x:-normal.y,y:normal.x};
-  return{normal,tangent};
-}
-
-export function portalOpeningGeometry(opening:WindowOpening,toward:'inside'|'outside'):PortalOpeningGeometry{
-  const {normal,tangent}=portalAxes(opening,toward);
-  const center=windowOpeningCenter(opening);
-  const width=opening.side==='north'||opening.side==='south'?opening.width:opening.height;
-  const half=width/2;
-  return{
-    center,
-    left:{x:center.x+normal.x*2+tangent.x*half,y:center.y+normal.y*2+tangent.y*half},
-    right:{x:center.x+normal.x*2-tangent.x*half,y:center.y+normal.y*2-tangent.y*half},
-    normal,tangent,width,
-  };
-}
-
-function portalProximityDistance(observer:{x:number;y:number},geometry:PortalOpeningGeometry){
-  const ax=geometry.left.x,ay=geometry.left.y,bx=geometry.right.x,by=geometry.right.y;
-  const abx=bx-ax,aby=by-ay,lengthSquared=abx*abx+aby*aby;
-  const ratio=lengthSquared>0?clamp(((observer.x-ax)*abx+(observer.y-ay)*aby)/lengthSquared,0,1):0;
-  return Math.hypot(observer.x-(ax+abx*ratio),observer.y-(ay+aby*ratio));
-}
-
 export function selectActivePortal(
   viewer:{x:number;y:number;buildingId?:string},aimX:number,aimY:number,currentOpeningId:string,scoped=false,
   zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,
@@ -433,10 +381,8 @@ export function selectActivePortal(
   const candidates:ActivePortalSelection[]=[];
   const addCandidate=(zone:BuildingVisibilityZone,opening:WindowOpening,kind:PortalKind)=>{
     if(!opening.allowsVision)return;
-    const toward=viewerId===opening.buildingId?'outside':'inside';
-    const geometry=portalOpeningGeometry(opening,toward);
-    const center=geometry.center,dx=center.x-viewer.x,dy=center.y-viewer.y,distanceToOpening=Math.hypot(dx,dy);
-    if(portalProximityDistance(viewer,geometry)>portalActivationDistance(viewerId,kind,opening,scoped)||distanceToOpening<.001)return;
+    const center=windowOpeningCenter(opening),dx=center.x-viewer.x,dy=center.y-viewer.y,distanceToOpening=Math.hypot(dx,dy);
+    if(distanceToOpening>portalActivationDistance(viewerId,kind,opening,scoped)||distanceToOpening<.001)return;
     const dot=clamp((dx/distanceToOpening)*nx+(dy/distanceToOpening)*ny,-1,1);
     const angleDifferenceDeg=Math.acos(dot)*180/Math.PI;
     candidates.push({openingId:opening.id,buildingId:zone.id,kind,distance:distanceToOpening,angleDifferenceDeg});
@@ -446,13 +392,11 @@ export function selectActivePortal(
     for(const door of zone.doors)addCandidate(zone,doorPortalOpening(zone,door),'door');
     for(const window of zone.windows)addCandidate(zone,window,'window');
   }
-  const retainedNormal=candidates.find((candidate)=>candidate.openingId===currentOpeningId&&candidate.angleDifferenceDeg<=PORTAL_SELECTION_BALANCE.retainedSelectionAngleDeg);
-  if(retainedNormal)return retainedNormal;
-  const bestNew=candidates
+  const retained=candidates.find((candidate)=>candidate.openingId===currentOpeningId&&candidate.angleDifferenceDeg<=PORTAL_SELECTION_BALANCE.retainedSelectionAngleDeg);
+  if(retained)return retained;
+  return candidates
     .filter((candidate)=>candidate.angleDifferenceDeg<=PORTAL_SELECTION_BALANCE.newSelectionAngleDeg)
-    .sort((a,b)=>a.angleDifferenceDeg-b.angleDifferenceDeg||a.distance-b.distance)[0];
-  if(bestNew)return bestNew;
-  return candidates.find((candidate)=>candidate.openingId===currentOpeningId&&candidate.angleDifferenceDeg<=PORTAL_SELECTION_BALANCE.peripheralReleaseAngleDeg)??null;
+    .sort((a,b)=>a.angleDifferenceDeg-b.angleDifferenceDeg||a.distance-b.distance)[0]??null;
 }
 
 export function selectActiveWindow(
@@ -461,6 +405,13 @@ export function selectActiveWindow(
 ):ActiveWindowSelection|null{
   const selected=selectActivePortal(viewer,aimX,aimY,currentWindowId,scoped,zones);
   return selected?.kind==='window'?{windowId:selected.openingId,buildingId:selected.buildingId,distance:selected.distance,angleDifferenceDeg:selected.angleDifferenceDeg}:null;
+}
+
+function portalAxes(opening:WindowOpening,toward:'inside'|'outside'){
+  const outward=opening.side==='north'?{x:0,y:-1}:opening.side==='south'?{x:0,y:1}:opening.side==='west'?{x:-1,y:0}:{x:1,y:0};
+  const normal=toward==='outside'?outward:{x:-outward.x,y:-outward.y};
+  const tangent={x:-normal.y,y:normal.x};
+  return{normal,tangent};
 }
 
 function portalDepth(kind:PortalKind,toward:'inside'|'outside',scoped:boolean){
@@ -472,103 +423,6 @@ function portalDepth(kind:PortalKind,toward:'inside'|'outside',scoped:boolean){
 function portalExpansion(kind:PortalKind,scoped:boolean){
   const balance=kind==='door'?DOOR_PROXIMITY_BALANCE:WINDOW_PROXIMITY_BALANCE;
   return scoped?balance.scopeExpansionRatio:balance.normalExpansionRatio;
-}
-
-function normalizeAngleRadians(value:number){
-  let angle=value;
-  while(angle>Math.PI)angle-=Math.PI*2;
-  while(angle<-Math.PI)angle+=Math.PI*2;
-  return angle;
-}
-
-export function portalAngularVisibility(angleDifferenceDeg:number){
-  const angle=Math.abs(angleDifferenceDeg);
-  const balance=ANGLE_AWARE_PORTAL_BALANCE;
-  if(angle<=balance.frontAngleDeg)return{viewMode:'front' as const,depthFactor:1,revealStrength:1};
-  if(angle<=balance.sideAngleDeg){
-    const ratio=smoothstep((angle-balance.frontAngleDeg)/(balance.sideAngleDeg-balance.frontAngleDeg));
-    return{viewMode:'side' as const,depthFactor:lerpNumber(1,balance.sideDepthFactor,ratio),revealStrength:lerpNumber(1,balance.sideRevealStrength,ratio)};
-  }
-  if(angle<=balance.peripheralAngleDeg){
-    const ratio=smoothstep((angle-balance.sideAngleDeg)/(balance.peripheralAngleDeg-balance.sideAngleDeg));
-    return{viewMode:'peripheral' as const,depthFactor:lerpNumber(balance.sideDepthFactor,0,ratio),revealStrength:lerpNumber(balance.sideRevealStrength,0,ratio)};
-  }
-  return{viewMode:'none' as const,depthFactor:0,revealStrength:0};
-}
-
-function portalMinimumRenderDistance(kind:PortalKind){return kind==='door'?ANGLE_AWARE_PORTAL_BALANCE.doorMinimumRenderDistance:ANGLE_AWARE_PORTAL_BALANCE.windowMinimumRenderDistance;}
-function portalMaximumViewAngleDeg(kind:PortalKind){return kind==='door'?ANGLE_AWARE_PORTAL_BALANCE.doorMaximumViewAngleDeg:ANGLE_AWARE_PORTAL_BALANCE.windowMaximumViewAngleDeg;}
-
-export function portalViewGeometry(
-  opening:WindowOpening,kind:PortalKind,observer:{x:number;y:number},toward:'inside'|'outside',scoped:boolean,
-  aimX:number,aimY:number,forRender=false,extraDepth=0,
-):PortalViewGeometry{
-  const geometry=portalOpeningGeometry(opening,toward);
-  const toCenterX=geometry.center.x-observer.x,toCenterY=geometry.center.y-observer.y,toCenterLength=Math.hypot(toCenterX,toCenterY);
-  const aimLength=Math.hypot(aimX,aimY);
-  const aimDot=toCenterLength>.0001&&aimLength>.0001?clamp((toCenterX/toCenterLength)*(aimX/aimLength)+(toCenterY/toCenterLength)*(aimY/aimLength),-1,1):-1;
-  const aimAngleDeltaDeg=Math.acos(aimDot)*180/Math.PI;
-  const angular=portalAngularVisibility(aimAngleDeltaDeg);
-  const lateralOffset=(observer.x-geometry.center.x)*geometry.tangent.x+(observer.y-geometry.center.y)*geometry.tangent.y;
-  const normalizedLateralOffset=clamp(lateralOffset/Math.max(1,geometry.width/2),-1,1);
-  let renderObserver={x:observer.x,y:observer.y};
-  if(forRender){
-    const behindDistance=-((observer.x-geometry.center.x)*geometry.normal.x+(observer.y-geometry.center.y)*geometry.normal.y);
-    const minimum=portalMinimumRenderDistance(kind);
-    if(behindDistance<minimum){
-      renderObserver={
-        x:geometry.center.x-geometry.normal.x*minimum+geometry.tangent.x*lateralOffset,
-        y:geometry.center.y-geometry.normal.y*minimum+geometry.tangent.y*lateralOffset,
-      };
-    }
-  }
-  if(angular.viewMode==='none'||angular.depthFactor<=0)return{polygon:[],observer:{...observer},renderObserver,lateralOffset,normalizedLateralOffset,aimAngleDeltaDeg,viewMode:'none',depthFactor:0,revealStrength:0,effectiveDepth:0,totalViewAngleDeg:0};
-  const centerAngle=Math.atan2(geometry.center.y-renderObserver.y,geometry.center.x-renderObserver.x);
-  let leftAngle=Math.atan2(geometry.left.y-renderObserver.y,geometry.left.x-renderObserver.x);
-  let rightAngle=Math.atan2(geometry.right.y-renderObserver.y,geometry.right.x-renderObserver.x);
-  let leftDelta=normalizeAngleRadians(leftAngle-centerAngle),rightDelta=normalizeAngleRadians(rightAngle-centerAngle);
-  const rawSpan=Math.abs(normalizeAngleRadians(rightAngle-leftAngle));
-  const maximumSpan=portalMaximumViewAngleDeg(kind)*Math.PI/180;
-  if(rawSpan>maximumSpan&&rawSpan>.0001){
-    const scale=maximumSpan/rawSpan;
-    leftDelta*=scale;rightDelta*=scale;
-    leftAngle=centerAngle+leftDelta;rightAngle=centerAngle+rightDelta;
-  }
-  const effectiveDepth=Math.max(8,portalDepth(kind,toward,scoped)*angular.depthFactor+extraDepth);
-  const leftDirection={x:Math.cos(leftAngle),y:Math.sin(leftAngle)};
-  const rightDirection={x:Math.cos(rightAngle),y:Math.sin(rightAngle)};
-  const farLeft={x:geometry.left.x+leftDirection.x*effectiveDepth,y:geometry.left.y+leftDirection.y*effectiveDepth};
-  const farRight={x:geometry.right.x+rightDirection.x*effectiveDepth,y:geometry.right.y+rightDirection.y*effectiveDepth};
-  return{
-    polygon:[geometry.left,geometry.right,farRight,farLeft],observer:{...observer},renderObserver,
-    lateralOffset,normalizedLateralOffset,aimAngleDeltaDeg,viewMode:angular.viewMode,
-    depthFactor:angular.depthFactor,revealStrength:angular.revealStrength,effectiveDepth,
-    totalViewAngleDeg:Math.abs(normalizeAngleRadians(rightAngle-leftAngle))*180/Math.PI,
-  };
-}
-
-function pointInConvexPolygon(point:{x:number;y:number},polygon:readonly {x:number;y:number}[]){
-  if(polygon.length<3)return false;
-  let sign=0;
-  for(let index=0;index<polygon.length;index++){
-    const a=polygon[index]!,b=polygon[(index+1)%polygon.length]!;
-    const cross=(b.x-a.x)*(point.y-a.y)-(b.y-a.y)*(point.x-a.x);
-    if(Math.abs(cross)<.0001)continue;
-    const current=cross>0?1:-1;
-    if(sign===0)sign=current;else if(sign!==current)return false;
-  }
-  return true;
-}
-
-export function angleAwarePortalTarget(
-  opening:WindowOpening,kind:PortalKind,observer:{x:number;y:number},targetX:number,targetY:number,targetBuildingId:string,
-  scoped=false,aimX=1,aimY=0,
-){
-  const toward=targetBuildingId===opening.buildingId?'inside':'outside';
-  const view=portalViewGeometry(opening,kind,observer,toward,scoped,aimX,aimY,false);
-  const fixed=portalTarget(opening,kind,targetX,targetY,targetBuildingId,scoped);
-  const withinDepth=fixed.depth>=-BUILDING_WALL&&fixed.depth<=view.effectiveDepth+BUILDING_WALL;
-  return{...fixed,maxDepth:view.effectiveDepth,visible:withinDepth&&view.polygon.length>0&&pointInConvexPolygon({x:targetX,y:targetY},view.polygon),viewMode:view.viewMode,revealStrength:view.revealStrength,aimAngleDeltaDeg:view.aimAngleDeltaDeg,effectiveDepth:view.effectiveDepth};
 }
 
 export function portalTarget(opening:WindowOpening,kind:PortalKind,targetX:number,targetY:number,targetBuildingId:string,scoped=false){
@@ -602,19 +456,15 @@ export function portalPolygon(opening:WindowOpening,kind:PortalKind,toward:'insi
   ];
 }
 
-export function angleAwarePortalPolygon(opening:WindowOpening,kind:PortalKind,observer:{x:number;y:number},toward:'inside'|'outside',scoped:boolean,aimX:number,aimY:number,extraDepth=0){
-  return portalViewGeometry(opening,kind,observer,toward,scoped,aimX,aimY,true,extraDepth);
-}
-
 export function windowPortalTarget(window:WindowOpening,targetX:number,targetY:number,targetBuildingId:string,scoped=false){return portalTarget(window,'window',targetX,targetY,targetBuildingId,scoped);}
 export function windowPortalPolygon(window:WindowOpening,toward:'inside'|'outside',scoped=false,extraDepth=0){return portalPolygon(window,'window',toward,scoped,extraDepth);}
 
 export function crossSpaceOpening(
   viewer:{x:number;y:number;buildingId?:string},target:{x:number;y:number;buildingId?:string},scoped=false,
-  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,allowedOpeningId?:string,aimDirection?:{x:number;y:number},
+  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,allowedOpeningId?:string,
 ):CrossSpaceOpeningResult|null{
   const viewerId=viewer.buildingId??'',targetId=target.buildingId??'';
-  if(viewerId===targetId)return{kind:'same',openingId:'',buildingId:viewerId,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY,viewMode:'front',revealStrength:1,aimAngleDeltaDeg:0};
+  if(viewerId===targetId)return{kind:'same',openingId:'',buildingId:viewerId,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY};
   if(viewerId&&targetId)return null;
   const indoor=viewerId?viewer:target;
   const zone=buildingZoneById(indoor.buildingId??'',zones);
@@ -625,17 +475,17 @@ export function crossSpaceOpening(
     const opening=doorPortalOpening(zone,door);
     const t=segmentRectIntersectionT(viewer.x,viewer.y,target.x,target.y,{x:door.x,y:door.y,w:door.width,h:door.height});
     if(t===null)continue;
-    const portal=aimDirection?angleAwarePortalTarget(opening,'door',viewer,target.x,target.y,targetId,scoped,aimDirection.x,aimDirection.y):{...portalTarget(opening,'door',target.x,target.y,targetId,scoped),viewMode:'front' as const,revealStrength:1,aimAngleDeltaDeg:0};
+    const portal=portalTarget(opening,'door',target.x,target.y,targetId,scoped);
     if(!portal.visible)continue;
-    candidates.push({t,result:{kind:'door',openingId:door.id,buildingId:zone.id,depth:portal.depth,lateral:portal.lateral,maxDepth:portal.maxDepth,viewMode:portal.viewMode,revealStrength:portal.revealStrength,aimAngleDeltaDeg:portal.aimAngleDeltaDeg}});
+    candidates.push({t,result:{kind:'door',openingId:door.id,buildingId:zone.id,depth:portal.depth,lateral:portal.lateral,maxDepth:portal.maxDepth}});
   }
   for(const window of zone.windows){
     if(!window.allowsVision||(allowedOpeningId!==undefined&&window.id!==allowedOpeningId))continue;
     const t=segmentRectIntersectionT(viewer.x,viewer.y,target.x,target.y,{x:window.x,y:window.y,w:window.width,h:window.height});
     if(t===null)continue;
-    const portal=aimDirection?angleAwarePortalTarget(window,'window',viewer,target.x,target.y,targetId,scoped,aimDirection.x,aimDirection.y):{...portalTarget(window,'window',target.x,target.y,targetId,scoped),viewMode:'front' as const,revealStrength:1,aimAngleDeltaDeg:0};
+    const portal=portalTarget(window,'window',target.x,target.y,targetId,scoped);
     if(!portal.visible)continue;
-    candidates.push({t,result:{kind:'window',openingId:window.id,buildingId:zone.id,depth:portal.depth,lateral:portal.lateral,maxDepth:portal.maxDepth,viewMode:portal.viewMode,revealStrength:portal.revealStrength,aimAngleDeltaDeg:portal.aimAngleDeltaDeg}});
+    candidates.push({t,result:{kind:'window',openingId:window.id,buildingId:zone.id,depth:portal.depth,lateral:portal.lateral,maxDepth:portal.maxDepth}});
   }
   candidates.sort((a,b)=>a.t-b.t);
   return candidates[0]?.result??null;
@@ -646,7 +496,7 @@ function crossSpaceOpeningGeometry(
   zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,
 ):CrossSpaceOpeningResult|null{
   const viewerId=viewer.buildingId??'',targetId=target.buildingId??'';
-  if(viewerId===targetId)return{kind:'same',openingId:'',buildingId:viewerId,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY,viewMode:'front',revealStrength:1,aimAngleDeltaDeg:0};
+  if(viewerId===targetId)return{kind:'same',openingId:'',buildingId:viewerId,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY};
   if(viewerId&&targetId)return null;
   const indoor=viewerId?viewer:target;
   const zone=buildingZoneById(indoor.buildingId??'',zones);
@@ -654,11 +504,11 @@ function crossSpaceOpeningGeometry(
   const candidates:Array<{t:number;result:CrossSpaceOpeningResult}>=[];
   for(const door of zone.doors){
     const t=segmentRectIntersectionT(viewer.x,viewer.y,target.x,target.y,{x:door.x,y:door.y,w:door.width,h:door.height});
-    if(t!==null)candidates.push({t,result:{kind:'door',openingId:door.id,buildingId:zone.id,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY,viewMode:'front',revealStrength:1,aimAngleDeltaDeg:0}});
+    if(t!==null)candidates.push({t,result:{kind:'door',openingId:door.id,buildingId:zone.id,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY}});
   }
   for(const window of zone.windows){
     const t=segmentRectIntersectionT(viewer.x,viewer.y,target.x,target.y,{x:window.x,y:window.y,w:window.width,h:window.height});
-    if(t!==null)candidates.push({t,result:{kind:'window',openingId:window.id,buildingId:zone.id,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY,viewMode:'front',revealStrength:1,aimAngleDeltaDeg:0}});
+    if(t!==null)candidates.push({t,result:{kind:'window',openingId:window.id,buildingId:zone.id,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY}});
   }
   candidates.sort((a,b)=>a.t-b.t);
   return candidates[0]?.result??null;
