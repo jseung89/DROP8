@@ -1,0 +1,23 @@
+import Phaser from 'phaser'; import { OBSTACLES, REGIONS, WORLD_SIZE } from '@drop8/shared'; import type { Network } from './network';
+export class GameScene extends Phaser.Scene {
+  private g!:Phaser.GameObjects.Graphics; private mini!:Phaser.GameObjects.Graphics; private keys!:Record<string,Phaser.Input.Keyboard.Key>; private seq=0; private lastInput=0; private lastFire=0; private mapOpen=false; private spectateIndex=0;
+  constructor(private net:Network){super('game');}
+  create(){this.cameras.main.setBounds(0,0,WORLD_SIZE,WORLD_SIZE);this.g=this.add.graphics().setDepth(1);this.mini=this.add.graphics().setScrollFactor(0).setDepth(20);this.keys=this.input.keyboard!.addKeys('W,A,S,D,E,R,ONE,TWO,THREE,FOUR,M,SPACE,ENTER,LEFT,RIGHT') as any;
+    this.input.on('pointerdown',()=>{const p=this.local();if(!p)return;if(p.equipped==='fists'||['bat','pan','pipe','knife'].includes(p.equipped))this.net.send('melee');else this.net.send('fire');});
+    this.keys.LEFT.on('down',()=>{this.spectateIndex=Math.max(0,this.spectateIndex-1);});this.keys.RIGHT.on('down',()=>{this.spectateIndex++;});this.keys.E.on('down',()=>this.net.send('pickup'));this.keys.R.on('down',()=>this.net.send('reload'));this.keys.ONE.on('down',()=>this.net.send('switch',{slot:1}));this.keys.TWO.on('down',()=>this.net.send('switch',{slot:2}));this.keys.THREE.on('down',()=>this.net.send('switch',{slot:3}));this.keys.FOUR.on('down',()=>this.net.send('heal',{kind:'bandage'}));this.keys.SPACE.on('down',()=>this.net.send('jump'));this.keys.M.on('down',()=>this.mapOpen=!this.mapOpen);
+  }
+  update(time:number){const s=this.net.snapshot;if(!s)return;const me=this.local();if(me){const alive=s.players.filter(p=>p.alive);const cameraTarget=me.alive?me:(alive.length?alive[this.spectateIndex%alive.length]:me);this.cameras.main.centerOn(cameraTarget.x,cameraTarget.y);const pointer=this.input.activePointer,wx=pointer.worldX,wy=pointer.worldY;const x=(this.keys.D.isDown?1:0)-(this.keys.A.isDown?1:0),y=(this.keys.S.isDown?1:0)-(this.keys.W.isDown?1:0);if(time-this.lastInput>45){this.net.send('input',{x,y,angle:Math.atan2(wy-me.y,wx-me.x),seq:++this.seq});this.lastInput=time;}if(pointer.isDown&&time-this.lastFire>55){this.net.send(me.equipped==='fists'?'melee':'fire');this.lastFire=time;}}
+    this.draw();
+  }
+  private local(){return this.net.snapshot?.players.find(p=>p.id===this.net.sessionId);}
+  private draw(){const s=this.net.snapshot;if(!s)return;this.g.clear();this.g.fillStyle(0x153424).fillRect(0,0,WORLD_SIZE,WORLD_SIZE);for(const r of REGIONS){this.g.fillStyle(r.color,.28).fillRoundedRect(r.x,r.y,r.w,r.h,28);this.g.lineStyle(3,0xffffff,.12).strokeRoundedRect(r.x,r.y,r.w,r.h,28);this.g.fillStyle(0xffffff,.55);}
+    for(const o of OBSTACLES){this.g.fillStyle(0x35444d).fillRect(o.x,o.y,o.w,o.h);this.g.lineStyle(4,0x10181d).strokeRect(o.x,o.y,o.w,o.h);}
+    this.g.lineStyle(8,0x4db5ff,.8).strokeCircle(s.zoneX,s.zoneY,s.zoneRadius);this.g.lineStyle(3,0xffffff,.25).strokeCircle(s.zoneX,s.zoneY,s.nextZoneRadius);
+    for(const l of s.loot){const c=['pistol','smg','rifle','shotgun'].includes(l.kind)?0xffd451:l.kind==='medkit'||l.kind==='bandage'?0x58e49d:l.kind==='vest'?0x73b9ff:0xd9b0ff;this.g.fillStyle(c).fillCircle(l.x,l.y,11);}
+    for(const b of s.bullets)this.g.fillStyle(0xffef9a).fillCircle(b.x,b.y,4);
+    if(['PLANE','DROP'].includes(s.phase)){this.g.lineStyle(4,0xffffff,.25).lineBetween(0,s.planeY,s.planeEndX,s.planeEndY);this.g.fillStyle(0xf1f3f4).fillTriangle(s.planeX+30,s.planeY,s.planeX-25,s.planeY-18,s.planeX-25,s.planeY+18);}
+    for(const p of s.players){if(!p.alive)continue;const color=p.id===this.net.sessionId?0x45d7ff:p.ai?0xff8b5f:0xf06dba;const scale=p.phase==='falling'?1.7:p.phase==='parachute'?1.35:1;this.g.fillStyle(0x000000,.25).fillEllipse(p.x,p.y+20+Math.min(50,p.altitude/15),40,18);this.g.fillStyle(color).fillCircle(p.x,p.y,20*scale);this.g.lineStyle(4,0xffffff,p.id===this.net.sessionId?1:.4).strokeCircle(p.x,p.y,20*scale);this.g.lineStyle(6,0x1a2025).lineBetween(p.x,p.y,p.x+Math.cos(p.angle)*35,p.y+Math.sin(p.angle)*35);this.g.fillStyle(p.hp>40?0x55dd8c:0xff5f67).fillRect(p.x-25,p.y-37,50*(p.hp/100),5);}
+    this.drawMini(s);
+  }
+  private drawMini(s:any){this.mini.clear();const w=this.mapOpen?420:190,h=this.mapOpen?420:190,x=this.scale.width-w-14,y=14,sc=w/WORLD_SIZE;this.mini.fillStyle(0x061018,.88).fillRoundedRect(x,y,w,h,12);for(const r of REGIONS)this.mini.fillStyle(r.color,.5).fillRect(x+r.x*sc,y+r.y*sc,r.w*sc,r.h*sc);this.mini.lineStyle(2,0x4db5ff).strokeCircle(x+s.zoneX*sc,y+s.zoneY*sc,s.zoneRadius*sc);for(const p of s.players){if(!p.alive)continue;this.mini.fillStyle(p.id===this.net.sessionId?0x54dcff:0xff686e).fillCircle(x+p.x*sc,y+p.y*sc,p.id===this.net.sessionId?5:3);}}
+}

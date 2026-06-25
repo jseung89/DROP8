@@ -1,0 +1,911 @@
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { boot, type ColyseusTestServer } from '@colyseus/testing';
+import app from '../src/app.config.js';
+import { BUILDINGS, BUILDING_VISIBILITY_ZONES, BUSHES, BUSH_HIDE_DISTANCE, COLLISION_OBSTACLES, LOOT_DOOR_CLEARANCE, LOOT_MIN_DISTANCE, MAP_CONFIGS, OBSTACLES, PROP_OBSTACLES, PLAYER_HIT_RADIUS, PLAYER_RADIUS, PROJECTILE_CONFIGS, WEAPONS, buildingIdAt, circleHitsRect, distance, segmentCircleIntersectionT, windowVaultPoints, buildingSpacesInteractable } from '@drop8/shared';
+import { LootState, type Drop8State } from '../src/rooms/schema.js';
+
+describe('DROP 8 room integration', () => {
+  let server: ColyseusTestServer<typeof app>;
+
+  beforeAll(async () => {
+    server = await boot(app);
+  });
+
+  afterAll(async () => {
+    await server.shutdown();
+  });
+
+  beforeEach(async () => {
+    await server.cleanup();
+  });
+
+  const quiet = <T extends { onMessage: (type: string, callback: () => void) => unknown }>(client: T): T => {
+    for (const type of ['chat', 'killfeed', 'result', 'error', 'kicked', 'pickupResult', 'positionRecovery', 'vehicleRecovery']) {
+      client.onMessage(type, () => undefined);
+    }
+    return client;
+  };
+
+  it('creates a room and synchronizes two clients', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const first = quiet(await server.connectTo(room, { nickname: 'A' }));
+    const second = quiet(await server.connectTo(room, { nickname: 'B' }));
+    await room.waitForNextPatch();
+
+    // REFRACTOR_004B_SYNC_HOTFIX: waitForNextPatch() advances the server patch clock, but the
+    // second SDK client may decode that patch a few milliseconds later.
+    const syncStartedAt = Date.now();
+    while (
+      (first.state.players?.size ?? 0) !== 2 ||
+      (second.state.players?.size ?? 0) !== 2 ||
+      typeof second.state.roomCode !== 'string' ||
+      second.state.roomCode.length !== 6
+    ) {
+      if (Date.now() - syncStartedAt >= 1_500) break;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+
+    expect(room.state.roomCode).toBe(room.roomId);
+    expect(first.state.players.size).toBe(2);
+    expect(second.state.players.size).toBe(2);
+    expect(second.state.roomCode).toBe(room.roomId);
+  });
+
+  it('fills empty slots with AI after every human is ready', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: true });
+    const client = quiet(await server.connectTo(room, { nickname: 'A' }));
+
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    expect(room.state.players.size).toBe(8);
+    expect(['PLANE', 'DROP']).toContain(room.state.phase);
+  });
+
+  it('accepts eight human clients without adding AI', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const clients = [];
+
+    for (let index = 0; index < 8; index += 1) {
+      clients.push(quiet(await server.connectTo(room, { nickname: `P${index + 1}` })));
+    }
+    for (const client of clients) {
+      client.send('ready');
+    }
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    clients[0]?.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 180));
+
+    expect(room.state.players.size).toBe(8);
+    expect([...room.state.players.values()].filter((player) => player.ai)).toHaveLength(0);
+    expect(['PLANE', 'DROP']).toContain(room.state.phase);
+  });
+
+  it('moves a client through server-authoritative input', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Mover' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    client.send('jump');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    const player = room.state.players.get(client.sessionId);
+    expect(player).toBeDefined();
+    player!.altitude = 0;
+    player!.phase = 'landed';
+    player!.x = 1300;
+    player!.y = 1800;
+    const beforeX = player!.x;
+    client.send('input', { x: 1, y: 0, aimX: 1, aimY: 0, angle: 0, seq: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    expect(player!.x).toBeGreaterThan(beforeX);
+  });
+
+  it('moves landed AI continuously between decision ticks', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: true });
+    const client = quiet(await server.connectTo(room, { nickname: 'Host' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    const ai = [...room.state.players.values()].find((player) => player.ai);
+    expect(ai).toBeDefined();
+    ai!.phase = 'landed';
+    ai!.x = 2700;
+    ai!.y = 2000;
+    const before = { x: ai!.x, y: ai!.y };
+    await new Promise((resolve) => setTimeout(resolve, 520));
+
+    expect(Math.hypot(ai!.x - before.x, ai!.y - before.y)).toBeGreaterThan(8);
+  });
+
+  it('applies hit state and knockback for a fist attack', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const attacker = quiet(await server.connectTo(room, { nickname: 'Attacker' }));
+    const victim = quiet(await server.connectTo(room, { nickname: 'Victim' }));
+    attacker.send('ready');
+    victim.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 70));
+    attacker.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const a = room.state.players.get(attacker.sessionId)!;
+    const v = room.state.players.get(victim.sessionId)!;
+    a.phase = 'landed';
+    v.phase = 'landed';
+    a.x = 2700;
+    a.y = 2000;
+    v.x = 2750;
+    v.y = 2000;
+    const beforeX = v.x;
+    attacker.send('input', { x: 0, y: 0, aimX: 1, aimY: 0, angle: 0, seq: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    attacker.send('melee');
+    await new Promise((resolve) => setTimeout(resolve, 180));
+
+    expect(v.hitSeq).toBeGreaterThan(0);
+    expect(v.lastHitDamage).toBeGreaterThan(0);
+    expect(v.x).toBeGreaterThan(beforeX);
+  });
+
+
+  it('keeps a healing item until completion and restores health', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Healer' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    const player = room.state.players.get(client.sessionId)!;
+    player.phase = 'landed';
+    player.x = 2048;
+    player.y = 2048;
+    player.hp = 50;
+    player.bandages = 1;
+    client.send('heal', { kind: 'auto' });
+    await new Promise((resolve) => setTimeout(resolve, 140));
+
+    expect(player.healingKind).toBe('bandage');
+    expect(player.bandages).toBe(1);
+    expect(player.healingProgress).toBeGreaterThan(0);
+
+    await new Promise((resolve) => setTimeout(resolve, 2050));
+    expect(player.hp).toBe(75);
+    expect(player.bandages).toBe(0);
+    expect(player.healingKind).toBe('');
+  });
+
+  it('preserves a separate magazine for each firearm', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Switcher' }));
+    const player = room.state.players.get(client.sessionId)!;
+    player.primary = 'rifle';
+    player.secondary = 'pistol';
+    player.rifleMagazine = 5;
+    player.pistolMagazine = 11;
+
+    client.send('switch', { slot: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 70));
+    expect(player.equipped).toBe('rifle');
+    expect(player.magazine).toBe(5);
+
+    client.send('switch', { slot: 2 });
+    await new Promise((resolve) => setTimeout(resolve, 70));
+    expect(player.equipped).toBe('pistol');
+    expect(player.magazine).toBe(11);
+  });
+
+  it('lets AI choose a suitable loaded weapon for a distant target', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: true });
+    const client = quiet(await server.connectTo(room, { nickname: 'Target' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    const human = room.state.players.get(client.sessionId)!;
+    const ai = [...room.state.players.values()].find((player) => player.ai)!;
+    for (const [id, player] of [...room.state.players]) {
+      if (player.ai && id !== ai.id) room.state.players.delete(id);
+    }
+    (room as unknown as { aiThinkAt: Map<string, number> }).aiThinkAt.set(ai.id, 0);
+    human.phase = 'landed';
+    human.x = 3350;
+    human.y = 2000;
+    ai.phase = 'landed';
+    ai.x = 2700;
+    ai.y = 2000;
+    ai.primary = 'rifle';
+    ai.secondary = 'pistol';
+    ai.rifleMagazine = 8;
+    ai.pistolMagazine = 12;
+    ai.equipped = 'pistol';
+    ai.magazine = 12;
+
+    const hpBefore = human.hp;
+    await new Promise((resolve) => setTimeout(resolve, 520));
+    expect(ai.equipped).toBe('rifle');
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    expect(human.hp < hpBefore || !human.alive).toBe(true);
+  });
+
+  it('routes AI around building walls, through the door, and out of collision', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: true });
+    const client = quiet(await server.connectTo(room, { nickname: 'Observer' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    const human = room.state.players.get(client.sessionId)!;
+    const ai = [...room.state.players.values()].find((player) => player.ai)!;
+    for (const [id, player] of [...room.state.players]) {
+      if (player.ai && id !== ai.id) room.state.players.delete(id);
+    }
+    (room as unknown as { aiThinkAt: Map<string, number> }).aiThinkAt.set(ai.id, 0);
+    human.phase = 'landed';
+    human.x = 3900;
+    human.y = 3900;
+    ai.phase = 'landed';
+    ai.x = 460;
+    ai.y = 250;
+    ai.primary = '';
+    ai.secondary = '';
+    ai.equipped = 'fists';
+    room.state.zoneX = 460;
+    room.state.zoneY = 410;
+    room.state.zoneRadius = 1800;
+    room.state.loot.clear();
+
+    const loot = new LootState();
+    loot.id = 'door-route-pistol';
+    loot.kind = 'pistol';
+    loot.x = 460;
+    loot.y = 410;
+    room.state.loot.set(loot.id, loot);
+
+    await new Promise((resolve) => setTimeout(resolve, 5200));
+    expect(ai.secondary).toBe('pistol');
+    expect(OBSTACLES.some((rect) => circleHitsRect(ai.x, ai.y, PLAYER_RADIUS, rect))).toBe(false);
+  });
+
+  it('allows a safe low-health AI to use a bandage', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: true });
+    const client = quiet(await server.connectTo(room, { nickname: 'FarAway' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    const human = room.state.players.get(client.sessionId)!;
+    const ai = [...room.state.players.values()].find((player) => player.ai)!;
+    human.phase = 'landed';
+    human.x = 3900;
+    human.y = 3900;
+    ai.phase = 'landed';
+    ai.x = 2700;
+    ai.y = 2000;
+    ai.hp = 30;
+    ai.bandages = 1;
+
+    await new Promise((resolve) => setTimeout(resolve, 5350));
+    expect(ai.hp).toBeGreaterThanOrEqual(55);
+    expect(ai.bandages).toBe(0);
+    expect(ai.healingKind).toBe('');
+  });
+
+
+  it('prioritizes a nearby weapon over chasing while an AI is unprepared', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: true });
+    const client = quiet(await server.connectTo(room, { nickname: 'NearbyEnemy' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    const human = room.state.players.get(client.sessionId)!;
+    const ai = [...room.state.players.values()].find((player) => player.ai)!;
+    for (const [id, player] of [...room.state.players]) if (player.ai && id !== ai.id) room.state.players.delete(id);
+    const internal = room as unknown as {
+      aiThinkAt: Map<string, number>;
+      aiLandedAt: Map<string, number>;
+      aiIntent: Map<string, { lootId: string }>;
+    };
+    human.phase = 'landed'; human.x = 2950; human.y = 2000;
+    ai.phase = 'landed'; ai.x = 2700; ai.y = 2000; ai.primary = ''; ai.secondary = ''; ai.equipped = 'fists';
+    room.state.loot.clear();
+    const pistol = new LootState(); pistol.id = 'early-pistol'; pistol.kind = 'pistol'; pistol.x = 2835; pistol.y = 2000;
+    room.state.loot.set(pistol.id, pistol);
+    internal.aiLandedAt.set(ai.id, 0);
+    internal.aiThinkAt.set(ai.id, 0);
+
+    await new Promise((resolve) => setTimeout(resolve, 160));
+    expect(['EARLY_LOOT', 'SEEK_WEAPON']).toContain(ai.aiState);
+    expect(internal.aiIntent.get(ai.id)?.lootId).toBe(pistol.id);
+  });
+
+  it('reserves one loot target for only one AI at a time', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: true });
+    const client = quiet(await server.connectTo(room, { nickname: 'Observer' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    const human = room.state.players.get(client.sessionId)!;
+    const ais = [...room.state.players.values()].filter((player) => player.ai).slice(0, 2);
+    for (const [id, player] of [...room.state.players]) if (player.ai && !ais.includes(player)) room.state.players.delete(id);
+    human.phase = 'landed'; human.x = 3900; human.y = 3900;
+    const internal = room as unknown as {
+      aiThinkAt: Map<string, number>;
+      aiLandedAt: Map<string, number>;
+      aiIntent: Map<string, { lootId: string }>;
+      lootReservations: Map<string, { aiId: string }>;
+    };
+    ais.forEach((ai, index) => {
+      ai.phase = 'landed'; ai.x = 2600; ai.y = 1900 + index * 160; ai.primary = ''; ai.secondary = ''; ai.equipped = 'fists';
+      internal.aiLandedAt.set(ai.id, 0); internal.aiThinkAt.set(ai.id, 0);
+    });
+    room.state.loot.clear();
+    const pistol = new LootState(); pistol.id = 'reserved-pistol'; pistol.kind = 'pistol'; pistol.x = 2800; pistol.y = 1980;
+    room.state.loot.set(pistol.id, pistol);
+
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    const claimers = ais.filter((ai) => internal.aiIntent.get(ai.id)?.lootId === pistol.id);
+    expect(claimers).toHaveLength(1);
+    expect(internal.lootReservations.get(pistol.id)?.aiId).toBe(claimers[0]?.id);
+  });
+
+  it('spawns separated loot away from doors and walls', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Inspector' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const loot = [...room.state.loot.values()];
+    for (let index = 0; index < loot.length; index += 1) {
+      const item = loot[index]!;
+      expect(OBSTACLES.some((rect) => circleHitsRect(item.x, item.y, 28, rect))).toBe(false);
+      for (let other = index + 1; other < loot.length; other += 1) {
+        expect(distance(item.x, item.y, loot[other]!.x, loot[other]!.y)).toBeGreaterThanOrEqual(LOOT_MIN_DISTANCE - 0.01);
+      }
+      for (const building of BUILDINGS) {
+        const door = building.doorSide === 'north' || building.doorSide === 'south'
+          ? { x: building.x + building.w * building.doorOffset, y: building.doorSide === 'north' ? building.y : building.y + building.h }
+          : { x: building.doorSide === 'west' ? building.x : building.x + building.w, y: building.y + building.h * building.doorOffset };
+        expect(distance(item.x, item.y, door.x, door.y)).toBeGreaterThanOrEqual(LOOT_DOOR_CLEARANCE - 0.01);
+      }
+    }
+  });
+
+  it('spreads death drops instead of stacking them at one point', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Dropper' }));
+    const player = room.state.players.get(client.sessionId)!;
+    player.x = 2700; player.y = 2000; player.primary = 'rifle'; player.secondary = 'pistol'; player.melee = 'pan';
+    player.pistolAmmo = 20; player.standardAmmo = 24; player.shotgunAmmo = 6; player.armor = 80; player.bandages = 2; player.medkits = 1;
+    room.state.loot.clear();
+    (room as unknown as { dropInventory: (value: typeof player) => void }).dropInventory(player);
+    const drops = [...room.state.loot.values()];
+    expect(drops.length).toBeGreaterThan(5);
+    expect(new Set(drops.map((item) => `${Math.round(item.x)}:${Math.round(item.y)}`)).size).toBe(drops.length);
+    expect(drops.every((item) => !OBSTACLES.some((rect) => circleHitsRect(item.x, item.y, PLAYER_RADIUS, rect)))).toBe(true);
+  });
+
+
+  it('conceals a bush player from distant AI until the player attacks', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: true });
+    const client = quiet(await server.connectTo(room, { nickname: 'BushTarget' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    const target = room.state.players.get(client.sessionId)!;
+    const ai = [...room.state.players.values()].find((player) => player.ai)!;
+    for (const [id, player] of [...room.state.players]) if (player.ai && id !== ai.id) room.state.players.delete(id);
+    const internal = room as unknown as {
+      updateBushStates: () => void;
+      findVisibleTarget: (player: typeof ai, range: number) => typeof target | undefined;
+      segmentBlocked: (ax: number, ay: number, bx: number, by: number, radius: number) => boolean;
+      aiThinkAt: Map<string, number>;
+    };
+
+    const bush = BUSHES.find((candidate) => {
+      for (let angleIndex = 0; angleIndex < 16; angleIndex += 1) {
+        const angle = angleIndex / 16 * Math.PI * 2;
+        const x = candidate.x + Math.cos(angle) * (BUSH_HIDE_DISTANCE + 100);
+        const y = candidate.y + Math.sin(angle) * (BUSH_HIDE_DISTANCE + 100);
+        if (x < PLAYER_RADIUS || y < PLAYER_RADIUS || x > 4096 - PLAYER_RADIUS || y > 4096 - PLAYER_RADIUS) continue;
+        if (OBSTACLES.some((rect) => circleHitsRect(x, y, PLAYER_RADIUS, rect))) continue;
+        if (!internal.segmentBlocked(candidate.x, candidate.y, x, y, PLAYER_RADIUS)) return true;
+      }
+      return false;
+    });
+    expect(bush).toBeDefined();
+    let observerPoint: { x: number; y: number } | undefined;
+    for (let angleIndex = 0; angleIndex < 16; angleIndex += 1) {
+      const angle = angleIndex / 16 * Math.PI * 2;
+      const point = { x: bush!.x + Math.cos(angle) * (BUSH_HIDE_DISTANCE + 100), y: bush!.y + Math.sin(angle) * (BUSH_HIDE_DISTANCE + 100) };
+      if (OBSTACLES.some((rect) => circleHitsRect(point.x, point.y, PLAYER_RADIUS, rect))) continue;
+      if (!internal.segmentBlocked(bush!.x, bush!.y, point.x, point.y, PLAYER_RADIUS)) { observerPoint = point; break; }
+    }
+    expect(observerPoint).toBeDefined();
+
+    target.phase = 'landed'; target.x = bush!.x; target.y = bush!.y; target.secondary = 'pistol'; target.equipped = 'pistol'; target.pistolMagazine = 2; target.magazine = 2;
+    ai.phase = 'landed'; ai.x = observerPoint!.x; ai.y = observerPoint!.y; ai.primary = 'rifle'; ai.rifleMagazine = 8; ai.equipped = 'rifle'; ai.magazine = 8;
+    internal.updateBushStates();
+    expect(target.inBush).toBe(true);
+    expect(target.bushRevealed).toBe(false);
+    expect(internal.findVisibleTarget(ai, 950)).toBeUndefined();
+
+    client.send('input', { x: 0, y: 0, aimX: -1, aimY: 0, angle: Math.PI, seq: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('fire');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(target.bushRevealed).toBe(true);
+    expect(internal.findVisibleTarget(ai, 950)?.id).toBe(target.id);
+  });
+
+
+  it('synchronizes reload progress and only fills the magazine after completion', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Reloader' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    const player = room.state.players.get(client.sessionId)!;
+    player.phase = 'landed'; player.secondary = 'pistol'; player.equipped = 'pistol'; player.pistolMagazine = 0; player.magazine = 0; player.pistolAmmo = 12;
+
+    client.send('reload');
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    expect(player.reloading).toBe(true);
+    expect(player.reloadWeapon).toBe('pistol');
+    expect(player.reloadProgress).toBeGreaterThan(0);
+    expect(player.reloadProgress).toBeLessThan(1);
+    expect(player.pistolMagazine).toBe(0);
+    const bulletsBefore = room.state.bullets.size;
+    client.send('fire');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(room.state.bullets.size).toBe(bulletsBefore);
+
+    await new Promise((resolve) => setTimeout(resolve, 1250));
+    expect(player.reloading).toBe(false);
+    expect(player.reloadProgress).toBe(0);
+    expect(player.pistolMagazine).toBe(12);
+    expect(player.pistolAmmo).toBe(0);
+  });
+
+  it('cancels reload cleanly when switching weapons', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Switcher' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    const player = room.state.players.get(client.sessionId)!;
+    player.phase = 'landed'; player.secondary = 'pistol'; player.equipped = 'pistol'; player.pistolMagazine = 0; player.magazine = 0; player.pistolAmmo = 12;
+    client.send('reload');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(player.reloading).toBe(true);
+    client.send('switch', { slot: 3 });
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    expect(player.equipped).toBe('fists');
+    expect(player.reloading).toBe(false);
+    expect(player.reloadWeapon).toBe('');
+    expect(player.pistolMagazine).toBe(0);
+  });
+
+  it('recovers a human player placed inside a building wall', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Unstuck' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    const player = room.state.players.get(client.sessionId)!;
+    const wall = OBSTACLES[0]!;
+    player.phase = 'landed'; player.x = wall.x + wall.w / 2; player.y = wall.y + wall.h / 2;
+    expect(OBSTACLES.some((rect) => circleHitsRect(player.x, player.y, PLAYER_RADIUS, rect))).toBe(true);
+    client.send('input', { x: 1, y: 0, aimX: 1, aimY: 0, angle: 0, seq: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 180));
+    expect(OBSTACLES.some((rect) => circleHitsRect(player.x, player.y, PLAYER_RADIUS, rect))).toBe(false);
+  });
+
+  it('validates and broadcasts chat with the authoritative player identity', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const first = quiet(await server.connectTo(room, { nickname: '승이형' }));
+    const second = quiet(await server.connectTo(room, { nickname: '친구' }));
+    const waitForExpectedChat = (client: typeof first) => new Promise<any>((resolve) => {
+      client.onMessage('chat', (message: any) => {
+        if (message.text === '병원에 두 명 있어') resolve(message);
+      });
+    });
+    const fromFirst = waitForExpectedChat(first);
+    const fromSecond = waitForExpectedChat(second);
+
+    first.send('chat', { text: '  병원에 두 명 있어  ', nickname: '가짜 이름' });
+    const [ownMessage, otherMessage] = await Promise.all([fromFirst, fromSecond]);
+
+    for (const message of [ownMessage, otherMessage]) {
+      expect(message.text).toBe('병원에 두 명 있어');
+      expect(message.sender).toBe('승이형');
+      expect(message.nickname).toBe('승이형');
+      expect(message.playerId).toBe(first.sessionId);
+      expect(message.channel).toBe('lobby');
+      expect(message.sentAt).toBeTypeOf('number');
+    }
+  });
+
+
+  it('blocks human movement through a solid field prop and publishes server timing metrics', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'PropTester' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    const player = room.state.players.get(client.sessionId)!;
+    const prop = PROP_OBSTACLES.find((rect) => rect.w >= 60 && rect.h >= 40)!;
+    player.phase = 'landed';
+    player.x = prop.x - PLAYER_RADIUS - 3;
+    player.y = prop.y + prop.h / 2;
+    client.send('input', { x: 1, y: 0, aimX: 1, aimY: 0, angle: 0, seq: 1 });
+    await new Promise((resolve) => setTimeout(resolve, 620));
+    expect(circleHitsRect(player.x, player.y, PLAYER_RADIUS, prop)).toBe(false);
+    expect(player.x).toBeLessThan(prop.x);
+    expect(room.state.serverTickAvg).toBeGreaterThanOrEqual(0);
+    expect(room.state.serverTickMax).toBeGreaterThanOrEqual(room.state.serverTickAvg);
+  });
+
+  it('synchronizes a randomized plane route and a contained next zone', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'RouteTester' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const routeLength = distance(room.state.planeStartX, room.state.planeStartY, room.state.planeEndX, room.state.planeEndY);
+    expect(routeLength).toBeGreaterThan(4096);
+    expect(Number.isFinite(room.state.planeAngle)).toBe(true);
+    expect(distance(room.state.zoneX, room.state.zoneY, room.state.nextZoneX, room.state.nextZoneY) + room.state.nextZoneRadius)
+      .toBeLessThanOrEqual(room.state.zoneRadius - 27.5);
+    expect(COLLISION_OBSTACLES.length).toBeGreaterThan(OBSTACLES.length);
+  });
+
+
+
+
+  it('separates indoor and outdoor visibility for AI targeting', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: true });
+    const client = quiet(await server.connectTo(room, { nickname: 'IndoorTarget' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const target = room.state.players.get(client.sessionId)!;
+    const ai = [...room.state.players.values()].find((player) => player.ai)!;
+    for (const [id, player] of [...room.state.players]) if (player.ai && id !== ai.id) room.state.players.delete(id);
+    const zone = BUILDING_VISIBILITY_ZONES[0]!;
+    const building = BUILDINGS[zone.buildingIndex]!;
+    const doorX = building.doorSide === 'north' || building.doorSide === 'south' ? building.x + building.w * building.doorOffset : building.doorSide === 'west' ? building.x : building.x + building.w;
+    const doorY = building.doorSide === 'north' ? building.y : building.doorSide === 'south' ? building.y + building.h : building.y + building.h * building.doorOffset;
+    const outward = building.doorSide === 'north' ? { x: 0, y: -1 } : building.doorSide === 'south' ? { x: 0, y: 1 } : building.doorSide === 'west' ? { x: -1, y: 0 } : { x: 1, y: 0 };
+    target.phase = 'landed'; target.x = zone.interior.x + zone.interior.w / 2; target.y = zone.interior.y + zone.interior.h / 2;
+    ai.phase = 'landed'; ai.x = doorX + outward.x * 220; ai.y = doorY + outward.y * 220;
+    const internal = room as unknown as { updateBuildingStates: () => void; findVisibleTarget: (player: typeof ai, range: number) => typeof target | undefined };
+    internal.updateBuildingStates();
+    expect(target.buildingId).toBe(zone.id);
+    expect(ai.buildingId).toBe('');
+    expect(internal.findVisibleTarget(ai, 950)).toBeUndefined();
+  });
+
+  it('lets only the host kick another human player', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const host = quiet(await server.connectTo(room, { nickname: 'Host' }));
+    const guest = quiet(await server.connectTo(room, { nickname: 'Guest' }));
+    const kicked = new Promise<any>((resolve) => guest.onMessage('kicked', resolve));
+    host.send('kick', { targetPlayerId: guest.sessionId });
+    const message = await kicked;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(message.message).toContain('방장');
+    expect(room.state.players.has(guest.sessionId)).toBe(false);
+    expect(room.state.players.get(host.sessionId)?.host).toBe(true);
+  });
+
+  it('transfers host authority when the host leaves', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const host = quiet(await server.connectTo(room, { nickname: 'FirstHost' }));
+    const next = quiet(await server.connectTo(room, { nickname: 'NextHost' }));
+    await host.leave(true);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(room.state.hostId).toBe(next.sessionId);
+    expect(room.state.players.get(next.sessionId)?.host).toBe(true);
+  });
+
+  it('auto-equips a newly picked up weapon and publishes pickup feedback', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Picker' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    const player = room.state.players.get(client.sessionId)!;
+    player.phase = 'landed'; player.x = 2048; player.y = 2048; player.buildingId = buildingIdAt(player.x, player.y);
+    room.state.loot.clear();
+    const loot = new LootState(); loot.id = 'auto-equip'; loot.kind = 'rifle'; loot.x = player.x + 10; loot.y = player.y; loot.buildingId = player.buildingId;
+    room.state.loot.set(loot.id, loot);
+    const feedback = new Promise<any>((resolve) => client.onMessage('pickupResult', resolve));
+    client.send('pickup');
+    const result = await feedback;
+    expect(player.primary).toBe('rifle');
+    expect(player.equipped).toBe('rifle');
+    expect(result.autoEquipped).toBe(true);
+  });
+
+
+  it('lets only the host switch between small and large maps before a match', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const host = quiet(await server.connectTo(room, { nickname: 'MapHost' }));
+    const guest = quiet(await server.connectTo(room, { nickname: 'Guest' }));
+    guest.send('settings', { mapSizeMode: 'large' });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(room.state.mapSizeMode).toBe('small');
+    host.send('settings', { mapSizeMode: 'large' });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(room.state.mapSizeMode).toBe('large');
+    expect(room.state.worldSize).toBe(MAP_CONFIGS.large.width);
+    expect(room.state.mapRevision).toBeGreaterThan(0);
+    host.send('ready');guest.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 70));
+    host.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 130));
+    expect(distance(room.state.planeStartX,room.state.planeStartY,room.state.planeEndX,room.state.planeEndY)).toBeGreaterThan(MAP_CONFIGS.large.width);
+    expect(room.state.zoneRadius).toBe(MAP_CONFIGS.large.initialZoneRadius);
+    expect(room.state.loot.size).toBeGreaterThan(MAP_CONFIGS.small.lootBudget);
+  });
+
+  it('uses three ammo types and makes the sniper consume standard ammo', async () => {
+    expect(WEAPONS.sniper.ammoType).toBe('standard_ammo');
+    expect(PROJECTILE_CONFIGS.sniper.projectileSpeed).toBeGreaterThan(PROJECTILE_CONFIGS.rifle.projectileSpeed * 1.8);
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Sniper' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const player = room.state.players.get(client.sessionId)!;
+    player.phase='landed'; player.x=180; player.y=180; player.buildingId=''; player.primary='sniper'; player.equipped='sniper'; player.sniperMagazine=1; player.magazine=1; player.standardAmmo=8;
+    client.send('input',{x:0,y:0,aimX:1,aimY:0,angle:0,seq:1});
+    client.send('fire');
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    expect(player.sniperMagazine).toBe(0);
+    expect([...room.state.bullets.values()].some((bullet) => bullet.weaponId==='sniper')).toBe(true);
+  });
+
+  it('uses segment collision so a fast projectile cannot tunnel through a player', () => {
+    const t=segmentCircleIntersectionT(0,0,300,0,150,0,PLAYER_HIT_RADIUS);
+    expect(t).not.toBeNull();
+    expect(t!).toBeGreaterThan(0);
+    expect(t!).toBeLessThan(1);
+  });
+
+  it('treats aiming input as scope state without firing or consuming ammunition', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'Scope' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    const player = room.state.players.get(client.sessionId)!;
+    player.phase='landed';player.x=1300;player.y=1800;player.primary='sniper';player.equipped='sniper';player.sniperMagazine=4;player.magazine=4;player.standardAmmo=20;
+    client.send('input',{x:0,y:0,aimX:1,aimY:0,angle:0,seq:1,aiming:true,accelerate:false,brake:false,turnLeft:false,turnRight:false});
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(player.isSniperScoped).toBe(true);
+    expect(player.sniperMagazine).toBe(4);
+    expect(room.state.bullets.size).toBe(0);
+  });
+
+  it('spawns, mounts, drives, and safely dismounts a motorcycle', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false, mapSizeMode:'small' });
+    const client = quiet(await server.connectTo(room, { nickname: 'Rider' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const player=room.state.players.get(client.sessionId)!;
+    const motorcycle=[...room.state.motorcycles.values()][0]!;
+    expect(motorcycle).toBeDefined();
+    player.phase='landed';player.x=motorcycle.x+35;player.y=motorcycle.y;
+    client.send('interact');
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    expect(player.isDriving).toBe(true);
+    expect(player.vehicleId).toBe(motorcycle.id);
+    expect(motorcycle.driverId).toBe(player.id);
+    const before={x:motorcycle.x,y:motorcycle.y};
+    motorcycle.rotation=0;
+    client.send('input',{x:0,y:-1,aimX:1,aimY:0,angle:0,seq:2,aiming:false,accelerate:false,brake:false,turnLeft:false,turnRight:false});
+    await new Promise((resolve) => setTimeout(resolve, 360));
+    expect(Math.hypot(motorcycle.x-before.x,motorcycle.y-before.y)).toBeGreaterThan(8);
+    client.send('interact');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(player.isDriving).toBe(false);
+    expect(motorcycle.driverId).toBe('');
+  });
+
+  it('applies one speed-based motorcycle hit with knockback cooldown', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const rider = quiet(await server.connectTo(room, { nickname: 'Rider' }));
+    const victim = quiet(await server.connectTo(room, { nickname: 'Victim' }));
+    rider.send('ready');victim.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 70));
+    rider.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 110));
+    const driver=room.state.players.get(rider.sessionId)!;
+    const target=room.state.players.get(victim.sessionId)!;
+    const motorcycle=[...room.state.motorcycles.values()][0]!;
+    driver.phase='landed';driver.isDriving=true;driver.vehicleId=motorcycle.id;driver.x=1800;driver.y=1800;
+    motorcycle.driverId=driver.id;motorcycle.x=1800;motorcycle.y=1800;motorcycle.rotation=0;motorcycle.velocityX=620;motorcycle.velocityY=0;motorcycle.speed=620;motorcycle.lastSafeX=1800;motorcycle.lastSafeY=1800;
+    (room as unknown as {vehicleMotionStates:Map<string,{movementHeldMs:number;previousInputX:number;previousInputY:number;mountedAt:number;directionPenaltyUntil:number}>}).vehicleMotionStates.set(motorcycle.id,{movementHeldMs:2400,previousInputX:1,previousInputY:0,mountedAt:-99,directionPenaltyUntil:-99});
+    target.phase='landed';target.x=1840;target.y=1800;target.hp=100;
+    rider.send('input',{x:0,y:0,aimX:1,aimY:0,angle:0,seq:3,aiming:false,accelerate:false,brake:false,turnLeft:false,turnRight:false});
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(target.hp).toBeLessThan(100);
+    expect(target.hitSeq).toBeGreaterThan(0);
+    const pendingKnockback=(room as unknown as { knockback: Map<string,{vx:number;vy:number}> }).knockback.get(target.id);
+    expect(target.x>1840||Boolean(pendingKnockback&&pendingKnockback.vx>0)).toBe(true);
+  });
+
+  it('drives a motorcycle in screen-space directions regardless of its current facing', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false, mapSizeMode:'small' });
+    const client = quiet(await server.connectTo(room, { nickname: 'DirectRider' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const player=room.state.players.get(client.sessionId)!;
+    const motorcycle=[...room.state.motorcycles.values()][0]!;
+    player.phase='landed';player.isDriving=true;player.vehicleId=motorcycle.id;
+    motorcycle.driverId=player.id;motorcycle.x=1800;motorcycle.y=1800;motorcycle.rotation=0;motorcycle.lastSafeX=1800;motorcycle.lastSafeY=1800;
+    client.send('input',{x:0,y:-1,aimX:1,aimY:0,angle:0,seq:10,aiming:false,accelerate:false,brake:false,turnLeft:false,turnRight:false});
+    await new Promise((resolve) => setTimeout(resolve, 260));
+    expect(motorcycle.y).toBeLessThan(1770);
+    expect(Math.abs(motorcycle.x-1800)).toBeLessThan(5);
+    expect(motorcycle.velocityY).toBeLessThan(0);
+    expect(Math.abs(motorcycle.velocityX)).toBeLessThan(1);
+  });
+
+  it('normalizes diagonal motorcycle input and keeps movement independent from aim direction', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'DiagonalRider' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const player=room.state.players.get(client.sessionId)!;
+    const motorcycle=[...room.state.motorcycles.values()][0]!;
+    player.phase='landed';player.isDriving=true;player.vehicleId=motorcycle.id;
+    motorcycle.driverId=player.id;motorcycle.x=1800;motorcycle.y=1800;motorcycle.rotation=Math.PI;motorcycle.lastSafeX=1800;motorcycle.lastSafeY=1800;
+    client.send('input',{x:1,y:-1,aimX:-1,aimY:0,angle:Math.PI,seq:11,aiming:false,accelerate:false,brake:false,turnLeft:false,turnRight:false});
+    await new Promise((resolve) => setTimeout(resolve, 280));
+    expect(motorcycle.x).toBeGreaterThan(1830);
+    expect(motorcycle.y).toBeLessThan(1770);
+    expect(Math.hypot(motorcycle.velocityX,motorcycle.velocityY)).toBeLessThanOrEqual(651);
+    expect(player.angle).toBeCloseTo(Math.PI,2);
+  });
+
+  it('drops the equipped firearm with its magazine when a full inventory swaps weapons', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'WeaponSwapper' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const player=room.state.players.get(client.sessionId)!;
+    player.phase='landed';player.x=2048;player.y=2048;player.angle=0;player.buildingId=buildingIdAt(player.x,player.y);
+    player.primary='rifle';player.secondary='pistol';player.equipped='rifle';player.rifleMagazine=7;player.magazine=7;player.standardAmmo=50;player.pistolMagazine=9;
+    room.state.loot.clear();
+    const incoming=new LootState();incoming.id='incoming-sniper';incoming.kind='sniper';incoming.x=player.x+8;incoming.y=player.y;incoming.buildingId=player.buildingId;
+    room.state.loot.set(incoming.id,incoming);
+    const feedback=new Promise<any>((resolve)=>client.onMessage('pickupResult',resolve));
+    client.send('pickup');
+    const result=await feedback;
+    expect(player.primary).toBe('sniper');
+    expect(player.secondary).toBe('pistol');
+    expect(player.equipped).toBe('sniper');
+    expect(player.standardAmmo).toBe(58);
+    expect(result.droppedKind).toBe('rifle');
+    const dropped=[...room.state.loot.values()].find((loot)=>loot.kind==='rifle');
+    expect(dropped).toBeDefined();
+    expect(dropped!.weaponMagazine).toBe(7);
+    expect(dropped!.grantsAmmo).toBe(false);
+    expect(dropped!.buildingId).toBe(player.buildingId);
+    expect(dropped!.pickupLockedForPlayerId).toBe(player.id);
+    expect(dropped!.pickupLockedUntil).toBeGreaterThan(room.state.serverTime);
+    expect(room.state.loot.has('incoming-sniper')).toBe(false);
+  });
+
+  it('keeps reserve ammo and blocks the dropper from instantly re-picking a swapped gun', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
+    const client = quiet(await server.connectTo(room, { nickname: 'LockTester' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const player=room.state.players.get(client.sessionId)!;
+    player.phase='landed';player.x=2048;player.y=2048;player.angle=0;player.buildingId=buildingIdAt(player.x,player.y);
+    player.primary='rifle';player.secondary='pistol';player.equipped='rifle';player.rifleMagazine=5;player.magazine=5;player.standardAmmo=44;
+    room.state.loot.clear();
+    const incoming=new LootState();incoming.id='incoming-shotgun';incoming.kind='shotgun';incoming.x=player.x+8;incoming.y=player.y;incoming.buildingId=player.buildingId;
+    room.state.loot.set(incoming.id,incoming);
+    client.send('pickup');
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    const dropped=[...room.state.loot.values()].find((loot)=>loot.kind==='rifle')!;
+    expect(player.primary).toBe('shotgun');
+    expect(player.standardAmmo).toBe(44);
+    player.x=dropped.x;player.y=dropped.y;
+    client.send('pickup');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    expect(player.primary).toBe('shotgun');
+    expect(room.state.loot.has(dropped.id)).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 850));
+    client.send('pickup');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(player.primary).toBe('rifle');
+    expect(player.rifleMagazine).toBe(5);
+    expect(player.standardAmmo).toBe(44);
+  });
+
+
+  it('vaults through a nearby window with server-authoritative landing and building transition', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false, mapSizeMode:'small' });
+    const client = quiet(await server.connectTo(room, { nickname: 'Vaulter' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const player=room.state.players.get(client.sessionId)!;
+    const zone=BUILDING_VISIBILITY_ZONES.find((item)=>item.windows.length>0)!;
+    const window=zone.windows[0]!;
+    const points=windowVaultPoints(window);
+    player.phase='landed';player.alive=true;player.isDriving=false;player.x=points.outside.x;player.y=points.outside.y;player.buildingId='';player.insideBuilding=false;
+    client.send('vaultWindow');
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    expect(player.isVaulting).toBe(true);
+    expect(player.vaultWindowId).toBe(window.id);
+    await new Promise((resolve) => setTimeout(resolve, 340));
+    expect(player.isVaulting).toBe(false);
+    expect(player.buildingId).toBe(zone.id);
+    expect(distance(player.x,player.y,points.inside.x,points.inside.y)).toBeLessThan(5);
+  });
+
+  it('keeps cross-window loot interaction disabled after visibility is granted', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: false, mapSizeMode:'small' });
+    const client = quiet(await server.connectTo(room, { nickname: 'WindowLooter' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const player=room.state.players.get(client.sessionId)!;
+    const zone=BUILDING_VISIBILITY_ZONES.find((item)=>item.windows.length>0)!;
+    const points=windowVaultPoints(zone.windows[0]!);
+    player.phase='landed';player.x=points.outside.x;player.y=points.outside.y;player.buildingId='';player.equipped='fists';
+    const loot=new LootState();loot.id='window-loot';loot.kind='pistol';loot.x=points.inside.x;loot.y=points.inside.y;loot.buildingId=zone.id;
+    room.state.loot.clear();room.state.loot.set(loot.id,loot);
+    expect(buildingSpacesInteractable(player,loot)).toBe(false);
+    client.send('pickup');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(room.state.loot.has(loot.id)).toBe(true);
+    expect(player.primary).toBe('');
+  });
+
+});

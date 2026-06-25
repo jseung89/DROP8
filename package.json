@@ -1,0 +1,37 @@
+{
+  "name": "drop8-source",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "client",
+    "server"
+  ],
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @drop8/shared build && cross-env NODE_ENV=development PORT=2567 tsx --tsconfig server/tsconfig.json server/src/index.ts",
+    "dev:lan": "pnpm --filter @drop8/shared build && cross-env NODE_ENV=development DROP8_LAN=1 HOST=0.0.0.0 PORT=2567 tsx --tsconfig server/tsconfig.json server/src/index.ts",
+    "typecheck": "pnpm --filter @drop8/shared typecheck && pnpm --filter @drop8/shared build && pnpm --filter @drop8/client typecheck && pnpm --filter @drop8/server typecheck",
+    "lint": "eslint --config eslint.config.ts shared/src shared/tests client/src server/src server/tests",
+    "test": "pnpm --filter @drop8/shared build && pnpm --filter @drop8/shared test && pnpm --filter @drop8/server test",
+    "build": "pnpm --filter @drop8/shared build && pnpm --filter @drop8/client build && pnpm --filter @drop8/server build",
+    "start": "cross-env NODE_ENV=production PORT=2567 node server/build/index.js",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "start:lan": "cross-env NODE_ENV=production DROP8_LAN=1 PORT=2567 node server/build/index.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@types/node": "^26.0.0",
+    "cross-env": "^7.0.3",
+    "eslint": "^9.29.0",
+    "globals": "^16.2.0",
+    "jiti": "^2.4.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.34.1"
+  },
+  "packageManager": "pnpm@11.7.0"
+}

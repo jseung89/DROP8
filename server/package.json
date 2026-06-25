@@ -1,0 +1,29 @@
+{
+  "name": "@drop8/server",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "rimraf build && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --pool=threads --maxWorkers=1 --no-file-parallelism --testTimeout=20000 --hookTimeout=20000",
+    "start": "node build/index.js"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.17.42",
+    "@colyseus/schema": "^4.0.26",
+    "@colyseus/tools": "^0.17.18",
+    "@colyseus/ws-transport": "^0.17.13",
+    "@drop8/shared": "workspace:*",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@colyseus/sdk": "^0.17.43",
+    "@colyseus/testing": "^0.17.11",
+    "@types/express": "^5.0.3",
+    "rimraf": "^6.0.1",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
+  }
+}
