@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { boot, type ColyseusTestServer } from '@colyseus/testing';
 import app from '../src/app.config.js';
-import { BUILDINGS, BUILDING_VISIBILITY_ZONES, BUSHES, BUSH_HIDE_DISTANCE, COLLISION_OBSTACLES, LOOT_DOOR_CLEARANCE, LOOT_MIN_DISTANCE, MAP_CONFIGS, OBSTACLES, PROP_OBSTACLES, PLAYER_HIT_RADIUS, PLAYER_RADIUS, PROJECTILE_CONFIGS, WEAPONS, buildingIdAt, circleHitsRect, distance, segmentCircleIntersectionT, windowVaultPoints, buildingSpacesInteractable } from '@drop8/shared';
+import { BUILDINGS, BUILDING_VISIBILITY_ZONES, BUSHES, BUSH_HIDE_DISTANCE, COLLISION_OBSTACLES, LOOT_DOOR_CLEARANCE, LOOT_MIN_DISTANCE, MAP_CONFIGS, OBSTACLES, PROP_OBSTACLES, PLAYER_HIT_RADIUS, PLAYER_RADIUS, PROJECTILE_CONFIGS, WEAPONS, buildingIdAt, circleHitsRect, distance, segmentCircleIntersectionT, windowVaultPoints, buildingSpacesInteractable, spaceAt } from '@drop8/shared';
 import { BulletState, LootState, type Drop8State } from '../src/rooms/schema.js';
 
 describe('DROP 8 room integration', () => {
@@ -20,7 +20,7 @@ describe('DROP 8 room integration', () => {
   });
 
   const quiet = <T extends { onMessage: (type: string, callback: () => void) => unknown }>(client: T): T => {
-    for (const type of ['chat', 'killfeed', 'result', 'error', 'notice', 'kicked', 'pickupResult', 'positionRecovery', 'vehicleRecovery', 'characterDeath']) {
+    for (const type of ['chat', 'killfeed', 'result', 'error', 'notice', 'kicked', 'pickupResult', 'positionRecovery', 'vehicleRecovery', 'characterDeath', 'audioEvent']) {
       client.onMessage(type, () => undefined);
     }
     return client;
@@ -249,7 +249,19 @@ describe('DROP 8 room integration', () => {
     for (const [id, player] of [...room.state.players]) {
       if (player.ai && id !== ai.id) room.state.players.delete(id);
     }
-    (room as unknown as { aiThinkAt: Map<string, number> }).aiThinkAt.set(ai.id, 0);
+    // DROP8_REFACTOR_012A1_TEST_FIXTURE_CLEANUP: 이 테스트는 문 경로를 검증하므로 북쪽 창문을 잠시 경로 후보에서 제외한다.
+    const aiInternals = room as unknown as {
+      aiThinkAt: Map<string, number>;
+      aiIntent: Map<string, { failedWindowId: string; failedWindowUntil: number }>;
+      now: () => number;
+    };
+    aiInternals.aiThinkAt.set(ai.id, 0);
+    const doorRouteWindow = BUILDING_VISIBILITY_ZONES[0]?.windows[0];
+    const doorRouteIntent = aiInternals.aiIntent.get(ai.id);
+    if (doorRouteWindow && doorRouteIntent) {
+      doorRouteIntent.failedWindowId = doorRouteWindow.id;
+      doorRouteIntent.failedWindowUntil = aiInternals.now() + 10;
+    }
     human.phase = 'landed';
     human.x = 3900;
     human.y = 3900;
@@ -269,11 +281,53 @@ describe('DROP 8 room integration', () => {
     loot.kind = 'pistol';
     loot.x = 460;
     loot.y = 410;
+    loot.buildingId = buildingIdAt(loot.x, loot.y, 0, BUILDING_VISIBILITY_ZONES);
     room.state.loot.set(loot.id, loot);
 
     await new Promise((resolve) => setTimeout(resolve, 5200));
     expect(ai.secondary).toBe('pistol');
     expect(OBSTACLES.some((rect) => circleHitsRect(ai.x, ai.y, PLAYER_RADIUS, rect))).toBe(false);
+  });
+
+  it('builds a window route and lets AI complete a server-authoritative vault', async () => {
+    const room = await server.createRoom<Drop8State>('drop8', { fillAi: true, mapSizeMode:'small' });
+    const client = quiet(await server.connectTo(room, { nickname: 'WindowObserver' }));
+    client.send('ready');
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    client.send('start');
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    const human=room.state.players.get(client.sessionId)!;
+    const ai=[...room.state.players.values()].find((player)=>player.ai)!;
+    for(const [id,player] of [...room.state.players])if(player.ai&&id!==ai.id)room.state.players.delete(id);
+    human.phase='landed';human.x=3900;human.y=3900;
+    const zone=BUILDING_VISIBILITY_ZONES.find((item)=>item.windows.length>0)!;
+    const window=zone.windows[0]!;
+    const points=windowVaultPoints(window);
+    ai.phase='landed';ai.alive=true;ai.isDriving=false;ai.isVaulting=false;ai.x=points.outside.x;ai.y=points.outside.y;ai.buildingId='';ai.insideBuilding=false;
+
+    type TestIntent={tx:number;ty:number;targetId:string;lootId:string;mode:'move'|'retreat'|'hold';state:string;avoidSign:number;stuckFor:number;lastX:number;lastY:number;route:Array<{x:number;y:number;kind?:'window';windowId?:string;targetX?:number;targetY?:number;targetBuildingId?:string}>;lastSeenX:number;lastSeenY:number;lastSeenUntil:number;routeGoalX:number;routeGoalY:number;repathAt:number;failedWindowId:string;failedWindowUntil:number;stuckCount:number;lastRepathReason:string};
+    const internal=room as unknown as {
+      newAiIntent:(player:typeof ai)=>TestIntent;
+      buildRoute:(sx:number,sy:number,tx:number,ty:number,intent?:TestIntent)=>TestIntent['route'];
+      advanceAiRoute:(player:typeof ai,intent:TestIntent)=>boolean;
+      aiIntent:Map<string,TestIntent>;
+      aiThinkAt:Map<string,number>;
+      now:()=>number;
+    };
+    const intent=internal.newAiIntent(ai);
+    intent.tx=points.inside.x;intent.ty=points.inside.y;
+    intent.route=internal.buildRoute(ai.x,ai.y,points.inside.x,points.inside.y,intent);
+    expect(intent.route.some((point)=>point.kind==='window'&&point.windowId===window.id)).toBe(true);
+    const action=intent.route.find((point)=>point.kind==='window')!;
+    ai.x=action.x;ai.y=action.y;
+    internal.aiIntent.set(ai.id,intent);internal.aiThinkAt.set(ai.id,internal.now()+10);
+    expect(internal.advanceAiRoute(ai,intent)).toBe(true);
+    expect(ai.isVaulting).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 380));
+    expect(ai.isVaulting).toBe(false);
+    expect(ai.buildingId).toBe(zone.id);
+    expect(distance(ai.x,ai.y,points.inside.x,points.inside.y)).toBeLessThan(12);
   });
 
   it('allows a safe low-health AI to use a bandage', async () => {
@@ -811,10 +865,10 @@ describe('DROP 8 room integration', () => {
     client.send('start');
     await new Promise((resolve) => setTimeout(resolve, 100));
     const player=room.state.players.get(client.sessionId)!;
-    player.phase='landed';player.x=2048;player.y=2048;player.angle=0;player.buildingId=buildingIdAt(player.x,player.y);
+    player.phase='landed';player.x=2048;player.y=2048;player.angle=0;const playerSpace=spaceAt(player.x,player.y,MAP_CONFIGS.small.buildingVisibilityZones,MAP_CONFIGS.small.rooms);player.buildingId=playerSpace.buildingId;player.roomIndex=playerSpace.roomIndex;
     player.primary='rifle';player.secondary='pistol';player.equipped='rifle';player.rifleMagazine=7;player.magazine=7;player.standardAmmo=50;player.pistolMagazine=9;
     room.state.loot.clear();
-    const incoming=new LootState();incoming.id='incoming-sniper';incoming.kind='sniper';incoming.x=player.x+8;incoming.y=player.y;incoming.buildingId=player.buildingId;
+    const incoming=new LootState();incoming.id='incoming-sniper';incoming.kind='sniper';incoming.x=player.x+8;incoming.y=player.y;incoming.buildingId=player.buildingId;incoming.roomIndex=player.roomIndex;
     room.state.loot.set(incoming.id,incoming);
     const feedback=new Promise<any>((resolve)=>client.onMessage('pickupResult',resolve));
     client.send('pickup');
@@ -842,10 +896,10 @@ describe('DROP 8 room integration', () => {
     client.send('start');
     await new Promise((resolve) => setTimeout(resolve, 100));
     const player=room.state.players.get(client.sessionId)!;
-    player.phase='landed';player.x=2048;player.y=2048;player.angle=0;player.buildingId=buildingIdAt(player.x,player.y);
+    player.phase='landed';player.x=2048;player.y=2048;player.angle=0;const playerSpace=spaceAt(player.x,player.y,MAP_CONFIGS.small.buildingVisibilityZones,MAP_CONFIGS.small.rooms);player.buildingId=playerSpace.buildingId;player.roomIndex=playerSpace.roomIndex;
     player.primary='rifle';player.secondary='pistol';player.equipped='rifle';player.rifleMagazine=5;player.magazine=5;player.standardAmmo=44;
     room.state.loot.clear();
-    const incoming=new LootState();incoming.id='incoming-shotgun';incoming.kind='shotgun';incoming.x=player.x+8;incoming.y=player.y;incoming.buildingId=player.buildingId;
+    const incoming=new LootState();incoming.id='incoming-shotgun';incoming.kind='shotgun';incoming.x=player.x+8;incoming.y=player.y;incoming.buildingId=player.buildingId;incoming.roomIndex=player.roomIndex;
     room.state.loot.set(incoming.id,incoming);
     client.send('pickup');
     await new Promise((resolve) => setTimeout(resolve, 90));

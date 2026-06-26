@@ -1,3 +1,4 @@
+// DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
 export type PublicRoomStatus='LOBBY'|'PLANE'|'DROP'|'ACTIVE'|'FINISHED';
 export type PublicRoomInfo={
   roomId:string;
@@ -9,7 +10,7 @@ export type PublicRoomInfo={
   phase:PublicRoomStatus;
   fillAi:boolean;
   publicRoom:boolean;
-  mapSizeMode:'small'|'large';
+  mapSizeMode:'small'|'large'|'dock8';
   mapDisplayName:string;
   createdAt:number;
   updatedAt:number;

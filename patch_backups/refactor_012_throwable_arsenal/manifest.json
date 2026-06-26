@@ -1,0 +1,79 @@
+{
+  "patch": "DROP8_REFACTOR_012_THROWABLE_ARSENAL",
+  "createdAt": "2026-06-26T03:03:21.386Z",
+  "gitHead": "b3af719fa3966e45d72cee30155ec59c3cef1c5b",
+  "files": [
+    {
+      "path": "README.md",
+      "existedBefore": true
+    },
+    {
+      "path": "client/index.html",
+      "existedBefore": true
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "existedBefore": true
+    },
+    {
+      "path": "client/src/audio/SoundRegistry.ts",
+      "existedBefore": true
+    },
+    {
+      "path": "client/src/audio/audioTypes.ts",
+      "existedBefore": true
+    },
+    {
+      "path": "client/src/audio/synthSounds.ts",
+      "existedBefore": true
+    },
+    {
+      "path": "client/src/main.ts",
+      "existedBefore": true
+    },
+    {
+      "path": "client/src/network.ts",
+      "existedBefore": true
+    },
+    {
+      "path": "docs/NETWORK_PROTOCOL.md",
+      "existedBefore": true
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existedBefore": true
+    },
+    {
+      "path": "docs/TEST_PLAN.md",
+      "existedBefore": true
+    },
+    {
+      "path": "server/src/index.ts",
+      "existedBefore": true
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existedBefore": true
+    },
+    {
+      "path": "server/src/rooms/schema.ts",
+      "existedBefore": true
+    },
+    {
+      "path": "server/tests/throwables.test.ts",
+      "existedBefore": false
+    },
+    {
+      "path": "shared/src/index.ts",
+      "existedBefore": true
+    },
+    {
+      "path": "shared/src/throwables.ts",
+      "existedBefore": false
+    },
+    {
+      "path": "shared/tests/throwables.test.ts",
+      "existedBefore": false
+    }
+  ]
+}

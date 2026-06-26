@@ -1,0 +1,51 @@
+{
+  "patch": "DROP8_REFACTOR_012A_SMOKE_MOTORCYCLE_AI_NAV",
+  "name": "Refactor 012A — Smoke, Motorcycle Throwable & AI Navigation Recovery Hotfix",
+  "createdAt": "2026-06-26T05:05:20.554Z",
+  "files": [
+    {
+      "path": "shared/src/throwables.ts",
+      "canonicalSha256": "dc754e76db93a4d374b1e07e8705726dd80e1b4bc96ef50e9cb4b8e12ee91eee"
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "canonicalSha256": "061240d324254c3167b2ecea3f75be8a29323e9187e770d53e18e8b960b0426a"
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "canonicalSha256": "20080650c5e3462bbd337c53a07b17ec204fb529f276a98e5c0234fc4d1cf1de"
+    },
+    {
+      "path": "shared/tests/throwables.test.ts",
+      "canonicalSha256": "a716d063498a4eae8c1078f04ec8c7546e9db3a1c7934801134d13c61dcdf273"
+    },
+    {
+      "path": "server/tests/throwables.test.ts",
+      "canonicalSha256": "decf35f4a6892c817c72d4159ac8b85969d5ef3639465229a1eda62ac776b030"
+    },
+    {
+      "path": "server/tests/room.test.ts",
+      "canonicalSha256": "b6289736bdf80965716e8fbdae8b0a423b001222c9e34af28648f73272c26238"
+    },
+    {
+      "path": "README.md",
+      "canonicalSha256": "b04358620fc83532c67e0681ea9fb1ce7ee9f5ef223ed59614f2ab6fcda19ed9"
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "canonicalSha256": "0ef5480c6e5160a9da307e98d521627147c7e1c12e8034bdd387fc30e14b67eb"
+    },
+    {
+      "path": "docs/TEST_PLAN.md",
+      "canonicalSha256": "0cd46e1748bc0e276a54205a56a3550fe05db51ae3510840a468942b147cb08c"
+    },
+    {
+      "path": "docs/NETWORK_PROTOCOL.md",
+      "canonicalSha256": "8d8aacc5e3bf1542e42110c18234c8323ac2a9e87fb34c3c1d4b1e0ecc80353e"
+    },
+    {
+      "path": "docs/GAME_DESIGN.md",
+      "canonicalSha256": "f8cb074ffeeca9d6cc2dbdbef5b5fdb33dd5b4f75c9d2f19613a6e5b55ab0801"
+    }
+  ]
+}

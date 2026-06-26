@@ -1,5 +1,6 @@
 import os from 'node:os';
 import { listen } from '@colyseus/tools';
+import { Encoder } from '@colyseus/schema';
 import app from './app.config.js';
 
 const port = Number(process.env.PORT ?? 2567);
@@ -27,6 +28,9 @@ function getLanAddresses(): string[] {
   }
   return [...(privateAddresses.size > 0 ? privateAddresses : fallbackAddresses)].sort();
 }
+
+// Refactor 012: dynamic throwable/smoke/fire state can exceed the schema default.
+Encoder.BUFFER_SIZE = 64 * 1024;
 
 await listen(app, port);
 

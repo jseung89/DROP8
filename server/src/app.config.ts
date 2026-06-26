@@ -2,6 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { defineRoom, defineServer } from '@colyseus/core';
+import { Encoder } from '@colyseus/schema';
 import { Drop8Room } from './rooms/Drop8Room.js';
 import { listPublicRooms } from './roomRegistry.js';
 
@@ -10,6 +11,9 @@ const projectRoot = path.resolve(here, '../..');
 const clientRoot = path.join(projectRoot, 'client');
 const clientDist = path.join(clientRoot, 'dist');
 const isDevelopment = process.env.NODE_ENV === 'development';
+
+// Refactor 013: tests import app.config.ts directly, so keep the encoder limit here too.
+Encoder.BUFFER_SIZE = 64 * 1024;
 
 const vite = isDevelopment
   ? await import('vite').then(({ createServer }) => createServer({

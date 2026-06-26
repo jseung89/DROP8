@@ -1,0 +1,74 @@
+{
+  "patch": "Refactor 013 — Interior Rooms, Central River & Dock 8 Expansion",
+  "createdAt": "2026-06-26T06:43:34.083Z",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "53f8220fcfc91f2344bb1f0d9821a8fc450b9c764ab81c4f90910ec2f0bd2d83"
+    },
+    {
+      "path": "client/index.html",
+      "sha256": "6a922664105786aa836de312cdbe4ad5a4fe0080a403b33fd7103eb9e91a94a4"
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "sha256": "9682b2d10357b08b8763aaf595d77887f58b9282b70bb898c120d73fd7e4b765"
+    },
+    {
+      "path": "client/src/audio/SoundRegistry.ts",
+      "sha256": "790e4ad83bdf981f92437116f78cc1b26ae27e6c94bfae8b65ecdcecc7eeaf45"
+    },
+    {
+      "path": "client/src/audio/audioTypes.ts",
+      "sha256": "4c132ee24213e359cd3f051f5b014b514bf97e63e97120b725ff6c123198bd28"
+    },
+    {
+      "path": "client/src/audio/synthSounds.ts",
+      "sha256": "e68a3e968fd27d571448371ae66f620865fb52fde65ac0c5991b9ddfca884089"
+    },
+    {
+      "path": "client/src/main.ts",
+      "sha256": "85403994a6aa669f6e34e31f0dcd4379b752800950acf9ec33c766f3d717d25b"
+    },
+    {
+      "path": "client/src/network.ts",
+      "sha256": "7a46a152c53d9605c5b549097647d1e515816cc8616b7c1cebeb733ae278af4b"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "6a79ac97932c1db3131965b41ff023d1fc8966d8783e574f3a48dffb1e1bf262"
+    },
+    {
+      "path": "docs/GAME_DESIGN.md",
+      "sha256": "7ac73170daaa9b51f9ee08cb52cf2bb7db4b041ef39ecd157ea14afaa154ffa6"
+    },
+    {
+      "path": "docs/NETWORK_PROTOCOL.md",
+      "sha256": "70f20c1a372863e48316ba1b6fd3b94c8fc63961c73b088c6ab54a6b9737ca0c"
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "sha256": "8b8484aa0860790375efe04e97ab073279c146047ec49182fc6193e0c4592d50"
+    },
+    {
+      "path": "docs/TEST_PLAN.md",
+      "sha256": "7594f486df637a0a256b6f986376c2b83e6070bb6749660d4ee66363307e5cdc"
+    },
+    {
+      "path": "server/src/roomRegistry.ts",
+      "sha256": "8ef39470fec95745cc08f66226018d7e1e87a4eca1b9f59debf13fbb6850ad11"
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "sha256": "cb3bf1040f93bb011ec2432b46d33d65babc5431897980110e073aabf1cc7779"
+    },
+    {
+      "path": "server/src/rooms/schema.ts",
+      "sha256": "b9157c0ed3754cf5d7a149cb0d651a5727dfb60cf1f3be128b203bd60d072dba"
+    },
+    {
+      "path": "shared/src/index.ts",
+      "sha256": "388ac9f8afac499f030cc0139bd8dd3c967425d3c3a7150ce2b96a7f0c45f4d5"
+    }
+  ]
+}

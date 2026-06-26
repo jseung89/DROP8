@@ -73,3 +73,7 @@ html,body,#app{width:100%;height:100%;overflow:hidden}
 /* DROP8_REFACTOR_010A_WINDOW_VISIBILITY_DEATH_PRESENTATION */
 .window-visibility-overlay{position:absolute;z-index:7;inset:0;width:100%;height:100%;pointer-events:none;background:transparent}
 .window-visibility-overlay.hidden{display:none}
+
+
+/* DROP8_REFACTOR_011_SOUND_FOUNDATION_COMBAT_AUDIO */
+.audio-settings{position:fixed;right:14px;bottom:14px;z-index:2200;width:220px;padding:9px 12px;border:1px solid #ffffff26;border-radius:12px;background:#071018e8;backdrop-filter:blur(8px);font-size:12px}.audio-settings summary{cursor:pointer;font-weight:900;color:#f5d768}.audio-settings label{grid-template-columns:70px 1fr;align-items:center;margin:8px 0}.audio-settings input[type=range]{width:100%;padding:0}.audio-settings .audio-mute{display:flex;gap:8px}.audio-unlock-hint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2300;padding:9px 14px;border:1px solid #ffffff2b;border-radius:999px;background:#071018e8;color:#f5d768;font-size:13px;font-weight:800;pointer-events:none}

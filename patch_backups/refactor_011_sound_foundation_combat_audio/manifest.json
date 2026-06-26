@@ -1,0 +1,105 @@
+{
+  "patch": "DROP8_REFACTOR_011_SOUND_FOUNDATION_COMBAT_AUDIO",
+  "createdAt": "2026-06-26T00:57:07.170Z",
+  "gitHead": "b3af719fa3966e45d72cee30155ec59c3cef1c5b",
+  "files": [
+    {
+      "path": "DROP8_LAN_START_011.cmd",
+      "existed": false
+    },
+    {
+      "path": "client/index.html",
+      "existed": true,
+      "sha256": "7c6681b115324f1010760dfb0df6a65f645960ac881ddd2ce330a157d1c82bbf",
+      "canonicalSha256": "7c6681b115324f1010760dfb0df6a65f645960ac881ddd2ce330a157d1c82bbf",
+      "format": "LF"
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "existed": true,
+      "sha256": "3c2860d8e20d47a545344088f2de2e00ae9532b7cf222d638bc7cc92324123dc",
+      "canonicalSha256": "e4684eebe3c485e91051bfde08a043c29f01a339c6c7184829d5e7e78e955f29",
+      "format": "CRLF"
+    },
+    {
+      "path": "client/src/audio/AudioManager.ts",
+      "existed": false
+    },
+    {
+      "path": "client/src/audio/SoundRegistry.ts",
+      "existed": false
+    },
+    {
+      "path": "client/src/audio/audioMath.ts",
+      "existed": false
+    },
+    {
+      "path": "client/src/audio/audioTypes.ts",
+      "existed": false
+    },
+    {
+      "path": "client/src/audio/index.ts",
+      "existed": false
+    },
+    {
+      "path": "client/src/audio/synthSounds.ts",
+      "existed": false
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true,
+      "sha256": "ebebfb5b488bf8af7fb503ab010d25a252ae56e42ad8d021a0243e170d2d6eb4",
+      "canonicalSha256": "ebebfb5b488bf8af7fb503ab010d25a252ae56e42ad8d021a0243e170d2d6eb4",
+      "format": "LF"
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true,
+      "sha256": "0c0232fbb94062dc045f9fad67ebcb4be3aa0788ae3300a82026d771f63acf43",
+      "canonicalSha256": "0c0232fbb94062dc045f9fad67ebcb4be3aa0788ae3300a82026d771f63acf43",
+      "format": "LF"
+    },
+    {
+      "path": "client/src/style.css",
+      "existed": true,
+      "sha256": "6a05e6be3b9aec7a3d232515dab83c7756d44525933b781facd21708c8e33a46",
+      "canonicalSha256": "6a05e6be3b9aec7a3d232515dab83c7756d44525933b781facd21708c8e33a46",
+      "format": "LF"
+    },
+    {
+      "path": "docs/NETWORK_PROTOCOL.md",
+      "existed": true,
+      "sha256": "e1e25cd960c9f2827f7a5a4276750de269857d4a4c8beeae81c4d87e9a7473cc",
+      "canonicalSha256": "e1e25cd960c9f2827f7a5a4276750de269857d4a4c8beeae81c4d87e9a7473cc",
+      "format": "LF"
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "sha256": "1bd3fcb2a69639e8c58aeef305e32e70275da4ad5a5ee978d4aecdb0805f3cad",
+      "canonicalSha256": "0ef699b50e5293f27baff9a01a505780d076305e7fceb1c112aeb3f5bba924bf",
+      "format": "CRLF"
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "sha256": "527a28a09a3e8c2240f7020b014ddd7c9986c35386b6692dea81ddf251973e48",
+      "canonicalSha256": "527a28a09a3e8c2240f7020b014ddd7c9986c35386b6692dea81ddf251973e48",
+      "format": "LF"
+    },
+    {
+      "path": "shared/src/index.ts",
+      "existed": true,
+      "sha256": "38eb29c6f5eb735940a143f26885c8570f3c456b00471ecb119fed49fe3fff71",
+      "canonicalSha256": "85fce74fdde4bf03ddb04bac3125435091ff647d5f89949589c4603c4815ef34",
+      "format": "CRLF"
+    },
+    {
+      "path": "shared/tests/rules.test.ts",
+      "existed": true,
+      "sha256": "0688500d8c2a11af4334d54745a05e2c7e6be37c604c1d0881fb4600475b9d08",
+      "canonicalSha256": "af0304e6c0c8c9fe02a29658b1de765a616d22b66c6dba5c6e625984e0635d1d",
+      "format": "CRLF"
+    }
+  ]
+}

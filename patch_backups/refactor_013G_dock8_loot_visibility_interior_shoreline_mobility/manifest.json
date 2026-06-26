@@ -1,0 +1,46 @@
+{
+  "patch": "Refactor 013G — Dock 8 Loot, Visibility, Interior Reveal, Shoreline & Mobility Recovery",
+  "createdAt": "2026-06-26T07:50:12.521Z",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "c86b085d082228c6e5a4716a55db209186002525cf21ef64bd512529e9f82297"
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "sha256": "df80a067698c6fdbddb13fa7f54bf45cac74fd4827787b313f4881c0ac573192"
+    },
+    {
+      "path": "docs/ARCHITECTURE.md",
+      "sha256": "08ea832dde68b196db7a83d9d2a9037ae68bd05fa6e379e752f97433f9bb29cf"
+    },
+    {
+      "path": "docs/GAME_DESIGN.md",
+      "sha256": "ec7b89d3e6fb5909fe5eafdd383c2797e4f28f0098125f8a7a8185135d7a9526"
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "sha256": "d3a946ff8c277f561189cb93719851570482264fc8fbef9230838b2ba279a914"
+    },
+    {
+      "path": "docs/TEST_PLAN.md",
+      "sha256": "97b2b974a09473a9da06338870d94cb7a25493172ed17f5709d1bf4a4f94b7fe"
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "sha256": "7f41e0ad5050061767b1d59b1ff5902391d8781f892c8d123bcf3eda2c235af1"
+    },
+    {
+      "path": "shared/src/index.ts",
+      "sha256": "53019e47f854f281210188bde831381d55af4cd5f861830608a9cfeadee81ec5"
+    },
+    {
+      "path": "shared/src/maps/dock8.ts",
+      "sha256": "cd850b697412b4060a18ae5242d9f652e738803d5ed81eb04b0d67d3279241fc"
+    },
+    {
+      "path": "shared/tests/refactor013-map.test.ts",
+      "sha256": "2d1a4f67ac52c25bba64b7300581e6549edaf76d7dbf8a26e0647ab7019230eb"
+    }
+  ]
+}

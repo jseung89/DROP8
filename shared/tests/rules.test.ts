@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AMMO_DISPLAY_NAMES, BUSHES, BUILDINGS, DECORATIONS, LARGE_INTERIOR_WALLS, MAP_CONFIGS, MOTORCYCLE_BALANCE, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, OBSTACLES, PLAYER_SPEED, PROJECTILE_CONFIGS, REGION_THEMES, REGIONS, createRoomCode, distance, motorcycleCollisionDamage, motorcycleDirectionRetention, motorcycleSpeedMultiplier, motorcycleSpreadMultiplier, motorcycleSpreadRadians, normalizeAimVector, normalizeAmmoType, normalizeMovementInput, pointInDirectionalScope, sanitizeText, segmentCircleIntersectionT, WEAPONS, circleHitsRect } from '../src/index.js';
+import { DEFAULT_AUDIO_SETTINGS, audioCategoryGain, audioDistanceGain, audioOcclusionProfile, audioStereoPan, normalizeAudioSettings, soundOcclusionBetween, AMMO_DISPLAY_NAMES, BUSHES, BUILDINGS, DECORATIONS, LARGE_INTERIOR_WALLS, MAP_CONFIGS, MOTORCYCLE_BALANCE, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, OBSTACLES, PLAYER_SPEED, PROJECTILE_CONFIGS, REGION_THEMES, REGIONS, createRoomCode, distance, motorcycleCollisionDamage, motorcycleDirectionRetention, motorcycleSpeedMultiplier, motorcycleSpreadMultiplier, motorcycleSpreadRadians, normalizeAimVector, normalizeAmmoType, normalizeMovementInput, pointInDirectionalScope, sanitizeText, segmentCircleIntersectionT, WEAPONS, circleHitsRect } from '../src/index.js';
 
 describe('shared rules', () => {
   it('creates a readable six-character room code', () => {
@@ -556,3 +556,24 @@ describe('Refactor 010D angle-aware portal visibility rules', () => {
   });
 });
 
+
+
+describe('Refactor 011 audio rules',()=>{
+  it('normalizes audio settings and category gain',()=>{
+    const settings=normalizeAudioSettings({master:2,effects:-1,environment:.4,music:.3,muted:false});
+    expect(settings.master).toBe(1);expect(settings.effects).toBe(0);expect(audioCategoryGain(settings,'movement')).toBe(.4);
+    expect(audioCategoryGain({...DEFAULT_AUDIO_SETTINGS,muted:true},'weapon')).toBe(0);
+  });
+  it('attenuates distance and pans safely',()=>{
+    expect(audioDistanceGain(0,100)).toBe(1);expect(audioDistanceGain(100,100)).toBe(0);expect(audioDistanceGain(120,100)).toBe(0);
+    expect(audioStereoPan(100,0,100)).toBe(-.85);expect(audioStereoPan(0,100,100)).toBe(.85);expect(audioStereoPan(0,0,100)).toBe(0);
+  });
+  it('exposes stable occlusion profiles',()=>{
+    expect(audioOcclusionProfile('direct').volume).toBe(1);expect(audioOcclusionProfile('door').volume).toBe(.95);
+    expect(audioOcclusionProfile('window').volume).toBe(.78);expect(audioOcclusionProfile('solid').lowpassHz).toBe(1100);
+  });
+  it('classifies direct and solid sound paths',()=>{
+    expect(soundOcclusionBetween({x:0,y:0,buildingId:''},{x:20,y:0,buildingId:''},[])).toBe('direct');
+    expect(soundOcclusionBetween({x:0,y:0,buildingId:''},{x:20,y:0,buildingId:''},[{x:8,y:-4,w:4,h:8}])).toBe('solid');
+  });
+});
