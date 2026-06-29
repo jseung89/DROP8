@@ -1,5 +1,3 @@
-// DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
-// DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 import { ArraySchema, MapSchema, Schema, type } from '@colyseus/schema';
 // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
 
@@ -218,8 +216,7 @@ export class Drop8State extends Schema {
   @type('number') zoneTimer=30;
   @type('number') zoneStage=0;
   @type('number') zoneProgress=0;
-  @type('boolean') zoneActive=false;
-  @type('string') zoneState='FREE';
+  @type('string') zoneState='WAITING';
 
   @type('number') planeStartX=0;
   @type('number') planeStartY=0;

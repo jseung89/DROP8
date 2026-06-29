@@ -1,0 +1,96 @@
+{
+  "patch": "013H_FIXED_v2",
+  "createdAt": "2026-06-29T00:02:12.834Z",
+  "files": [
+    {
+      "path": "shared/src/maps/types.ts",
+      "before": "a9a9d7cb7b06e2495702ea469149f47ff92445fb94123a7db3e72128cce82907",
+      "after": "b244e94dd4641c71e90a1960734b789285cd43cfa72b1a0829de335063bf09d5",
+      "kind": "modify"
+    },
+    {
+      "path": "shared/src/maps/water.ts",
+      "before": "ca1046bb17a51a1edbf178c8284fd258601aff5689f903d55deb86de02d629be",
+      "after": "78d1f75ad422b2a7706690fffaaa0aac02eb4cad922f3163487205aea88b185f",
+      "kind": "modify"
+    },
+    {
+      "path": "shared/src/index.ts",
+      "before": "373c46a8ecf17d6732c89f4f9b248781789c16245d72f4cbba210634b47bb6ee",
+      "after": "108388fe3c9ae1debd5bac86364b711d1062750a7af56b739333a298f5bffb69",
+      "kind": "modify"
+    },
+    {
+      "path": "server/src/rooms/schema.ts",
+      "before": "4b27301968666a44d8e597e88af80512cbd9cd4d4dec2fa49676007d80c690fe",
+      "after": "51c68ab2eb96e339a5f1afd6360c1cd454c36dcd5f93116371aa38a9bc039f8b",
+      "kind": "modify"
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "before": "3a8576ee53ad087d5fecc9fed04caceda20a58e601de1f9bc9af1673e1706414",
+      "after": "37cda2d8bfd293900ffc088f345cdc8f4748419c155e03198847c939df710d53",
+      "kind": "modify"
+    },
+    {
+      "path": "server/tests/room.test.ts",
+      "before": "5973fcc3a7fd6f626adfeba3bac2ba1cb4f62af8ed96879840abf886d1629ae8",
+      "after": "76f6a87469cf5e821702bdd8691b88b1049f4f2afe4ba3b0e7ed8612c999dd16",
+      "kind": "modify"
+    },
+    {
+      "path": "client/src/network.ts",
+      "before": "d631710197a54a1936f0a601254e54b55f3bbbde27fa4f4d2539800610558b9e",
+      "after": "82b4152db3a5906a49d583d1cf21f28134298c3cf8c1a6c96741252547f4a59f",
+      "kind": "modify"
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "before": "985e4d27aba26eb700baae25f08c81cac183650247efccf29345affff9ed29d2",
+      "after": "06925c2ed6a77945d0e735d6374bcbe583e93a24d0b5ddf82b9540c611abb00c",
+      "kind": "modify"
+    },
+    {
+      "path": "client/src/main.ts",
+      "before": "45215a3cd15e58c039b7e4e07657b0535fa56ba450bd7741dc876ad573534fe8",
+      "after": "1d2596f317c444dafadf900311a1297f822451b6617b05235f1f0ff686c49384",
+      "kind": "modify"
+    },
+    {
+      "path": "README.md",
+      "before": "3dea750bd44399db26a9513aba32ef2b6417b22d99bf4a3dd22990093e4abdad",
+      "after": "e39c01d31ccc788d948c43425bbcd44e5f57a951cbe0c3fcd0830249f58d7180",
+      "kind": "modify"
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "before": "c34be09fdb94a81f2261ae984d5483b319e259999d514c415583cb9e934d7f31",
+      "after": "1b3be2413b0a42707d0a3ccf2cb6a43c13e9d906952e84542e8540c55061e69f",
+      "kind": "modify"
+    },
+    {
+      "path": "docs/TEST_PLAN.md",
+      "before": "a611cf46afa5d18a19bcc33797482b2c5d6a3ae7eb1ffc228ca9f05628abc1e5",
+      "after": "2cd11e1542799ebfc8fd3510cc5fde46c50b953581f8bcfed59bd32f3f01c2bd",
+      "kind": "modify"
+    },
+    {
+      "path": "shared/tests/refactor013h-terrain-zone-loot.test.ts",
+      "before": "",
+      "after": "6232800d57aa7efc0f02c3d96944f225d78346367e9cd57f1ace0919c32bb836",
+      "kind": "create"
+    },
+    {
+      "path": "server/tests/refactor013h-zone-water.test.ts",
+      "before": "",
+      "after": "e04c17982b096e35e2850b41b2ede138466e3e7054c47db5f9fc38fa1b12117c",
+      "kind": "create"
+    },
+    {
+      "path": "server/tests/refactor013h-visibility-roof-source.test.ts",
+      "before": "",
+      "after": "03b4fa656aa48965a21812404f5ff41787aeb318f0cea0790df23d75187b1d25",
+      "kind": "create"
+    }
+  ]
+}

@@ -1,22 +1,8 @@
-// DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
-// DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
-import type { LandCrossing, MapPoint, MapRect, RiverBand, RoomZone, ShoreExit, TerrainKind, WaterZone } from './types.js';
+import type { LandCrossing, MapPoint, RiverBand, ShoreExit, WaterZone } from './types.js';
 
 export const SWIM_SPEED=165;
 export const SWIM_ENTER_MARGIN=12;
 export const SWIM_EXIT_MARGIN=18;
-
-
-export interface TerrainQuery{
-  buildings?:readonly MapRect[];
-  rooms?:readonly RoomZone[];
-  landOverrides?:readonly MapRect[];
-  rivers:readonly RiverBand[];
-  shallowWaterZones?:readonly WaterZone[];
-  crossings?:readonly LandCrossing[];
-  shoreExits?:readonly ShoreExit[];
-}
-
 
 export function pointInRect(x:number,y:number,rect:{x:number;y:number;w:number;h:number},padding=0){
   return x>=rect.x-padding&&x<=rect.x+rect.w+padding&&y>=rect.y-padding&&y<=rect.y+rect.h+padding;
@@ -44,29 +30,6 @@ export function riverSignedDepth(x:number,y:number,river:RiverBand){
   }
   return best;
 }
-
-function firstContainingRect<T extends MapRect>(x:number,y:number,rects:readonly T[]=[]){
-  return rects.find((rect)=>pointInRect(x,y,rect));
-}
-
-export function terrainAt(x:number,y:number,query:TerrainQuery):TerrainKind{
-  const rooms=query.rooms??[];
-  if(rooms.some((room)=>pointInRect(x,y,room.rect)))return'building';
-  if(firstContainingRect(x,y,query.buildings??[]))return'building';
-  if(firstContainingRect(x,y,query.landOverrides??[]))return'land';
-  const crossing=crossingAt(x,y,query.crossings??[]);
-  if(crossing){
-    if(crossing.kind==='ford')return'ford';
-    return'bridge';
-  }
-  if((query.shoreExits??[]).some((exit)=>pointInRect(x,y,exit.entry)))return'shore';
-  if(shallowWaterAt(x,y,query.shallowWaterZones??[]))return'shallow-water';
-  if(isDeepWaterAt(x,y,query.rivers,query.crossings??[],0))return'deep-water';
-  return'land';
-}
-
-export function terrainAllowsSwimming(kind:TerrainKind){return kind==='deep-water';}
-export function terrainIsWalkable(kind:TerrainKind){return kind!=='deep-water';}
 
 export function crossingAt(x:number,y:number,crossings:readonly LandCrossing[]){
   return crossings.find((crossing)=>pointInRect(x,y,crossing.rect));
@@ -115,7 +78,8 @@ export function nearestShoreExit(x:number,y:number,exits:readonly ShoreExit[],bl
   return best;
 }
 
-export function riverLandSideAt(x:number,y:number,river:RiverBand):'west'|'east'{
+export function riverSideAt(x:number,y:number,river:RiverBand):'west'|'east'|'water'{
+  if(isDeepWaterAt(x,y,[river]))return'water';
   let bestIndex=0,bestDistance=Number.POSITIVE_INFINITY;
   for(let index=0;index<river.points.length-1;index++){
     const distance=pointSegmentDistance(x,y,river.points[index]!,river.points[index+1]!);
@@ -125,9 +89,4 @@ export function riverLandSideAt(x:number,y:number,river:RiverBand):'west'|'east'
   const t=Math.max(0,Math.min(1,(y-a.y)/Math.max(1,b.y-a.y)));
   const centerX=a.x+(b.x-a.x)*t;
   return x<centerX?'west':'east';
-}
-
-export function riverSideAt(x:number,y:number,river:RiverBand):'west'|'east'|'water'{
-  if(isDeepWaterAt(x,y,[river]))return'water';
-  return riverLandSideAt(x,y,river);
 }

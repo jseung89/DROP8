@@ -1,5 +1,3 @@
-// DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
-// DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 import Phaser from 'phaser';
 import { AMMO_DISPLAY_NAMES, GAME_NAME, LOOT_LABELS, MAX_PLAYERS, MELEE_WEAPONS, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_SCOPE_SPEED_RATIO, WEAPONS, isThrowableType, type AmmoType, type WeaponId, type ThrowableType } from '@drop8/shared';
 import { GameScene } from './GameScene';
@@ -362,8 +360,7 @@ function render(){
   $('phaseText').textContent=me&&!me.alive?'관전 중 · ← → 대상 변경':s.phase;
   $('aliveText').textContent=String(s.aliveCount);
   $('killsText').textContent=String(me?.kills??0);
-  const zoneSeconds=Math.max(0,Math.ceil(s.zoneTimer));
-  $('zoneText').textContent=s.zoneState==='FREE'?`없음 · ${zoneSeconds}초`:s.zoneState==='ANNOUNCING'?`예고 · ${zoneSeconds}초`:`${zoneSeconds}초`;
+  $('zoneText').textContent=String(Math.max(0,Math.ceil(s.zoneTimer)));
   $('hpText').textContent=String(Math.ceil(me?.hp??0));
   $('mapModeText').textContent=s.mapId==='dock8'||s.mapSizeMode==='dock8'?'8번 부두':s.mapId==='large'||s.mapSizeMode==='large'?'큰 맵':'작은 맵';
   const motorcycle=me?.vehicleId?s.motorcycles.find((item:any)=>item.id===me.vehicleId):undefined;

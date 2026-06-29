@@ -1,0 +1,78 @@
+{
+  "patch": "013H1",
+  "createdAt": "2026-06-29T03:57:01.890Z",
+  "files": [
+    {
+      "path": "README.md",
+      "kind": "modify",
+      "before": "0d9f3519b98b787563978f626b82b866b833627801074f90ce66af7e36c9a8f2",
+      "after": "48614413fa24ccad1bc00618356770a23519953eacf507643c05548fbfb94433"
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "kind": "modify",
+      "before": "c301389ad3b1eff28a0190e4920c7149c3143a1ac44b9886c332b4f2cf0ab9c8",
+      "after": "6e0f33e03068b46226fdbf620bddeeb2ee206532e5557cc0bb6fb14120c676d2"
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "kind": "modify",
+      "before": "39f19ae356b2cc526751127cb663a3dce91ed16076cd9dbd3efe3d979edb69dd",
+      "after": "02fb563b769e6e52eed544046095aee99729d58acd9163db620f6bdbeac26a97"
+    },
+    {
+      "path": "docs/TEST_PLAN.md",
+      "kind": "modify",
+      "before": "31722426b69e4f16016f4d8fc31fc525425f925b84b3e7daace433dc7ebead90",
+      "after": "2ba801cc1d15f26b244977e09f3bc2ce5d6d62e1b57ff5ee174365d7827ec746"
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "kind": "modify",
+      "before": "c6357fafb66e028532a7f219bf4f0e4d94d42e297701641c0768a0e4b35ec0a2",
+      "after": "30d6f17c8606e3fefb774780c29a8eacab023e5e45ae5eccf4fc85aea3d577d5"
+    },
+    {
+      "path": "server/tests/refactor013h-visibility-roof-source.test.ts",
+      "kind": "modify",
+      "before": "ce1a61b0e292f47706abf9b3f6e420eeb324116d3f6c0cc35827ce1f33e20ca7",
+      "after": "f9c33554f41efee1896f19e9c99fbed2e9538423a1f32acccba825c5f07843af"
+    },
+    {
+      "path": "shared/src/index.ts",
+      "kind": "modify",
+      "before": "f251266f86a1b999bfc2f7e315dee564ba029879145ac2d90ae8a144847960bd",
+      "after": "23645a73bb24c174e34d6a269fd16ebe0b658abce3bc50914aad437047080824"
+    },
+    {
+      "path": "shared/src/maps/dock8.ts",
+      "kind": "modify",
+      "before": "72a2b4eb12374b9391a4909d3ae6d64990ca55536483feffe84c99ad5c62679d",
+      "after": "f00b9fb267d085d24671ae2fe1da22546f31a6ce6d0725af8717d835b2ea7e4e"
+    },
+    {
+      "path": "shared/src/maps/rooms.ts",
+      "kind": "modify",
+      "before": "cf8e5d2a4c883dece4ad660c434fc17c89d397570a5ccf258bb0aa3c7b88d033",
+      "after": "e3e80be910396b516b7017b0b024a396d55ec069b67e2a72722a31d2365bb15f"
+    },
+    {
+      "path": "shared/src/maps/types.ts",
+      "kind": "modify",
+      "before": "2173182b9ef077dd96e78fb30785763270ce9b31a08ce4bba26aed0ca8e9c250",
+      "after": "c916ec141293d21bc17d5a0f7805f33460233f83f9b008c58fd04e24b4a465b4"
+    },
+    {
+      "path": "server/tests/refactor013h1-nested-window-dock8-loot.test.ts",
+      "kind": "create",
+      "before": "",
+      "after": "6ae4e70877bd03394243989dbf8fa53cd66ace81d022121951025176363770db"
+    },
+    {
+      "path": "shared/tests/refactor013h1-room-dock8.test.ts",
+      "kind": "create",
+      "before": "",
+      "after": "7d5796c8dc73a3def0e8a151490e8a2ad0ed0ee04c5c9f2ffa41e42fc51e26e4"
+    }
+  ]
+}

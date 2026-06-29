@@ -1,12 +1,9 @@
-// DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
-// DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 export type MapId='small'|'large'|'dock8';
 export type RoomKind='main'|'hall'|'corridor'|'office'|'storage'|'lounge';
 export type PortalKind013='door'|'window';
 export type CrossingKind='vehicle_bridge'|'foot_bridge'|'service_bridge'|'ford';
 export type AiMacroKind='region'|'door'|'window'|'bridge'|'ford'|'swim_entry'|'shore_exit';
 export type AiMovementMode='land'|'vault'|'swim';
-export type TerrainKind='land'|'building'|'bridge'|'ford'|'shore'|'shallow-water'|'deep-water';
 
 export interface MapPoint{x:number;y:number;}
 export interface MapRect{x:number;y:number;w:number;h:number;}

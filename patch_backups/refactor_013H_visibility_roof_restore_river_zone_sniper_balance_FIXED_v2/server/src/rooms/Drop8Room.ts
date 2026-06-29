@@ -1,5 +1,3 @@
-// DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
-// DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 // DROP8_REFACTOR_013G_DOCK8_RECOVERY
 import { Client, CloseCode, Room } from '@colyseus/core';
 import { BulletState, Drop8State, ExplosionState, FireFieldState, LootState, MotorcycleState, PlayerState, SmokeFieldState, ThrownObjectState } from './schema.js';
@@ -43,7 +41,6 @@ import {
   SERVER_TICK_RATE,
   SNIPER_SCOPE_MOVE_MULTIPLIER,
   WEAPONS,
-  adjustedLootTableForMap,
   WINDOW_INTERACTION_DISTANCE,
   WINDOW_VAULT_COOLDOWN_MS,
   WINDOW_VAULT_DURATION_MS,
@@ -51,7 +48,6 @@ import {
   buildingSpacesInteractable,
   circleHitsRect,
   clamp,
-  createInitialZone,
   createNextZone,
   createPlaneRoute,
   createRoomCode,
@@ -66,11 +62,11 @@ import {
   getMapConfig,
   normalizeMapId,
   isFiniteNumber,
+  isDeepWaterAt,
   crossingAt,
   movementMultiplierAt,
   motorcycleCanOccupyWaterPosition,
-  riverLandSideAt,
-  terrainAt,
+  riverSideAt,
   waterSignedDepthAt,
   spaceAt,
   spaceInteractionAllowed,
@@ -197,7 +193,6 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
   private planeEnd={x:4096,y:4096};
   private lootRandom:()=>number=Math.random;
   private zoneShrinkDuration=28;
-  private readonly firstZoneAnnouncementSeconds=15;
   private tickSamples:number[]=[];
   private perfLastPublish=0;
   private registryLastSync=0;
@@ -420,14 +415,11 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     this.state.zoneStartX=this.state.zoneX;
     this.state.zoneStartY=this.state.zoneY;
     this.state.zoneStartRadius=this.state.zoneRadius;
-    this.state.nextZoneX=this.state.zoneX;
-    this.state.nextZoneY=this.state.zoneY;
-    this.state.nextZoneRadius=this.state.zoneRadius;
-    this.state.zoneTimer=this.map.zoneFreeSeconds;
+    this.state.zoneTimer=30;
     this.state.zoneStage=0;
     this.state.zoneProgress=0;
-    this.state.zoneActive=false;
-    this.state.zoneState='FREE';
+    this.state.zoneState='WAITING';
+    this.prepareNextZone();
     this.choosePlane();
 
     let aiIndex=0;
@@ -523,12 +515,12 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
 
   private lootKindForSpawn(spawn:MapConfig['lootSpawns'][number]):LootKind{
     const category=spawn.category;
-    if(category==='weapon')return weightedLootChoice(adjustedLootTableForMap(this.map.id,[{kind:'pistol',weight:26},{kind:'smg',weight:24},{kind:'rifle',weight:20},{kind:'shotgun',weight:20},{kind:'sniper',weight:10}]),this.lootRandom) as LootKind;
-    if(category==='ammo')return weightedLootChoice(adjustedLootTableForMap(this.map.id,[{kind:'pistol_ammo',weight:28},{kind:'standard_ammo',weight:48},{kind:'shotgun_ammo',weight:24}]),this.lootRandom) as LootKind;
+    if(category==='weapon')return weightedLootChoice([{kind:'pistol',weight:26},{kind:'smg',weight:24},{kind:'rifle',weight:20},{kind:'shotgun',weight:20},{kind:'sniper',weight:10}],this.lootRandom) as LootKind;
+    if(category==='ammo')return weightedLootChoice([{kind:'pistol_ammo',weight:28},{kind:'standard_ammo',weight:48},{kind:'shotgun_ammo',weight:24}],this.lootRandom) as LootKind;
     if(category==='heal')return weightedLootChoice([{kind:'bandage',weight:68},{kind:'medkit',weight:32}],this.lootRandom) as LootKind;
-    if(category==='throwable')return weightedLootChoice(adjustedLootTableForMap(this.map.id,[{kind:'fragGrenade',weight:40},{kind:'smokeGrenade',weight:34},{kind:'incendiaryGrenade',weight:26}]),this.lootRandom) as LootKind;
+    if(category==='throwable')return weightedLootChoice([{kind:'fragGrenade',weight:40},{kind:'smokeGrenade',weight:34},{kind:'incendiaryGrenade',weight:26}],this.lootRandom) as LootKind;
     const table=REGION_LOOT_TABLES[spawn.regionId as RegionId]??REGION_LOOT_TABLES.residential;
-    return weightedLootChoice(adjustedLootTableForMap(this.map.id,table),this.lootRandom);
+    return weightedLootChoice(table,this.lootRandom);
   }
 
   private spawnLoot(){
@@ -564,7 +556,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
 
   private isLootPositionValid(x:number,y:number,kind:LootKind,ignoreId='',expectedBuildingId?:string,expectedRoomIndex?:number){
     if(x<40||y<40||x>this.worldSize-40||y>this.worldSize-40)return false;
-    if(this.terrainKindAt(x,y)==='deep-water')return false;
+    if(isDeepWaterAt(x,y,this.map.rivers,this.map.landCrossings,0))return false;
     if(this.map.collisionObstacles.some((rect)=>circleHitsRect(x,y,LOOT_WALL_CLEARANCE,rect)))return false;
     if(this.doorCenters().some((door)=>distance(x,y,door.x,door.y)<LOOT_DOOR_CLEARANCE))return false;
     if(this.map.portals.some((portal)=>circleHitsRect(x,y,LOOT_DOOR_CLEARANCE*.75,portal.opening)))return false;
@@ -1263,13 +1255,13 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
       object.x=next.x;object.y=next.y;object.z=next.z;object.vx=next.vx;object.vy=next.vy;object.vz=next.vz;object.bounces=next.bounces;object.phase=next.phase;object.buildingId=buildingIdAt(object.x,object.y,0,this.map.buildingVisibilityZones);
       if(next.collision!=='none')this.emitAudioEvent('throwable_bounce',{sourceId:object.id,x:next.collisionX,y:next.collisionY,buildingId:object.buildingId,variant:type});
       if(type==='incendiaryGrenade'&&(next.collision!=='none'||next.phase==='resting')){
-        if(this.terrainKindAt(object.x,object.y)==='deep-water')this.emitAudioEvent('water_extinguish',{sourceId:object.id,x:object.x,y:object.y,buildingId:'',variant:type});
+        if(isDeepWaterAt(object.x,object.y,this.map.rivers,this.map.landCrossings,0))this.emitAudioEvent('water_extinguish',{sourceId:object.id,x:object.x,y:object.y,buildingId:'',variant:type});
         else this.spawnFireField(object);
         this.state.thrownObjects.delete(object.id);continue;
       }
       if(type==='smokeGrenade'&&next.phase==='resting'&&object.detonateAt<=0)object.detonateAt=now+SMOKE_TIMING.deployDelayMs/1000;
       if(type==='smokeGrenade'&&object.detonateAt>0&&now>=object.detonateAt){
-        if(this.terrainKindAt(object.x,object.y)==='deep-water')this.emitAudioEvent('water_steam',{sourceId:object.id,x:object.x,y:object.y,buildingId:'',variant:type});
+        if(isDeepWaterAt(object.x,object.y,this.map.rivers,this.map.landCrossings,0))this.emitAudioEvent('water_steam',{sourceId:object.id,x:object.x,y:object.y,buildingId:'',variant:type});
         else this.spawnSmokeField(object);
         this.state.thrownObjects.delete(object.id);continue;
       }
@@ -1390,8 +1382,6 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     if(x<MOTORCYCLE_RADIUS||y<MOTORCYCLE_RADIUS||x>this.worldSize-MOTORCYCLE_RADIUS||y>this.worldSize-MOTORCYCLE_RADIUS)return false;
     if(this.map.collisionObstacles.some((rect)=>circleHitsRect(x,y,MOTORCYCLE_RADIUS,rect)))return false;
     if(this.map.buildingVisibilityZones.some((zone)=>circleHitsRect(x,y,MOTORCYCLE_RADIUS+3,zone.roof)))return false;
-    const terrain=this.terrainKindAt(x,y);
-    if(terrain==='deep-water'||terrain==='ford')return false;
     if(!motorcycleCanOccupyWaterPosition(x,y,this.map.rivers,this.map.landCrossings))return false;
     for(const other of this.state.motorcycles.values()){
       if(other.id===ignoreId)continue;
@@ -1654,17 +1644,9 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     return allowed;
   }
 
-  private terrainKindAt(x:number,y:number){
-    return terrainAt(x,y,{
-      buildings:this.map.buildings,
-      rooms:this.map.rooms,
-      rivers:this.map.rivers,
-      shallowWaterZones:this.map.shallowWaterZones,
-      crossings:this.map.landCrossings,
-      shoreExits:this.map.shoreExits,
-    });
+  private shoreExitNear(x:number,y:number,padding=18){
+    return this.map.shoreExits.find((exit)=>x>=exit.entry.x-padding&&x<=exit.entry.x+exit.entry.w+padding&&y>=exit.entry.y-padding&&y<=exit.entry.y+exit.entry.h+padding);
   }
-
 
   private setSwimming(p:PlayerState,value:boolean){
     if(p.isSwimming===value)return;
@@ -1679,11 +1661,11 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
 
   private updateSwimmingState(p:PlayerState){
     if(!this.map.rivers.length||p.phase!=='landed'||!p.alive||p.isDriving){if(p.isSwimming)this.setSwimming(p,false);return;}
-    const kind=this.terrainKindAt(p.x,p.y);
+    const crossing=crossingAt(p.x,p.y,this.map.landCrossings);
     const depth=waterSignedDepthAt(p.x,p.y,this.map.rivers,this.map.landCrossings);
     if(p.isSwimming){
-      if(kind!=='deep-water'||depth<=-SWIM_EXIT_MARGIN)this.setSwimming(p,false);
-    }else if(kind==='deep-water'&&depth>=SWIM_ENTER_MARGIN)this.setSwimming(p,true);
+      if(crossing?.allowsPlayer||(depth<=-SWIM_EXIT_MARGIN&&Boolean(this.shoreExitNear(p.x,p.y,34))))this.setSwimming(p,false);
+    }else if(depth>=SWIM_ENTER_MARGIN&&Boolean(this.shoreExitNear(p.x,p.y,34)))this.setSwimming(p,true);
     if(p.isSwimming){p.buildingId='';p.roomIndex=0;p.insideBuilding=false;}
   }
 
@@ -1692,6 +1674,10 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     if(!this.map.rivers.length)return true;
     const crossing=crossingAt(x,y,this.map.landCrossings);
     if(crossing)return crossing.allowsPlayer;
+    const deep=isDeepWaterAt(x,y,this.map.rivers,this.map.landCrossings,0);
+    const shore=Boolean(this.shoreExitNear(x,y,24));
+    if(p.isSwimming)return deep||shore;
+    if(deep)return shore;
     return true;
   }
 
@@ -2034,14 +2020,6 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     for(const id of this.bulletRemoveQueue)this.state.bullets.delete(id);
   }
 
-  private prepareInitialZone(){
-    const requiredCrossings=this.map.id==='dock8'?this.map.landCrossings.filter((crossing)=>crossing.allowsPlayer).map((crossing)=>({x:crossing.rect.x+crossing.rect.w/2,y:crossing.rect.y+crossing.rect.h/2})):[];
-    const target=createInitialZone(this.lootRandom,this.map.initialZoneRadius,this.worldSize,28,requiredCrossings);
-    this.state.nextZoneX=target.x;
-    this.state.nextZoneY=target.y;
-    this.state.nextZoneRadius=target.radius;
-  }
-
   private prepareNextZone(){
     if(this.state.zoneStage>=6){
       this.state.nextZoneX=this.state.zoneX;
@@ -2067,36 +2045,6 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     const landed=[...this.state.players.values()].some((p)=>p.phase==='landed');
     if(!landed)return;
     const mult=this.state.zoneSpeed==='fast'?1.35:this.state.zoneSpeed==='slow'?.8:1;
-    if(this.state.zoneState==='FREE'){
-      this.state.zoneTimer=Math.max(0,this.state.zoneTimer-dt);
-      this.state.zoneProgress=0;
-      this.state.zoneActive=false;
-      if(this.state.zoneTimer<=0){
-        this.prepareInitialZone();
-        this.state.zoneTimer=this.firstZoneAnnouncementSeconds;
-        this.state.zoneState='ANNOUNCING';
-      }
-      return;
-    }
-    if(this.state.zoneState==='ANNOUNCING'){
-      this.state.zoneTimer=Math.max(0,this.state.zoneTimer-dt);
-      this.state.zoneProgress=0;
-      this.state.zoneActive=false;
-      if(this.state.zoneTimer<=0){
-        this.state.zoneX=this.state.nextZoneX;
-        this.state.zoneY=this.state.nextZoneY;
-        this.state.zoneRadius=this.state.nextZoneRadius;
-        this.state.zoneStartX=this.state.zoneX;
-        this.state.zoneStartY=this.state.zoneY;
-        this.state.zoneStartRadius=this.state.zoneRadius;
-        this.state.zoneActive=true;
-        this.prepareNextZone();
-        this.state.zoneState='WAITING';
-        this.state.zoneTimer=this.zoneWaitSeconds();
-      }
-      return;
-    }
-    this.state.zoneActive=true;
     if(this.state.zoneState==='WAITING'){
       this.state.zoneTimer-=dt*mult;
       this.state.zoneProgress=0;
@@ -2132,7 +2080,6 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
         }
       }
     }
-    if(!this.state.zoneActive)return;
     for(const p of this.state.players.values()){
       if(p.alive&&p.phase==='landed'&&distance(p.x,p.y,this.state.zoneX,this.state.zoneY)>this.state.zoneRadius)this.damage(p,(2+this.state.zoneStage*1.8)*dt,'','자기장');
     }
@@ -2219,15 +2166,6 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     this.setAiDestination(p,intent,loot.x,loot.y);
   }
 
-  private aiPatrolPoint(){
-    const region=this.map.regions[Math.floor(this.lootRandom()*Math.max(1,this.map.regions.length))];
-    if(!region)return{x:this.worldSize/2,y:this.worldSize/2};
-    return{
-      x:clamp(region.x+region.w*(.2+this.lootRandom()*.6),60,this.worldSize-60),
-      y:clamp(region.y+region.h*(.2+this.lootRandom()*.6),60,this.worldSize-60),
-    };
-  }
-
   private planAi(p:PlayerState,intent:AiIntent){
     const fire=[...this.state.fireFields.values()].find((field)=>fireFieldContains(field,p,this.map.buildingVisibilityZones));
     const grenade=[...this.state.thrownObjects.values()].find((object)=>object.kind==='fragGrenade'&&object.detonateAt-this.now()<1.1&&distance(p.x,p.y,object.x,object.y)<220);
@@ -2238,10 +2176,9 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     intent.targetId='';
     intent.mode='move';
 
-    const zoneActive=Boolean(this.state.zoneActive);
-    const outside=zoneActive&&distance(p.x,p.y,this.state.zoneX,this.state.zoneY)>this.state.zoneRadius-180;
-    const nextUrgent=zoneActive&&(this.state.zoneState==='SHRINKING'||this.state.zoneTimer<14);
-    const outsideNext=zoneActive&&distance(p.x,p.y,this.state.nextZoneX,this.state.nextZoneY)>this.state.nextZoneRadius-120;
+    const outside=distance(p.x,p.y,this.state.zoneX,this.state.zoneY)>this.state.zoneRadius-180;
+    const nextUrgent=this.state.zoneState==='SHRINKING'||this.state.zoneTimer<14;
+    const outsideNext=distance(p.x,p.y,this.state.nextZoneX,this.state.nextZoneY)>this.state.nextZoneRadius-120;
     if(outside||(nextUrgent&&outsideNext)){
       this.releaseLootReservation(p.id,previousLoot);
       intent.lootId='';
@@ -2296,8 +2233,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
       }
       p.aiState=this.aiHasUsableGun(p)?'COMBAT_READY':'PATROL';
       intent.state=p.aiState;
-      const patrol=this.state.zoneActive?{x:this.state.zoneX+(this.lootRandom()-.5)*500,y:this.state.zoneY+(this.lootRandom()-.5)*500}:this.aiPatrolPoint();
-      this.setAiDestination(p,intent,patrol.x,patrol.y);
+      this.setAiDestination(p,intent,this.state.zoneX+(this.lootRandom()-.5)*500,this.state.zoneY+(this.lootRandom()-.5)*500);
       return;
     }
 
@@ -2333,8 +2269,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     const loot=this.findBestLoot(p);
     if(loot){this.assignLootIntent(p,intent,loot,false);return;}
     p.aiState='PATROL';intent.state='PATROL';
-    const patrol=this.state.zoneActive?{x:this.state.zoneX+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45),y:this.state.zoneY+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45)}:this.aiPatrolPoint();
-    this.setAiDestination(p,intent,patrol.x,patrol.y);
+    this.setAiDestination(p,intent,this.state.zoneX+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45),this.state.zoneY+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45));
   }
 
   private runAi(p:PlayerState,intent:AiIntent,dt:number){
@@ -2489,7 +2424,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
       if(reservation&&reservation.aiId!==p.id)continue;
       const d=distance(p.x,p.y,l.x,l.y);
       if(d>950)continue;
-      const zoneRisk=this.state.zoneActive&&distance(l.x,l.y,this.state.zoneX,this.state.zoneY)>this.state.zoneRadius-100?55:0;
+      const zoneRisk=distance(l.x,l.y,this.state.zoneX,this.state.zoneY)>this.state.zoneRadius-100?55:0;
       let enemyRisk=0;
       for(const q of this.state.players.values()){
         if(q.id===p.id||!q.alive||q.phase!=='landed')continue;
@@ -2583,38 +2518,21 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     const tx=clamp(x,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
     const ty=clamp(y,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
     const changed=distance(intent.routeGoalX,intent.routeGoalY,tx,ty)>84;
-    const now=this.now();
     intent.tx=tx;
     intent.ty=ty;
-    const periodicDue=now>=intent.repathAt;
-    const shouldRepath=force||changed||intent.route.length===0||(periodicDue&&intent.stuckFor>.35);
-    if(shouldRepath){
-      const previous=intent.route;
-      const rebuilt=this.buildAiRoute(p,tx,ty,intent);
-      const rebuiltBlocked=rebuilt.length===1&&this.segmentBlocked(p.x,p.y,rebuilt[0]!.x,rebuilt[0]!.y);
-      if(!force&&!changed&&previous.length>0&&rebuiltBlocked){
-        intent.route=previous;
-        intent.lastRepathReason='preserve-valid-route';
-      }else{
-        intent.route=rebuilt;
-        intent.lastRepathReason=force?'forced':changed?'goal-change':intent.route.length===0?'route-empty':'stuck-repath';
-      }
+    if(force||changed||intent.route.length===0||this.now()>=intent.repathAt){
+      intent.route=this.buildAiRoute(p,tx,ty,intent);
       intent.routeGoalX=tx;
       intent.routeGoalY=ty;
-      intent.repathAt=now+1.05+Math.random()*.35;
-    }else if(periodicDue){
-      // Static walls do not invalidate a healthy route. Periodic timers are only
-      // a health check; real replanning is driven by goal changes or measured stalls.
-      intent.repathAt=now+1.05+Math.random()*.35;
-      intent.lastRepathReason='route-healthy';
+      intent.repathAt=this.now()+.9+Math.random()*.45;
+      intent.lastRepathReason=force?'forced':changed?'goal-change':'periodic';
     }
   }
 
   private buildAiRoute(p:PlayerState,tx:number,ty:number,intent?:AiIntent):AiRoutePoint[]{
     const river=this.map.rivers[0];
     if(!river)return this.buildRoute(p.x,p.y,tx,ty,intent);
-    const startSide=this.terrainKindAt(p.x,p.y)==='deep-water'?'water':riverLandSideAt(p.x,p.y,river);
-    const targetSide=this.terrainKindAt(tx,ty)==='deep-water'?'water':riverLandSideAt(tx,ty,river);
+    const startSide=riverSideAt(p.x,p.y,river),targetSide=riverSideAt(tx,ty,river);
     if(startSide==='water'||targetSide==='water'||startSide===targetSide)return this.buildRoute(p.x,p.y,tx,ty,intent);
     const candidates:Array<{entry:Point;exit:Point;cost:number}>=[];
     for(const crossing of this.map.landCrossings){

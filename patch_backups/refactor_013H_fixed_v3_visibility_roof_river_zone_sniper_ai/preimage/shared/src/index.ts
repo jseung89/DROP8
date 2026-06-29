@@ -1,11 +1,9 @@
-// DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
-// DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 // DROP8_REFACTOR_013G_DOCK8_RECOVERY
 import { createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility } from './maps/rooms.js';
 import { DOCK8_AI_MACRO_EDGES, DOCK8_AI_MACRO_NODES, DOCK8_BUILDINGS, DOCK8_CROSSINGS, DOCK8_CUSTOM_ROOMS, DOCK8_DECORATIONS, DOCK8_EMERGENCY_SPAWNS, DOCK8_INTERIOR_WALLS, DOCK8_INTERNAL_PORTALS, DOCK8_LOOT_ANCHORS, DOCK8_MOTORCYCLE_SPAWNS, DOCK8_REGIONS, DOCK8_RIVERS, DOCK8_SHALLOW_WATER, DOCK8_SHORE_EXITS, DOCK8_WORLD_PROPS, DOCK8_WORLD_SIZE } from './maps/dock8.js';
 import { LARGE_CUSTOM_ROOMS, LARGE_INTERNAL_PORTALS, LARGE_INTERNAL_WALLS } from './maps/large.js';
-import { SWIM_ENTER_MARGIN, SWIM_EXIT_MARGIN, SWIM_SPEED, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt } from './maps/water.js';
-import type { AiMacroEdge, AiMacroNode, LandCrossing, LootAnchor, MapId, RiverBand, RoomZone, ShoreExit, SpaceDescriptor, SpacePortal, SpaceVisibilityTrace, TerrainKind, WaterZone } from './maps/types.js';
+import { SWIM_ENTER_MARGIN, SWIM_EXIT_MARGIN, SWIM_SPEED, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverSideAt, waterSignedDepthAt } from './maps/water.js';
+import type { AiMacroEdge, AiMacroNode, LandCrossing, LootAnchor, MapId, RiverBand, RoomZone, ShoreExit, SpaceDescriptor, SpacePortal, SpaceVisibilityTrace, WaterZone } from './maps/types.js';
 // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
 
 export const GAME_NAME = 'DROP 8';
@@ -172,7 +170,7 @@ export interface ProjectileConfig extends WeaponData { lifetimeMs:number; radius
 export interface MotorcycleSpawn { id:string; x:number; y:number; rotation:number; }
 export interface MapConfig {
   id:MapId; mode:MapId; displayName:string; width:number; height:number; recommendedPlayers:{min:number;max:number}; maxPlayers:number;
-  initialZoneRadius:number; zoneFreeSeconds:number; zoneWaitScale:number; zoneShrinkScale:number; planeSpeed:number; planeMargin:number; lootBudget:number; motorcycleBudget?:number; aiCountDefault:number; minimapScale:number;
+  initialZoneRadius:number; zoneWaitScale:number; zoneShrinkScale:number; planeSpeed:number; planeMargin:number; lootBudget:number; motorcycleBudget?:number; aiCountDefault:number; minimapScale:number;
   regions:Region[]; buildings:Building[]; buildingVisibilityZones:BuildingVisibilityZone[]; decorations:Decoration[]; worldProps:WorldProp[]; obstacles:Rect[]; propObstacles:Rect[]; collisionObstacles:Rect[]; bulletObstacles:Rect[]; visibilityObstacles:Rect[]; bushes:Bush[];
   lootSpawns:Array<{id?:string;x:number;y:number;region:string;regionId:RegionId;buildingId?:string;roomIndex?:number;category?:LootAnchor['category']}>;
   motorcycleSpawns:MotorcycleSpawn[]; emergencySpawnPoints:Array<{x:number;y:number}>;
@@ -182,8 +180,7 @@ export interface MapConfig {
 export const AMMO_DISPLAY_NAMES:Record<Exclude<AmmoType,'none'>,string>={shotgun_ammo:'샷건탄',standard_ammo:'일반 총알',pistol_ammo:'권총탄'};
 export const RENDER_DEPTH={GROUND:0,FLOOR_DECORATION:5,GROUND_ITEM:10,WORLD_PROP:20,VEHICLE:27,PLAYER:30,PLAYER_OVERLAY:35,BUILDING_ROOF:50,PLANE_SHADOW:80,TRANSPORT_PLANE:100,PLANE_EFFECT:105,WORLD_EFFECT:120,HUD:1000,MODAL:2000} as const;
 
-export { createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt };
-export type { TerrainKind };
+export { createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverSideAt, waterSignedDepthAt };
 
 
 export const REGIONS: Region[] = [
@@ -234,24 +231,6 @@ export const REGION_LOOT_TABLES: Record<RegionId, WeightedLoot[]> = {
     {kind:'shotgun_ammo',weight:9},{kind:'pistol_ammo',weight:9},{kind:'medkit',weight:6},{kind:'rifle',weight:3},{kind:'vest',weight:2},{kind:'fragGrenade',weight:3},{kind:'smokeGrenade',weight:6},{kind:'incendiaryGrenade',weight:5},
   ],
 };
-
-export function lootWeightMultiplierForMap(mapId:MapId,kind:LootKind){
-  if(mapId==='dock8'){
-    if(kind==='sniper')return 1.42;
-    if(kind==='standard_ammo')return 1.36;
-    if(kind==='smokeGrenade')return 1.08;
-  }
-  if(mapId==='large'){
-    if(kind==='sniper')return 1.12;
-    if(kind==='standard_ammo')return 1.1;
-    if(kind==='smokeGrenade')return 1.04;
-  }
-  return 1;
-}
-
-export function adjustedLootTableForMap(mapId:MapId,table:readonly WeightedLoot[]){
-  return table.map((entry)=>({...entry,weight:entry.weight*lootWeightMultiplierForMap(mapId,entry.kind)}));
-}
 
 export const LOOT_MIN_DISTANCE=58;
 export const GUN_LOOT_MIN_DISTANCE=72;
@@ -913,70 +892,24 @@ export function createPlaneRoute(random:()=>number=Math.random,worldSize=WORLD_S
   return {startX,startY,endX,endY,angle:Math.atan2(endY-startY,endX-startX)};
 }
 
-export function createInitialZone(
-  random:()=>number,
-  radius:number,
-  worldSize=WORLD_SIZE,
-  safetyMargin=28,
-  requiredReachablePoints:readonly {x:number;y:number}[]=[],
-):ZoneTarget{
-  const cell=worldSize/3;
-  const outerSectors=[
-    [0,0],[1,0],[2,0],
-    [0,1],      [2,1],
-    [0,2],[1,2],[2,2],
-  ] as const;
-  const sampleSector=(sx:number,sy:number)=>{
-    const inset=Math.min(cell*.18,Math.max(12,safetyMargin));
-    const lowX=Math.max(safetyMargin,sx*cell+inset);
-    const highX=Math.min(worldSize-safetyMargin,(sx+1)*cell-inset);
-    const lowY=Math.max(safetyMargin,sy*cell+inset);
-    const highY=Math.min(worldSize-safetyMargin,(sy+1)*cell-inset);
-    return{
-      x:lowX+Math.max(0,highX-lowX)*random(),
-      y:lowY+Math.max(0,highY-lowY)*random(),
-      radius,
-    };
-  };
-  for(let attempt=0;attempt<96;attempt++){
-    const useCenter=random()<(requiredReachablePoints.length?.12:.2);
-    const [sx,sy]=useCenter?[1,1] as const:outerSectors[Math.floor(random()*outerSectors.length)]??outerSectors[0]!;
-    const candidate=sampleSector(sx,sy);
-    if(requiredReachablePoints.length&& !requiredReachablePoints.some((point)=>distance(candidate.x,candidate.y,point.x,point.y)<=radius))continue;
-    return candidate;
-  }
-  const fallbackPoint=requiredReachablePoints[0];
-  if(fallbackPoint)return{x:clamp(fallbackPoint.x,safetyMargin,worldSize-safetyMargin),y:clamp(fallbackPoint.y,safetyMargin,worldSize-safetyMargin),radius};
-  return{x:worldSize/2,y:worldSize/2,radius};
-}
-
 export function createNextZone(
   random:()=>number,
   currentX:number,currentY:number,currentRadius:number,nextRadius:number,stage:number,
   safetyMargin=28,worldSize=WORLD_SIZE,
 ):ZoneTarget{
-  const factors=[.7,.78,.86,.92,1,1];
+  const factors=[.3,.5,.7,.85,1,1];
   const factor=factors[Math.max(0,Math.min(factors.length-1,stage))]??1;
-  const containmentDistance=Math.max(0,currentRadius-nextRadius-safetyMargin);
-  const maxDistance=containmentDistance*factor;
-  const fullMin=nextRadius,fullMax=worldSize-nextRadius;
-  const nearestFullX=clamp(currentX,fullMin,fullMax),nearestFullY=clamp(currentY,fullMin,fullMax);
-  const fullBoundsFeasible=fullMax>=fullMin&&distance(currentX,currentY,nearestFullX,nearestFullY)<=maxDistance+1e-6;
-  const min=fullBoundsFeasible?fullMin:safetyMargin;
-  const max=fullBoundsFeasible?fullMax:worldSize-safetyMargin;
-  for(let attempt=0;attempt<96;attempt++){
+  const maxDistance=Math.max(0,currentRadius-nextRadius-safetyMargin)*factor;
+  for(let attempt=0;attempt<32;attempt++){
     const angle=random()*Math.PI*2;
     const minDistance=maxDistance>40?maxDistance*.18:0;
     const travel=minDistance+(maxDistance-minDistance)*Math.sqrt(random());
     const x=currentX+Math.cos(angle)*travel;
     const y=currentY+Math.sin(angle)*travel;
-    if(x<min||x>max||y<min||y>max)continue;
-    if(distance(currentX,currentY,x,y)+nextRadius>currentRadius-safetyMargin+1e-6)continue;
-    return{x,y,radius:nextRadius};
+    if(x-nextRadius<0||x+nextRadius>worldSize||y-nextRadius<0||y+nextRadius>worldSize)continue;
+    return {x,y,radius:nextRadius};
   }
-  const x=clamp(currentX,min,max),y=clamp(currentY,min,max);
-  if(distance(currentX,currentY,x,y)+nextRadius<=currentRadius-safetyMargin+1e-6)return{x,y,radius:nextRadius};
-  return{x:currentX,y:currentY,radius:nextRadius};
+  return {x:clamp(currentX,nextRadius,worldSize-nextRadius),y:clamp(currentY,nextRadius,worldSize-nextRadius),radius:nextRadius};
 }
 
 
@@ -1179,7 +1112,7 @@ export function motorcycleCollisionDamage(speed:number,maxSpeed=MOTORCYCLE_MAX_S
 export const MAP_CONFIGS:Record<MapId,MapConfig>={
   small:{
     id:'small',mode:'small',displayName:'작은 맵',width:SMALL_WORLD_SIZE,height:SMALL_WORLD_SIZE,recommendedPlayers:{min:2,max:4},maxPlayers:MAX_PLAYERS,
-    initialZoneRadius:1650,zoneFreeSeconds:50,zoneWaitScale:1,zoneShrinkScale:1,planeSpeed:1,planeMargin:280,lootBudget:85,aiCountDefault:8,minimapScale:1,
+    initialZoneRadius:1950,zoneWaitScale:1,zoneShrinkScale:1,planeSpeed:1,planeMargin:280,lootBudget:85,aiCountDefault:8,minimapScale:1,
     regions:REGIONS,buildings:BUILDINGS,buildingVisibilityZones:BUILDING_VISIBILITY_ZONES,decorations:DECORATIONS,worldProps:WORLD_PROPS,
     obstacles:OBSTACLES,propObstacles:PROP_OBSTACLES,collisionObstacles:COLLISION_OBSTACLES,bulletObstacles:BULLET_OBSTACLES,visibilityObstacles:VISIBILITY_OBSTACLES,
     bushes:BUSHES,lootSpawns:[...SMALL_CENTRAL_LOOT_SPAWNS,...LOOT_SPAWNS],motorcycleSpawns:SMALL_MOTORCYCLE_SPAWNS,
@@ -1188,7 +1121,7 @@ export const MAP_CONFIGS:Record<MapId,MapConfig>={
   },
   large:{
     id:'large',mode:'large',displayName:'큰 맵',width:LARGE_WORLD_SIZE,height:LARGE_WORLD_SIZE,recommendedPlayers:{min:6,max:8},maxPlayers:MAX_PLAYERS,
-    initialZoneRadius:2300,zoneFreeSeconds:65,zoneWaitScale:1.2,zoneShrinkScale:1.15,planeSpeed:1.28,planeMargin:360,lootBudget:142,aiCountDefault:8,minimapScale:.67,
+    initialZoneRadius:2920,zoneWaitScale:1.2,zoneShrinkScale:1.15,planeSpeed:1.28,planeMargin:360,lootBudget:142,aiCountDefault:8,minimapScale:.67,
     regions:LARGE_REGIONS,buildings:LARGE_BUILDINGS,buildingVisibilityZones:LARGE_BUILDING_VISIBILITY_ZONES,decorations:LARGE_DECORATIONS,worldProps:LARGE_WORLD_PROPS,
     obstacles:LARGE_OBSTACLES,propObstacles:LARGE_PROP_OBSTACLES,collisionObstacles:LARGE_COLLISION_OBSTACLES,bulletObstacles:LARGE_BULLET_OBSTACLES,visibilityObstacles:LARGE_VISIBILITY_OBSTACLES,
     bushes:LARGE_BUSHES,lootSpawns:[...LARGE_CENTRAL_LOOT_SPAWNS,...LARGE_LOOT_SPAWNS],motorcycleSpawns:LARGE_MOTORCYCLE_SPAWNS,
@@ -1197,7 +1130,7 @@ export const MAP_CONFIGS:Record<MapId,MapConfig>={
   },
   dock8:{
     id:'dock8',mode:'dock8',displayName:'8번 부두',width:DOCK8_WORLD_SIZE,height:DOCK8_WORLD_SIZE,recommendedPlayers:{min:6,max:8},maxPlayers:MAX_PLAYERS,
-    initialZoneRadius:2550,zoneFreeSeconds:85,zoneWaitScale:1.18,zoneShrinkScale:1.12,planeSpeed:1.42,planeMargin:420,lootBudget:216,motorcycleBudget:8,aiCountDefault:8,minimapScale:.57,
+    initialZoneRadius:3100,zoneWaitScale:1.18,zoneShrinkScale:1.12,planeSpeed:1.42,planeMargin:420,lootBudget:216,motorcycleBudget:8,aiCountDefault:8,minimapScale:.57,
     regions:DOCK8_REGIONS as Region[],buildings:DOCK8_BUILDINGS as Building[],buildingVisibilityZones:DOCK8_BUILDING_VISIBILITY_ZONES,decorations:DOCK8_DECORATIONS as Decoration[],worldProps:DOCK8_WORLD_PROPS as WorldProp[],
     obstacles:DOCK8_OBSTACLES,propObstacles:DOCK8_PROP_OBSTACLES,collisionObstacles:DOCK8_COLLISION_OBSTACLES,bulletObstacles:DOCK8_BULLET_OBSTACLES,visibilityObstacles:DOCK8_VISIBILITY_OBSTACLES,
     bushes:DOCK8_BUSHES,lootSpawns:DOCK8_LOOT_SPAWNS,motorcycleSpawns:DOCK8_MOTORCYCLE_SPAWNS,

@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { boot, type ColyseusTestServer } from '@colyseus/testing';
 import app from '../src/app.config.js';
@@ -19,15 +18,6 @@ describe('DROP 8 room integration', () => {
   beforeEach(async () => {
     await server.cleanup();
   });
-
-  const waitForCondition=async(check:()=>boolean,timeoutMs:number,intervalMs=40)=>{
-    const started=Date.now();
-    while(!check()){
-      if(Date.now()-started>=timeoutMs)return false;
-      await new Promise((resolve)=>setTimeout(resolve,intervalMs));
-    }
-    return true;
-  };
 
   const quiet = <T extends { onMessage: (type: string, callback: () => void) => unknown }>(client: T): T => {
     for (const type of ['chat', 'killfeed', 'result', 'error', 'notice', 'kicked', 'pickupResult', 'positionRecovery', 'vehicleRecovery', 'characterDeath', 'audioEvent']) {
@@ -260,26 +250,17 @@ describe('DROP 8 room integration', () => {
       if (player.ai && id !== ai.id) room.state.players.delete(id);
     }
     // DROP8_REFACTOR_012A1_TEST_FIXTURE_CLEANUP: 이 테스트는 문 경로를 검증하므로 북쪽 창문을 잠시 경로 후보에서 제외한다.
-    type DoorRouteIntent={
-      tx:number;ty:number;targetId:string;lootId:string;mode:'move'|'retreat'|'hold';state:string;avoidSign:number;stuckFor:number;lastX:number;lastY:number;
-      route:Array<{x:number;y:number;kind?:'window';windowId?:string}>;lastSeenX:number;lastSeenY:number;lastSeenUntil:number;routeGoalX:number;routeGoalY:number;
-      repathAt:number;failedWindowId:string;failedWindowUntil:number;stuckCount:number;lastRepathReason:string;
-    };
     const aiInternals = room as unknown as {
       aiThinkAt: Map<string, number>;
-      aiIntent: Map<string, DoorRouteIntent>;
-      lootReservations:Map<string,string>;
-      newAiIntent:(player:typeof ai)=>DoorRouteIntent;
+      aiIntent: Map<string, { failedWindowId: string; failedWindowUntil: number }>;
       now: () => number;
     };
-    aiInternals.lootReservations.clear();
-    const doorRouteIntent=aiInternals.newAiIntent(ai);
-    aiInternals.aiIntent.set(ai.id,doorRouteIntent);
-    aiInternals.aiThinkAt.set(ai.id,0);
+    aiInternals.aiThinkAt.set(ai.id, 0);
     const doorRouteWindow = BUILDING_VISIBILITY_ZONES[0]?.windows[0];
-    if (doorRouteWindow) {
+    const doorRouteIntent = aiInternals.aiIntent.get(ai.id);
+    if (doorRouteWindow && doorRouteIntent) {
       doorRouteIntent.failedWindowId = doorRouteWindow.id;
-      doorRouteIntent.failedWindowUntil = aiInternals.now() + 12;
+      doorRouteIntent.failedWindowUntil = aiInternals.now() + 10;
     }
     human.phase = 'landed';
     human.x = 3900;
@@ -300,58 +281,12 @@ describe('DROP 8 room integration', () => {
     loot.kind = 'pistol';
     loot.x = 460;
     loot.y = 410;
-    // DROP8_REFACTOR_013H_TEST_FIXTURE_ALIGNMENT: generated indoor loot always carries both buildingId and roomIndex.
-    const lootSpace = spaceAt(loot.x, loot.y, BUILDING_VISIBILITY_ZONES, MAP_CONFIGS.small.rooms, 0);
-    loot.buildingId = lootSpace.buildingId;
-    loot.roomIndex = lootSpace.roomIndex;
+    loot.buildingId = buildingIdAt(loot.x, loot.y, 0, BUILDING_VISIBILITY_ZONES);
     room.state.loot.set(loot.id, loot);
 
-    const acquired=await waitForCondition(()=>ai.secondary==='pistol',8_000,40);
-    if(!acquired){
-      const intent=aiInternals.aiIntent.get(ai.id);
-      const diagnostic={
-        ai:{x:ai.x,y:ai.y,buildingId:ai.buildingId,roomIndex:ai.roomIndex,state:ai.aiState,secondary:ai.secondary},
-        loot:{x:loot.x,y:loot.y,buildingId:loot.buildingId,roomIndex:loot.roomIndex,exists:room.state.loot.has(loot.id)},
-        distance:distance(ai.x,ai.y,loot.x,loot.y),
-        intent:intent?{tx:intent.tx,ty:intent.ty,lootId:intent.lootId,route:intent.route,stuckFor:intent.stuckFor,repathAt:intent.repathAt,lastRepathReason:intent.lastRepathReason}:null,
-        reservedBy:aiInternals.lootReservations.get(loot.id)??'',
-        colliding:OBSTACLES.some((rect)=>circleHitsRect(ai.x,ai.y,PLAYER_RADIUS,rect)),
-      };
-      console.error('[AI door route diagnostic]',JSON.stringify(diagnostic));
-    }
-    expect(acquired).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 5200));
     expect(ai.secondary).toBe('pistol');
     expect(OBSTACLES.some((rect) => circleHitsRect(ai.x, ai.y, PLAYER_RADIUS, rect))).toBe(false);
-  });
-
-  it('keeps a healthy AI route until measured stalling triggers replanning', async () => {
-    const room=await server.createRoom<Drop8State>('drop8',{fillAi:true,mapSizeMode:'small'});
-    const client=quiet(await server.connectTo(room,{nickname:'RouteHealthObserver'}));
-    client.send('ready');await new Promise((resolve)=>setTimeout(resolve,60));client.send('start');await new Promise((resolve)=>setTimeout(resolve,120));
-    const ai=[...room.state.players.values()].find((player)=>player.ai)!;
-    type RoutePoint={x:number;y:number;kind?:'window';windowId?:string};
-    type RouteIntent={tx:number;ty:number;routeGoalX:number;routeGoalY:number;route:RoutePoint[];repathAt:number;stuckFor:number;lastRepathReason:string};
-    const internal=room as unknown as{
-      aiIntent:Map<string,RouteIntent>;
-      newAiIntent:(player:typeof ai)=>RouteIntent;
-      setAiDestination:(player:typeof ai,intent:RouteIntent,x:number,y:number,force?:boolean)=>void;
-      buildAiRoute:(player:typeof ai,x:number,y:number,intent?:RouteIntent)=>RoutePoint[];
-      now:()=>number;
-    };
-    const intent=internal.newAiIntent(ai);
-    intent.routeGoalX=1200;intent.routeGoalY=1200;intent.tx=1200;intent.ty=1200;intent.route=[{x:900,y:900},{x:1200,y:1200}];intent.repathAt=internal.now()-1;intent.stuckFor=.1;
-    internal.aiIntent.set(ai.id,intent);
-    const originalRoute=intent.route;
-    const originalBuild=internal.buildAiRoute.bind(room);
-    let rebuilds=0;
-    internal.buildAiRoute=((player,x,y,current)=>{rebuilds++;return originalBuild(player,x,y,current);}) as typeof internal.buildAiRoute;
-    internal.setAiDestination(ai,intent,1200,1200);
-    expect(rebuilds).toBe(0);
-    expect(intent.route).toBe(originalRoute);
-    expect(intent.lastRepathReason).toBe('route-healthy');
-    intent.repathAt=internal.now()-1;intent.stuckFor=.5;
-    internal.setAiDestination(ai,intent,1200,1200);
-    expect(rebuilds).toBe(1);
   });
 
   it('builds a window route and lets AI complete a server-authoritative vault', async () => {
@@ -686,7 +621,7 @@ describe('DROP 8 room integration', () => {
     expect(room.state.serverTickMax).toBeGreaterThanOrEqual(room.state.serverTickAvg);
   });
 
-  it('synchronizes a randomized plane route and activates a contained next zone after the free phase', async () => {
+  it('synchronizes a randomized plane route and a contained next zone', async () => {
     const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
     const client = quiet(await server.connectTo(room, { nickname: 'RouteTester' }));
     client.send('ready');
@@ -696,22 +631,6 @@ describe('DROP 8 room integration', () => {
     const routeLength = distance(room.state.planeStartX, room.state.planeStartY, room.state.planeEndX, room.state.planeEndY);
     expect(routeLength).toBeGreaterThan(4096);
     expect(Number.isFinite(room.state.planeAngle)).toBe(true);
-
-    // DROP8_REFACTOR_013H_TEST_FIXTURE_ALIGNMENT: advance the authoritative FREE → ANNOUNCING → WAITING state machine without real-time waiting.
-    expect(room.state.zoneActive).toBe(false);
-    expect(room.state.zoneState).toBe('FREE');
-    const player = room.state.players.get(client.sessionId)!;
-    player.phase = 'landed';
-    player.alive = true;
-    const zoneInternals = room as unknown as { updateZone: (dt: number) => void };
-    room.state.zoneTimer = 0.01;
-    zoneInternals.updateZone(0.02);
-    expect(room.state.zoneActive).toBe(false);
-    expect(room.state.zoneState).toBe('ANNOUNCING');
-    room.state.zoneTimer = 0.01;
-    zoneInternals.updateZone(0.02);
-    expect(room.state.zoneActive).toBe(true);
-    expect(room.state.zoneState).toBe('WAITING');
     expect(distance(room.state.zoneX, room.state.zoneY, room.state.nextZoneX, room.state.nextZoneY) + room.state.nextZoneRadius)
       .toBeLessThanOrEqual(room.state.zoneRadius - 27.5);
     expect(COLLISION_OBSTACLES.length).toBeGreaterThan(OBSTACLES.length);

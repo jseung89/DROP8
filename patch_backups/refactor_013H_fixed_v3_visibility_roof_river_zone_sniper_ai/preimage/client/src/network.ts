@@ -1,12 +1,10 @@
-// DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
-// DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 import { Client, type Room } from '@colyseus/sdk';
 // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
 
 export type Snapshot={
   phase:string;roomCode:string;hostId:string;fillAi:boolean;publicRoom:boolean;difficulty:string;zoneSpeed:string;mapId:string;mapSizeMode:string;mapRevision:number;worldSize:number;
   zoneX:number;zoneY:number;zoneRadius:number;zoneStartX:number;zoneStartY:number;zoneStartRadius:number;
-  nextZoneX:number;nextZoneY:number;nextZoneRadius:number;zoneTimer:number;zoneStage:number;zoneProgress:number;zoneActive:boolean;zoneState:string;
+  nextZoneX:number;nextZoneY:number;nextZoneRadius:number;zoneTimer:number;zoneStage:number;zoneProgress:number;zoneState:string;
   planeStartX:number;planeStartY:number;planeX:number;planeY:number;planeEndX:number;planeEndY:number;planeAngle:number;planeProgress:number;
   serverTime:number;serverTickAvg:number;serverTickP95:number;serverTickMax:number;serverAiMs:number;serverCollisionMs:number;serverZoneMs:number;serverVehicleMs:number;recoveryCount:number;vehicleRecoveryCount:number;activeBulletLimit:number;
   aliveCount:number;winner:string;players:any[];bullets:any[];loot:any[];motorcycles:any[];explosions:any[];thrownObjects:any[];smokeFields:any[];fireFields:any[];receivedAt:number;
@@ -80,7 +78,7 @@ export class Network {
     const snapshot:Snapshot={
       phase:s.phase,roomCode:s.roomCode,hostId:s.hostId,fillAi:s.fillAi,publicRoom:s.publicRoom,difficulty:s.difficulty,zoneSpeed:s.zoneSpeed,mapId:s.mapId,mapSizeMode:s.mapSizeMode,mapRevision:s.mapRevision,worldSize:s.worldSize,
       zoneX:s.zoneX,zoneY:s.zoneY,zoneRadius:s.zoneRadius,zoneStartX:s.zoneStartX,zoneStartY:s.zoneStartY,zoneStartRadius:s.zoneStartRadius,
-      nextZoneX:s.nextZoneX, nextZoneY:s.nextZoneY,nextZoneRadius:s.nextZoneRadius,zoneTimer:s.zoneTimer,zoneStage:s.zoneStage,zoneProgress:s.zoneProgress,zoneActive:Boolean(s.zoneActive),zoneState:s.zoneState,
+      nextZoneX:s.nextZoneX, nextZoneY:s.nextZoneY,nextZoneRadius:s.nextZoneRadius,zoneTimer:s.zoneTimer,zoneStage:s.zoneStage,zoneProgress:s.zoneProgress,zoneState:s.zoneState,
       planeStartX:s.planeStartX,planeStartY:s.planeStartY,planeX:s.planeX,planeY:s.planeY,planeEndX:s.planeEndX,planeEndY:s.planeEndY,planeAngle:s.planeAngle,planeProgress:s.planeProgress,
       serverTime:s.serverTime,serverTickAvg:s.serverTickAvg,serverTickP95:s.serverTickP95,serverTickMax:s.serverTickMax,serverAiMs:s.serverAiMs,serverCollisionMs:s.serverCollisionMs,serverZoneMs:s.serverZoneMs,serverVehicleMs:s.serverVehicleMs,recoveryCount:s.recoveryCount,vehicleRecoveryCount:s.vehicleRecoveryCount,activeBulletLimit:s.activeBulletLimit,
       aliveCount:s.aliveCount,winner:s.winner,
