@@ -10,14 +10,14 @@ describe('Refactor 013G Dock 8 recovery', () => {
   afterAll(async()=>{await server.shutdown();});
   beforeEach(async()=>{await server.cleanup();});
 
-  it('spawns 216 loot items with more than half indoors', async()=>{
+  it('spawns 280 loot items with more than half indoors', async()=>{
     const room=await server.createRoom<Drop8State>('drop8',{fillAi:false,mapId:'dock8'});
     const internal=room as unknown as {spawnLoot:()=>void};
     internal.spawnLoot();
     const loot=[...room.state.loot.values()];
-    const indoor=loot.filter((item)=>item.roomIndex>0);
-    expect(loot).toHaveLength(216);
-    expect(indoor).toHaveLength(124);
+    const indoor=loot.filter((item)=>Boolean(item.buildingId));
+    expect(loot).toHaveLength(280);
+    expect(indoor).toHaveLength(170);
     expect(indoor.length/loot.length).toBeGreaterThanOrEqual(.52);
     const buildings=new Set(indoor.map((item)=>item.buildingId));
     for(let index=1;index<=20;index++)expect(buildings.has(`dock8-building-${index}`)).toBe(true);

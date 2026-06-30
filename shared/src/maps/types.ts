@@ -1,5 +1,6 @@
 // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
 // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
+// DROP8_REFACTOR_013H1_LARGE_NESTED_ROOM_WINDOW_DOCK8_TERRAIN_LOOT
 export type MapId='small'|'large'|'dock8';
 export type RoomKind='main'|'hall'|'corridor'|'office'|'storage'|'lounge';
 export type PortalKind013='door'|'window';
@@ -25,6 +26,8 @@ export interface SpacePortal{
   kind:PortalKind013;
   sideARoomIndex:number;
   sideBRoomIndex:number;
+  sideABuildingId?:string;
+  sideBBuildingId?:string;
   opening:MapRect;
   approachA:MapPoint;
   approachB:MapPoint;

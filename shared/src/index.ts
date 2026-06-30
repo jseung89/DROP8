@@ -1,7 +1,8 @@
 // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
 // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 // DROP8_REFACTOR_013G_DOCK8_RECOVERY
-import { createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility } from './maps/rooms.js';
+// DROP8_REFACTOR_013H1_LARGE_NESTED_ROOM_WINDOW_DOCK8_TERRAIN_LOOT
+import { buildingZonesAt, createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, portalBuildingIdForSide, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility } from './maps/rooms.js';
 import { DOCK8_AI_MACRO_EDGES, DOCK8_AI_MACRO_NODES, DOCK8_BUILDINGS, DOCK8_CROSSINGS, DOCK8_CUSTOM_ROOMS, DOCK8_DECORATIONS, DOCK8_EMERGENCY_SPAWNS, DOCK8_INTERIOR_WALLS, DOCK8_INTERNAL_PORTALS, DOCK8_LOOT_ANCHORS, DOCK8_MOTORCYCLE_SPAWNS, DOCK8_REGIONS, DOCK8_RIVERS, DOCK8_SHALLOW_WATER, DOCK8_SHORE_EXITS, DOCK8_WORLD_PROPS, DOCK8_WORLD_SIZE } from './maps/dock8.js';
 import { LARGE_CUSTOM_ROOMS, LARGE_INTERNAL_PORTALS, LARGE_INTERNAL_WALLS } from './maps/large.js';
 import { SWIM_ENTER_MARGIN, SWIM_EXIT_MARGIN, SWIM_SPEED, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt } from './maps/water.js';
@@ -182,7 +183,7 @@ export interface MapConfig {
 export const AMMO_DISPLAY_NAMES:Record<Exclude<AmmoType,'none'>,string>={shotgun_ammo:'샷건탄',standard_ammo:'일반 총알',pistol_ammo:'권총탄'};
 export const RENDER_DEPTH={GROUND:0,FLOOR_DECORATION:5,GROUND_ITEM:10,WORLD_PROP:20,VEHICLE:27,PLAYER:30,PLAYER_OVERLAY:35,BUILDING_ROOF:50,PLANE_SHADOW:80,TRANSPORT_PLANE:100,PLANE_EFFECT:105,WORLD_EFFECT:120,HUD:1000,MODAL:2000} as const;
 
-export { createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt };
+export { buildingZonesAt, createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, portalBuildingIdForSide, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt };
 export type { TerrainKind };
 
 
@@ -1197,7 +1198,7 @@ export const MAP_CONFIGS:Record<MapId,MapConfig>={
   },
   dock8:{
     id:'dock8',mode:'dock8',displayName:'8번 부두',width:DOCK8_WORLD_SIZE,height:DOCK8_WORLD_SIZE,recommendedPlayers:{min:6,max:8},maxPlayers:MAX_PLAYERS,
-    initialZoneRadius:2550,zoneFreeSeconds:85,zoneWaitScale:1.18,zoneShrinkScale:1.12,planeSpeed:1.42,planeMargin:420,lootBudget:216,motorcycleBudget:8,aiCountDefault:8,minimapScale:.57,
+    initialZoneRadius:2550,zoneFreeSeconds:85,zoneWaitScale:1.18,zoneShrinkScale:1.12,planeSpeed:1.42,planeMargin:420,lootBudget:280,motorcycleBudget:8,aiCountDefault:8,minimapScale:.57,
     regions:DOCK8_REGIONS as Region[],buildings:DOCK8_BUILDINGS as Building[],buildingVisibilityZones:DOCK8_BUILDING_VISIBILITY_ZONES,decorations:DOCK8_DECORATIONS as Decoration[],worldProps:DOCK8_WORLD_PROPS as WorldProp[],
     obstacles:DOCK8_OBSTACLES,propObstacles:DOCK8_PROP_OBSTACLES,collisionObstacles:DOCK8_COLLISION_OBSTACLES,bulletObstacles:DOCK8_BULLET_OBSTACLES,visibilityObstacles:DOCK8_VISIBILITY_OBSTACLES,
     bushes:DOCK8_BUSHES,lootSpawns:DOCK8_LOOT_SPAWNS,motorcycleSpawns:DOCK8_MOTORCYCLE_SPAWNS,

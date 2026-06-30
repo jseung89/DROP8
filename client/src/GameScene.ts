@@ -1,11 +1,12 @@
 // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
 // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 // DROP8_REFACTOR_013G_DOCK8_RECOVERY
+// DROP8_REFACTOR_013H1_LARGE_NESTED_ROOM_WINDOW_DOCK8_TERRAIN_LOOT
 import Phaser from 'phaser';
 import {
 // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
   BUSH_HIDE_DISTANCE, LOOT_COLORS, LOOT_LABELS, MELEE_WEAPONS, THROWABLE_CONFIGS, THROWABLE_MAX_CHARGE_MS, MOTORCYCLE_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, MOTORCYCLE_DIRECT_ACCELERATION, MOTORCYCLE_DIRECT_DECELERATION, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_MOUNT_DISTANCE, MOTORCYCLE_RADIUS, MOTORCYCLE_ROTATION_RESPONSE, MOTORCYCLE_SCOPE_SPEED_RATIO, PLAYER_BODY_RADIUS, PLAYER_HIT_RADIUS, PLAYER_SEPARATION_RADIUS, PLAYER_SPEED, SNIPER_SCOPE_MOVE_MULTIPLIER,
-  REGION_THEMES, RENDER_DEPTH, WEAPONS, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_FEATHER, angleAwarePortalPolygon, buildingIdAt, buildingSpacesInteractable, buildingZoneById, circleHitsRect, clamp, createThrowableMotion, crossSpaceOpening, distance, doorPortalOpening, findPortalVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, isThrowableType, motorcycleSpreadRadians, normalizeAimVector, predictThrowableTrajectory, normalizeMovementInput, pointInDirectionalScope, regionAt, segmentClearOfRects, selectActivePortal, smokeVisibilityBetween, spaceAt, spaceInteractionAllowed, traceSpaceVisibility, movementMultiplierAt, terrainAt, SWIM_SPEED, soundOcclusionBetween, targetVisibilitySamples, throwableEffectRadius,
+  REGION_THEMES, RENDER_DEPTH, WEAPONS, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_FEATHER, angleAwarePortalPolygon, buildingIdAt, buildingSpacesInteractable, buildingZoneById, buildingZonesAt, circleHitsRect, clamp, createThrowableMotion, crossSpaceOpening, distance, doorPortalOpening, findPortalVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, isThrowableType, motorcycleSpreadRadians, normalizeAimVector, predictThrowableTrajectory, normalizeMovementInput, pointInDirectionalScope, regionAt, segmentClearOfRects, selectActivePortal, smokeVisibilityBetween, spaceAt, spaceInteractionAllowed, traceSpaceVisibility, movementMultiplierAt, terrainAt, SWIM_SPEED, soundOcclusionBetween, targetVisibilitySamples, throwableEffectRadius,
   type DecorKind, type EquippedId, type LootKind, type MapConfig, type MapId, type WeaponId, type MeleeId, type ThrowableType, type WindowOpening
 } from '@drop8/shared';
 import type { Network } from './network';
@@ -576,12 +577,32 @@ export class GameScene extends Phaser.Scene {
       this.mapLabels.push(this.add.text(r.x+20,r.y+18,r.name,{fontFamily:'sans-serif',fontSize:'30px',fontStyle:'bold',color:'#ffffff88'}).setDepth(RENDER_DEPTH.FLOOR_DECORATION));
     }
     for(const river of this.mapConfig.rivers){
+      const segmentWidth=(index:number)=>{
+        const a=river.widths[index]??river.widths.at(-1)??760;
+        const b=river.widths[index+1]??a;
+        return(a+b)/2;
+      };
+      if(this.mapConfig.id==='dock8'){
+        const drawJoinedLayer=(extra:number,color:number,alpha:number)=>{
+          for(let index=0;index<river.points.length-1;index++){
+            const a=river.points[index]!,b=river.points[index+1]!,width=segmentWidth(index)+extra;
+            g.lineStyle(width,color,alpha).lineBetween(a.x,a.y,b.x,b.y);
+            g.fillStyle(color,alpha).fillCircle(a.x,a.y,width/2).fillCircle(b.x,b.y,width/2);
+          }
+        };
+        drawJoinedLayer(160,0x9f9278,.72);
+        drawJoinedLayer(96,0x5aa5b1,.84);
+        drawJoinedLayer(0,0x1f668c,.97);
+      }else{
+        for(let index=0;index<river.points.length-1;index++){
+          const a=river.points[index]!,b=river.points[index+1]!,width=segmentWidth(index);
+          g.lineStyle(width+160,0x9f9278,.72).lineBetween(a.x,a.y,b.x,b.y);
+          g.lineStyle(width+96,0x5aa5b1,.84).lineBetween(a.x,a.y,b.x,b.y);
+          g.lineStyle(width,0x1f668c,.97).lineBetween(a.x,a.y,b.x,b.y);
+        }
+      }
       for(let index=0;index<river.points.length-1;index++){
-        const a=river.points[index]!,b=river.points[index+1]!;
-        const width=((river.widths[index]??river.widths.at(-1)??760)+(river.widths[index+1]??river.widths[index]??760))/2;
-        g.lineStyle(width+160,0x9f9278,.72).lineBetween(a.x,a.y,b.x,b.y);
-        g.lineStyle(width+96,0x5aa5b1,.84).lineBetween(a.x,a.y,b.x,b.y);
-        g.lineStyle(width,0x1f668c,.97).lineBetween(a.x,a.y,b.x,b.y);
+        const a=river.points[index]!,b=river.points[index+1]!,width=segmentWidth(index);
         g.lineStyle(Math.max(16,width*.055),0x78c3d7,.2).lineBetween(a.x,a.y,b.x,b.y);
         const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy)||1,nx=-dy/length,ny=dx/length;
         for(let step=45;step<length;step+=90){
@@ -664,13 +685,28 @@ export class GameScene extends Phaser.Scene {
     this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';this.activePortalSelectedAt=0;
   }
 
+  private resolvedViewerSpace(viewer:any){
+    const x=Number(viewer?.x??0),y=Number(viewer?.y??0);
+    const inferred=spaceAt(x,y,this.mapConfig.buildingVisibilityZones,this.mapConfig.rooms,0);
+    const networkBuildingId=String(viewer?.buildingId??'');
+    const networkRoomIndex=Number(viewer?.roomIndex??0);
+    if(inferred.buildingId){
+      const roomIndex=inferred.roomIndex||(networkBuildingId===inferred.buildingId?networkRoomIndex:0);
+      return{buildingId:inferred.buildingId,roomIndex,outdoors:false};
+    }
+    if(Boolean(viewer?.isVaulting)&&networkBuildingId)return{buildingId:networkBuildingId,roomIndex:networkRoomIndex,outdoors:false};
+    return inferred;
+  }
+
   private updateBuildingPresentation(viewer:any){
-    const inferred=spaceAt(Number(viewer?.x??0),Number(viewer?.y??0),this.mapConfig.buildingVisibilityZones,this.mapConfig.rooms,0);
-    const roomIndex=Number(viewer?.roomIndex??0)||inferred.roomIndex;
+    const resolved=this.resolvedViewerSpace(viewer);
+    const roomIndex=resolved.roomIndex;
     const currentRoom=this.mapConfig.rooms.find((candidate)=>candidate.index===roomIndex);
-    const buildingId=currentRoom?.buildingId||(String(viewer?.buildingId??'')||inferred.buildingId);
+    const buildingId=currentRoom?.buildingId||resolved.buildingId;
     this.activeBuildingId=buildingId;
-    for(const [id,roof] of this.buildingRoofs)roof.setAlpha(id===buildingId?0:1);
+    const containingIds=new Set(buildingZonesAt(Number(viewer?.x??0),Number(viewer?.y??0),this.mapConfig.buildingVisibilityZones,0).map((zone)=>zone.id));
+    if(buildingId)containingIds.add(buildingId);
+    for(const [id,roof] of this.buildingRoofs)roof.setAlpha(containingIds.has(id)?0:1);
     this.indoorMaskG.clear();
     this.updateWindowVisionOverlay({...viewer,buildingId,roomIndex});
   }
@@ -700,6 +736,14 @@ export class GameScene extends Phaser.Scene {
     context.fillRect(topLeft.x,topLeft.y,bottomRight.x-topLeft.x,bottomRight.y-topLeft.y);
   }
 
+  private cutViewerFromVisionOverlay(context:CanvasRenderingContext2D,viewer:{x:number;y:number}){
+    const point=this.worldToScreen(viewer.x,viewer.y);
+    context.globalAlpha=1;
+    context.beginPath();
+    context.arc(point.x,point.y,PLAYER_BODY_RADIUS+10,0,Math.PI*2);
+    context.fill();
+  }
+
   private updateWindowVisionOverlay(viewer:any){
     const canvas=this.windowVisionCanvas,context=this.windowVisionContext;
     if(!canvas||!context)return;
@@ -707,10 +751,10 @@ export class GameScene extends Phaser.Scene {
     const dpr=Math.max(1,window.devicePixelRatio||1),width=this.scale.width,height=this.scale.height;
     context.setTransform(dpr,0,0,dpr,0,0);
     context.clearRect(0,0,width,height);
-    const inferred=spaceAt(Number(viewer?.x??0),Number(viewer?.y??0),this.mapConfig.buildingVisibilityZones,this.mapConfig.rooms,0);
-    const roomIndex=Number(viewer?.roomIndex??0)||inferred.roomIndex;
+    const resolved=this.resolvedViewerSpace(viewer);
+    const roomIndex=resolved.roomIndex;
     const room=this.mapConfig.rooms.find((candidate)=>candidate.index===roomIndex);
-    const buildingId=room?.buildingId||(String(viewer?.buildingId??'')||inferred.buildingId);
+    const buildingId=room?.buildingId||resolved.buildingId;
     const zone=buildingId?buildingZoneById(buildingId,this.mapConfig.buildingVisibilityZones):undefined;
     if(!buildingId||!zone){canvas.classList.add('hidden');return;}
     canvas.classList.remove('hidden');
@@ -721,6 +765,7 @@ export class GameScene extends Phaser.Scene {
     context.globalCompositeOperation='destination-out';
     context.fillStyle='rgba(0,0,0,1)';
     this.cutRectFromVisionOverlay(context,room?this.clippedRoomRect(room,zone):zone.interior,1);
+    this.cutViewerFromVisionOverlay(context,{x:Number(viewer?.x??0),y:Number(viewer?.y??0)});
 
     if(room){
       const adjacentRooms=new Set<number>();
@@ -755,9 +800,9 @@ export class GameScene extends Phaser.Scene {
     const viewer=this.viewerPoint??this.viewerEntity();
     const viewerEntity=this.viewerEntity();
     if(!viewer||!viewerEntity)return false;
-    const viewerInferred=spaceAt(viewer.x,viewer.y,this.mapConfig.buildingVisibilityZones,this.mapConfig.rooms,0);
-    const viewerBuildingId=String(viewerEntity.buildingId??'')||viewerInferred.buildingId;
-    const viewerRoomIndex=Number(viewerEntity.roomIndex??0)||viewerInferred.roomIndex;
+    const viewerResolved=this.resolvedViewerSpace({...viewerEntity,x:viewer.x,y:viewer.y});
+    const viewerBuildingId=viewerResolved.buildingId;
+    const viewerRoomIndex=viewerResolved.roomIndex;
     const targetSpace=targetRoomIndex===undefined?spaceAt(x,y,this.mapConfig.buildingVisibilityZones,this.mapConfig.rooms,0):{buildingId:targetBuildingId??'',roomIndex:targetRoomIndex,outdoors:!targetBuildingId};
     if(viewerBuildingId!==targetSpace.buildingId){
       const opening=crossSpaceOpening(
@@ -959,7 +1004,8 @@ export class GameScene extends Phaser.Scene {
     const hidden={visibleInWorld:false,visibleOnMinimap:false,revealedByShot:false,revealedByHit:false,nameplateVisible:false,vehicleVisible:false,portalKind:'none' as const,portalOpeningId:'',portalViewMode:'none' as const,revealStrength:0};
     if(!viewer||!viewerEntity){this.frameVisibility.set(player.id,hidden);return hidden;}
     const target=this.framePositions.get(player.id)??player;
-    const viewerSpace={x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??''),roomIndex:Number(viewerEntity.roomIndex??0)};
+    const resolvedViewerSpace=this.resolvedViewerSpace({...viewerEntity,x:viewer.x,y:viewer.y});
+    const viewerSpace={x:viewer.x,y:viewer.y,buildingId:resolvedViewerSpace.buildingId,roomIndex:resolvedViewerSpace.roomIndex};
     const targetSpace={x:target.x,y:target.y,buildingId:String(player.buildingId??''),roomIndex:Number(player.roomIndex??0)};
     const smokeVisibility=smokeVisibilityBetween(viewerSpace,targetSpace,this.net.snapshot?.smokeFields??[],Number(this.net.snapshot?.serverTime??0));
     if(smokeVisibility==='hidden'){this.frameVisibility.set(player.id,hidden);return hidden;}
@@ -1676,7 +1722,12 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(0x061018,.92).fillRoundedRect(x,y,w,h,12);
     g.lineStyle(2,0xffffff,.18).strokeRoundedRect(x,y,w,h,12);
     for(const r of this.mapConfig.regions)g.fillStyle(REGION_THEMES[r.id].ground,.62).fillRect(x+r.x*sc,y+r.y*sc,r.w*sc,r.h*sc);
-    for(const river of this.mapConfig.rivers)for(let index=0;index<river.points.length-1;index++){const a=river.points[index]!,b=river.points[index+1]!,width=((river.widths[index]??760)+(river.widths[index+1]??river.widths[index]??760))/2;g.lineStyle(Math.max(2,width*sc),0x2b82a8,.82).lineBetween(x+a.x*sc,y+a.y*sc,x+b.x*sc,y+b.y*sc);}
+    for(const river of this.mapConfig.rivers)for(let index=0;index<river.points.length-1;index++){
+      const a=river.points[index]!,b=river.points[index+1]!,width=((river.widths[index]??760)+(river.widths[index+1]??river.widths[index]??760))/2;
+      const stroke=Math.max(2,width*sc);
+      g.lineStyle(stroke,0x2b82a8,.82).lineBetween(x+a.x*sc,y+a.y*sc,x+b.x*sc,y+b.y*sc);
+      if(this.mapConfig.id==='dock8')g.fillStyle(0x2b82a8,.82).fillCircle(x+a.x*sc,y+a.y*sc,stroke/2).fillCircle(x+b.x*sc,y+b.y*sc,stroke/2);
+    }
     for(const crossing of this.mapConfig.landCrossings)g.fillStyle(crossing.kind==='ford'?0x7c9276:0x77736d,.95).fillRect(x+crossing.rect.x*sc,y+crossing.rect.y*sc,Math.max(1,crossing.rect.w*sc),Math.max(1,crossing.rect.h*sc));
     for(const exit of this.mapConfig.shoreExits)g.fillStyle(0xcfe4a8,.7).fillCircle(x+exit.landingPoint.x*sc,y+exit.landingPoint.y*sc,Math.max(1.2,4*sc));
     for(const b of this.mapConfig.buildings)g.fillStyle(REGION_THEMES[b.regionId].roof,.68).fillRect(x+b.x*sc,y+b.y*sc,Math.max(1,b.w*sc),Math.max(1,b.h*sc));

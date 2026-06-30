@@ -1,3 +1,4 @@
+// DROP8_REFACTOR_013H1_LARGE_NESTED_ROOM_WINDOW_DOCK8_TERRAIN_LOOT
 import type { MapPoint, MapRect, RoomZone, SpaceDescriptor, SpacePortal, SpaceVisibilityTrace } from './types.js';
 
 export interface BuildingZoneLike{
@@ -30,15 +31,33 @@ export function createDefaultRoomZones(zones:readonly BuildingZoneLike[],startIn
   return rooms;
 }
 
+function roomArea(room:RoomZone){return Math.max(0,room.rect.w)*Math.max(0,room.rect.h);}
+function zoneArea(zone:BuildingZoneLike){return Math.max(0,zone.interior.w)*Math.max(0,zone.interior.h);}
+
 export function roomAt(x:number,y:number,rooms:readonly RoomZone[],buildingId=''){
-  const candidates=buildingId?rooms.filter((room)=>room.buildingId===buildingId):rooms;
-  return candidates.find((room)=>contains(room.rect,x,y));
+  const candidates=(buildingId?rooms.filter((room)=>room.buildingId===buildingId):rooms)
+    .filter((room)=>contains(room.rect,x,y));
+  if(!candidates.length)return undefined;
+  return [...candidates].sort((a,b)=>roomArea(a)-roomArea(b)||a.index-b.index)[0];
 }
 
 export function roomByIndex(index:number,rooms:readonly RoomZone[]){return rooms.find((room)=>room.index===index);}
 
+export function buildingZonesAt(x:number,y:number,zones:readonly BuildingZoneLike[],padding=0,excludedIds:ReadonlySet<string>=new Set()){
+  return [...zones]
+    .filter((candidate)=>!excludedIds.has(candidate.id)&&contains(candidate.interior,x,y,padding))
+    .sort((a,b)=>zoneArea(a)-zoneArea(b)||a.id.localeCompare(b.id));
+}
+
 export function spaceAt(x:number,y:number,zones:readonly BuildingZoneLike[],rooms:readonly RoomZone[],padding=0):SpaceDescriptor{
-  const zone=zones.find((candidate)=>contains(candidate.interior,x,y,padding));
+  const zone=buildingZonesAt(x,y,zones,padding)[0];
+  if(!zone)return{buildingId:'',roomIndex:0,outdoors:true};
+  const room=roomAt(x,y,rooms,zone.id);
+  return{buildingId:zone.id,roomIndex:room?.index??0,outdoors:false};
+}
+
+function spaceAtExcludingBuilding(x:number,y:number,zones:readonly BuildingZoneLike[],rooms:readonly RoomZone[],excludedBuildingId:string):SpaceDescriptor{
+  const zone=buildingZonesAt(x,y,zones,0,new Set([excludedBuildingId]))[0];
   if(!zone)return{buildingId:'',roomIndex:0,outdoors:true};
   const room=roomAt(x,y,rooms,zone.id);
   return{buildingId:zone.id,roomIndex:room?.index??0,outdoors:false};
@@ -72,43 +91,83 @@ export function createExternalSpacePortals(zones:readonly BuildingZoneLike[],roo
     for(const door of zone.doors){
       const opening={x:door.x,y:door.y,w:door.width,h:door.height};
       const points=inferSidePoints(opening,zone);
+      const outsideSpace=spaceAtExcludingBuilding(points.outside.x,points.outside.y,zones,rooms,zone.id);
+      const inferredInside=spaceAt(points.inside.x,points.inside.y,zones,rooms,0);
       const insideRoom=roomAt(points.inside.x,points.inside.y,rooms,zone.id)??rooms.find((room)=>room.buildingId===zone.id);
-      portals.push({id:door.id,buildingId:zone.id,kind:'door',sideARoomIndex:0,sideBRoomIndex:insideRoom?.index??0,opening,approachA:points.outside,approachB:points.inside,landingA:points.outside,landingB:points.inside,vaultable:false,allowsVision:true,allowsBullets:true});
+      const insideBuildingId=inferredInside.buildingId||zone.id;
+      const insideRoomIndex=inferredInside.roomIndex||insideRoom?.index||0;
+      portals.push({id:door.id,buildingId:zone.id,kind:'door',sideARoomIndex:outsideSpace.roomIndex,sideBRoomIndex:insideRoomIndex,sideABuildingId:outsideSpace.buildingId,sideBBuildingId:insideBuildingId,opening,approachA:points.outside,approachB:points.inside,landingA:points.outside,landingB:points.inside,vaultable:false,allowsVision:true,allowsBullets:true});
     }
     for(const window of zone.windows){
       const opening={x:window.x,y:window.y,w:window.width,h:window.height};
       // Preserve the pre-013 exterior-window landing geometry (36px outside, 54px inside).
       const points=inferLegacyWindowVaultPoints(opening,zone);
+      const outsideSpace=spaceAtExcludingBuilding(points.outside.x,points.outside.y,zones,rooms,zone.id);
+      const inferredInside=spaceAt(points.inside.x,points.inside.y,zones,rooms,0);
       const insideRoom=roomAt(points.inside.x,points.inside.y,rooms,zone.id)??rooms.find((room)=>room.buildingId===zone.id);
-      portals.push({id:window.id,buildingId:zone.id,kind:'window',sideARoomIndex:0,sideBRoomIndex:insideRoom?.index??0,opening,approachA:points.outside,approachB:points.inside,landingA:points.outside,landingB:points.inside,vaultable:window.vaultable,allowsVision:window.allowsVision,allowsBullets:window.allowsBullets});
+      const insideBuildingId=inferredInside.buildingId||zone.id;
+      const insideRoomIndex=inferredInside.roomIndex||insideRoom?.index||0;
+      portals.push({id:window.id,buildingId:zone.id,kind:'window',sideARoomIndex:outsideSpace.roomIndex,sideBRoomIndex:insideRoomIndex,sideABuildingId:outsideSpace.buildingId,sideBBuildingId:insideBuildingId,opening,approachA:points.outside,approachB:points.inside,landingA:points.outside,landingB:points.inside,vaultable:window.vaultable,allowsVision:window.allowsVision,allowsBullets:window.allowsBullets});
     }
   }
   return portals;
 }
 
-export function portalSideForSpace(portal:SpacePortal,roomIndex:number){
-  if(roomIndex===portal.sideARoomIndex)return'A' as const;
-  if(roomIndex===portal.sideBRoomIndex)return'B' as const;
+export function portalBuildingIdForSide(portal:SpacePortal,side:'A'|'B'){
+  const explicit=side==='A'?portal.sideABuildingId:portal.sideBBuildingId;
+  if(explicit!==undefined)return explicit;
+  const roomIndex=side==='A'?portal.sideARoomIndex:portal.sideBRoomIndex;
+  return roomIndex===0?'':portal.buildingId;
+}
+
+export function portalSideForSpace(portal:SpacePortal,roomIndex:number,buildingId?:string){
+  const matches=(side:'A'|'B')=>{
+    const sideRoom=side==='A'?portal.sideARoomIndex:portal.sideBRoomIndex;
+    if(roomIndex!==sideRoom)return false;
+    return buildingId===undefined||buildingId===portalBuildingIdForSide(portal,side);
+  };
+  if(matches('A'))return'A' as const;
+  if(matches('B'))return'B' as const;
   return null;
 }
 
-export function portalTraversal(portal:SpacePortal,roomIndex:number){
-  const side=portalSideForSpace(portal,roomIndex);
-  if(side==='A')return{from:'A' as const,start:portal.approachA,target:portal.landingB,targetRoomIndex:portal.sideBRoomIndex};
-  if(side==='B')return{from:'B' as const,start:portal.approachB,target:portal.landingA,targetRoomIndex:portal.sideARoomIndex};
+export function portalTraversal(portal:SpacePortal,roomIndex:number,buildingId?:string){
+  const side=portalSideForSpace(portal,roomIndex,buildingId);
+  if(side==='A')return{from:'A' as const,start:portal.approachA,target:portal.landingB,targetBuildingId:portalBuildingIdForSide(portal,'B'),targetRoomIndex:portal.sideBRoomIndex};
+  if(side==='B')return{from:'B' as const,start:portal.approachB,target:portal.landingA,targetBuildingId:portalBuildingIdForSide(portal,'A'),targetRoomIndex:portal.sideARoomIndex};
   return null;
+}
+
+function portalTraversalCandidates(portal:SpacePortal,buildingId:string,roomIndex:number){
+  const candidates:Array<{from:'A'|'B';start:MapPoint;target:MapPoint;targetBuildingId:string;targetRoomIndex:number}>=[];
+  const exact=portalTraversal(portal,roomIndex,buildingId);
+  if(exact)candidates.push(exact);
+  for(const side of ['A','B'] as const){
+    const sourceBuildingId=portalBuildingIdForSide(portal,side);
+    const sourceRoomIndex=side==='A'?portal.sideARoomIndex:portal.sideBRoomIndex;
+    if(candidates.some((candidate)=>candidate.from===side))continue;
+    if(sourceBuildingId!==buildingId&&sourceRoomIndex!==roomIndex)continue;
+    if(side==='A')candidates.push({from:'A',start:portal.approachA,target:portal.landingB,targetBuildingId:portalBuildingIdForSide(portal,'B'),targetRoomIndex:portal.sideBRoomIndex});
+    else candidates.push({from:'B',start:portal.approachB,target:portal.landingA,targetBuildingId:portalBuildingIdForSide(portal,'A'),targetRoomIndex:portal.sideARoomIndex});
+  }
+  if(!candidates.length){
+    candidates.push(
+      {from:'A',start:portal.approachA,target:portal.landingB,targetBuildingId:portalBuildingIdForSide(portal,'B'),targetRoomIndex:portal.sideBRoomIndex},
+      {from:'B',start:portal.approachB,target:portal.landingA,targetBuildingId:portalBuildingIdForSide(portal,'A'),targetRoomIndex:portal.sideARoomIndex},
+    );
+  }
+  return candidates;
 }
 
 export function findPortalVaultCandidate(x:number,y:number,buildingId:string,roomIndex:number,portals:readonly SpacePortal[],maxDistance=70){
   let best:{portal:SpacePortal;from:'A'|'B';start:MapPoint;target:MapPoint;targetBuildingId:string;targetRoomIndex:number;distance:number}|undefined;
   for(const portal of portals){
     if(portal.kind!=='window'||!portal.vaultable)continue;
-    if(buildingId&&portal.buildingId!==buildingId)continue;
-    const traversal=portalTraversal(portal,roomIndex);
-    if(!traversal)continue;
-    const d=Math.hypot(x-traversal.start.x,y-traversal.start.y);
-    if(d>maxDistance||best&&d>=best.distance)continue;
-    best={portal,from:traversal.from,start:traversal.start,target:traversal.target,targetBuildingId:traversal.targetRoomIndex===0?'':portal.buildingId,targetRoomIndex:traversal.targetRoomIndex,distance:d};
+    for(const traversal of portalTraversalCandidates(portal,buildingId,roomIndex)){
+      const d=Math.hypot(x-traversal.start.x,y-traversal.start.y);
+      if(d>maxDistance||best&&d>=best.distance)continue;
+      best={portal,...traversal,distance:d};
+    }
   }
   return best;
 }

@@ -1,4 +1,5 @@
 // DROP8_REFACTOR_013G_DOCK8_RECOVERY
+// DROP8_REFACTOR_013H1_LARGE_NESTED_ROOM_WINDOW_DOCK8_TERRAIN_LOOT
 import type { AiMacroEdge, AiMacroNode, LandCrossing, LootAnchor, MapPoint, MapRect, RiverBand, RoomZone, ShoreExit, SpacePortal, WaterZone } from './types.js';
 
 export const DOCK8_WORLD_SIZE=7168;
@@ -152,9 +153,26 @@ export const DOCK8_WORLD_PROPS:Dock8WorldProp[]=[
 
 export const DOCK8_DECORATIONS:Dock8Decoration[]=DOCK8_WORLD_PROPS.map(({collision:_collision,blocksBullets:_blocksBullets,blocksLoot:_blocksLoot,...decoration})=>decoration);
 
+function anchorNoise(key:string,salt:number){
+  let hash=2166136261^salt;
+  for(let index=0;index<key.length;index++){hash^=key.charCodeAt(index);hash=Math.imul(hash,16777619);}
+  hash^=hash>>>16;hash=Math.imul(hash,0x7feb352d);hash^=hash>>>15;hash=Math.imul(hash,0x846ca68b);hash^=hash>>>16;
+  return((hash>>>0)/4294967295)*2-1;
+}
+
 function gridAnchors(prefix:string,x:number,y:number,w:number,h:number,cols:number,rows:number,regionId:Dock8Region['id'],buildingId='',roomIndex=0):LootAnchor[]{
   const anchors:LootAnchor[]=[];
-  for(let row=0;row<rows;row++)for(let col=0;col<cols;col++)anchors.push({id:`${prefix}-${row*cols+col+1}`,x:x+(col+.5)*w/cols,y:y+(row+.5)*h/rows,regionId,buildingId,roomIndex,category:'normal'});
+  const cellW=w/cols,cellH=h/rows;
+  const jitterX=Math.min(46,cellW*.23),jitterY=Math.min(46,cellH*.23);
+  for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){
+    const order=row*cols+col+1,id=`${prefix}-${order}`;
+    anchors.push({
+      id,
+      x:Math.round(x+(col+.5)*cellW+anchorNoise(id,0x51f15e)*jitterX),
+      y:Math.round(y+(row+.5)*cellH+anchorNoise(id,0x19a47d)*jitterY),
+      regionId,buildingId,roomIndex,category:'normal',
+    });
+  }
   return anchors;
 }
 
@@ -176,45 +194,45 @@ function buildingAnchors(buildingNumber:number,count:number){
 }
 
 const logisticsAnchors=categorized([
-  ...gridAnchors('dock8-loot-logistics-main',4630,2390,650,1650,4,3,'military','dock8-building-9',9001),
-  ...gridAnchors('dock8-loot-logistics-corridor',5502,2390,112,1650,1,4,'military','dock8-building-9',9002),
-  ...gridAnchors('dock8-loot-logistics-office-a',5740,2340,460,280,3,2,'military','dock8-building-9',9003).slice(0,5),
-  ...gridAnchors('dock8-loot-logistics-office-b',5740,2790,460,280,3,2,'military','dock8-building-9',9004).slice(0,5),
-  ...gridAnchors('dock8-loot-logistics-lounge',5740,3230,460,280,2,2,'military','dock8-building-9',9005),
-  ...gridAnchors('dock8-loot-logistics-storage',5740,3700,460,360,4,2,'military','dock8-building-9',9006),
+  ...gridAnchors('dock8-loot-logistics-main',4630,2390,650,1650,4,4,'military','dock8-building-9',9001),
+  ...gridAnchors('dock8-loot-logistics-corridor',5502,2390,112,1650,1,5,'military','dock8-building-9',9002),
+  ...gridAnchors('dock8-loot-logistics-office-a',5740,2340,460,280,3,2,'military','dock8-building-9',9003),
+  ...gridAnchors('dock8-loot-logistics-office-b',5740,2790,460,280,3,2,'military','dock8-building-9',9004),
+  ...gridAnchors('dock8-loot-logistics-lounge',5740,3230,460,280,3,2,'military','dock8-building-9',9005),
+  ...gridAnchors('dock8-loot-logistics-storage',5740,3700,460,360,4,3,'military','dock8-building-9',9006),
 ],['weapon','ammo','normal','heal','ammo','throwable']);
 const adminAnchors=categorized([
-  ...gridAnchors('dock8-loot-admin-main',4800,720,350,820,2,3,'hospital','dock8-building-10',9010),
-  ...gridAnchors('dock8-loot-admin-corridor',5272,760,102,760,1,2,'hospital','dock8-building-10',9011),
-  ...gridAnchors('dock8-loot-admin-office',5480,720,300,330,2,2,'hospital','dock8-building-10',9012),
-  ...gridAnchors('dock8-loot-admin-lounge',5480,1230,300,300,2,2,'hospital','dock8-building-10',9013),
+  ...gridAnchors('dock8-loot-admin-main',4800,720,350,820,3,3,'hospital','dock8-building-10',9010),
+  ...gridAnchors('dock8-loot-admin-corridor',5272,760,102,760,1,3,'hospital','dock8-building-10',9011),
+  ...gridAnchors('dock8-loot-admin-office',5480,720,300,330,3,2,'hospital','dock8-building-10',9012),
+  ...gridAnchors('dock8-loot-admin-lounge',5480,1230,300,300,3,2,'hospital','dock8-building-10',9013),
 ],['heal','ammo','normal','weapon','heal','throwable']);
 const coldAnchors=categorized([
-  ...gridAnchors('dock8-loot-cold-main',4770,5110,480,950,3,3,'residential','dock8-building-11',9020),
-  ...gridAnchors('dock8-loot-cold-corridor',5410,5100,102,950,1,2,'residential','dock8-building-11',9021),
-  ...gridAnchors('dock8-loot-cold-a',5620,5090,340,390,2,2,'residential','dock8-building-11',9022),
-  ...gridAnchors('dock8-loot-cold-b',5620,5680,340,370,2,2,'residential','dock8-building-11',9023),
+  ...gridAnchors('dock8-loot-cold-main',4770,5110,480,950,4,3,'residential','dock8-building-11',9020),
+  ...gridAnchors('dock8-loot-cold-corridor',5410,5100,102,950,1,3,'residential','dock8-building-11',9021),
+  ...gridAnchors('dock8-loot-cold-a',5620,5090,340,390,3,2,'residential','dock8-building-11',9022),
+  ...gridAnchors('dock8-loot-cold-b',5620,5680,340,370,3,2,'residential','dock8-building-11',9023),
 ],['ammo','weapon','normal','heal','ammo','throwable']);
 const secondaryBuildingAnchors=[
-  ...buildingAnchors(1,4),...buildingAnchors(2,4),...buildingAnchors(3,3),...buildingAnchors(4,2),
-  ...buildingAnchors(5,3),...buildingAnchors(6,6),...buildingAnchors(7,4),...buildingAnchors(8,2),
-  ...buildingAnchors(12,2),...buildingAnchors(13,3),...buildingAnchors(14,3),...buildingAnchors(15,3),
-  ...buildingAnchors(16,2),...buildingAnchors(17,2),...buildingAnchors(18,3),...buildingAnchors(19,3),...buildingAnchors(20,2),
+  ...buildingAnchors(1,5),...buildingAnchors(2,5),...buildingAnchors(3,4),...buildingAnchors(4,3),
+  ...buildingAnchors(5,4),...buildingAnchors(6,7),...buildingAnchors(7,5),...buildingAnchors(8,3),
+  ...buildingAnchors(12,3),...buildingAnchors(13,4),...buildingAnchors(14,4),...buildingAnchors(15,4),
+  ...buildingAnchors(16,3),...buildingAnchors(17,3),...buildingAnchors(18,4),...buildingAnchors(19,4),...buildingAnchors(20,3),
 ];
 const indoorAnchors=[...logisticsAnchors,...adminAnchors,...coldAnchors,...secondaryBuildingAnchors];
 const outdoorGroups=[
-  gridAnchors('dock8-loot-container-west',300,300,2350,2100,8,5,'factory'),
-  gridAnchors('dock8-loot-repair-west',320,4420,2250,2120,7,4,'warehouse'),
-  gridAnchors('dock8-loot-admin-east',4260,300,2400,1650,6,4,'hospital'),
-  gridAnchors('dock8-loot-cold-east',4260,4650,2400,1900,6,4,'residential'),
-  gridAnchors('dock8-loot-river-west',2300,260,280,6500,2,6,'forestCamp'),
-  gridAnchors('dock8-loot-river-east',4380,260,280,6500,2,6,'forestCamp'),
+  gridAnchors('dock8-loot-container-west',300,300,2350,2100,10,6,'factory'),
+  gridAnchors('dock8-loot-repair-west',320,4420,2250,2120,9,5,'warehouse'),
+  gridAnchors('dock8-loot-admin-east',4260,300,2400,1650,8,5,'hospital'),
+  gridAnchors('dock8-loot-cold-east',4260,4650,2400,1900,8,5,'residential'),
+  gridAnchors('dock8-loot-river-west',2300,260,280,6500,3,8,'forestCamp'),
+  gridAnchors('dock8-loot-river-east',4380,260,280,6500,3,8,'forestCamp'),
 ];
 const outdoorAnchors:LootAnchor[]=[];
-for(let index=0;outdoorAnchors.length<140;index++)for(const group of outdoorGroups){const anchor=group[index];if(anchor)outdoorAnchors.push({...anchor,category:index%9===0?'weapon':index%7===0?'heal':index%5===0?'ammo':index%11===0?'throwable':'normal'});}
+for(let index=0;outdoorAnchors.length<220;index++)for(const group of outdoorGroups){const anchor=group[index];if(anchor)outdoorAnchors.push({...anchor,category:index%9===0?'weapon':index%7===0?'heal':index%5===0?'ammo':index%11===0?'throwable':'normal'});}
 
-// 124 indoor candidates lead the list so the 216 active slots preserve a 57% indoor share.
-export const DOCK8_LOOT_ANCHORS:LootAnchor[]=[...indoorAnchors,...outdoorAnchors].slice(0,264);
+// 170 indoor candidates lead the list; a 280-slot match keeps a healthy indoor share without emptying the docks.
+export const DOCK8_LOOT_ANCHORS:LootAnchor[]=[...indoorAnchors,...outdoorAnchors].slice(0,380);
 
 // Twelve fair candidates; the server selects eight with west/east/central guarantees per match.
 export const DOCK8_MOTORCYCLE_SPAWNS=[

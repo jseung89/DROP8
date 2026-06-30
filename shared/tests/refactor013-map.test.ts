@@ -30,9 +30,9 @@ describe('Refactor 013 map and spatial foundation', () => {
     expect(map.shoreExits).toHaveLength(22);
     expect(map.motorcycleSpawns).toHaveLength(12);
     expect(map.motorcycleBudget).toBe(8);
-    expect(map.lootSpawns.length).toBeGreaterThanOrEqual(250);
-    expect(map.lootSpawns.length).toBeLessThanOrEqual(265);
-    expect(map.lootBudget).toBe(216);
+    expect(map.lootSpawns.length).toBeGreaterThanOrEqual(380);
+    expect(map.lootSpawns.length).toBeLessThanOrEqual(380);
+    expect(map.lootBudget).toBe(280);
     expect(SWIM_SPEED).toBe(165);
   });
 
@@ -84,7 +84,7 @@ describe('Refactor 013 map and spatial foundation', () => {
       const count=indoor.filter((spawn)=>spawn.buildingId===building.id).length;
       expect(count,building.id).toBeGreaterThanOrEqual(2);
     }
-    expect(indoor.filter((spawn)=>spawn.buildingId==='dock8-building-9')).toHaveLength(38);
+    expect(indoor.filter((spawn)=>spawn.buildingId==='dock8-building-9')).toHaveLength(51);
   });
 
   it('spreads Dock 8 motorcycle candidates across both river banks and central approaches', () => {

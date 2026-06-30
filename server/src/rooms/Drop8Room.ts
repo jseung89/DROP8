@@ -1,6 +1,7 @@
 // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
 // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 // DROP8_REFACTOR_013G_DOCK8_RECOVERY
+// DROP8_REFACTOR_013H1_LARGE_NESTED_ROOM_WINDOW_DOCK8_TERRAIN_LOOT
 import { Client, CloseCode, Room } from '@colyseus/core';
 import { BulletState, Drop8State, ExplosionState, FireFieldState, LootState, MotorcycleState, PlayerState, SmokeFieldState, ThrownObjectState } from './schema.js';
 import {
@@ -63,6 +64,7 @@ import {
   fragPlayerDamage,
   fragVehicleDamage,
   findPortalVaultCandidate,
+  portalBuildingIdForSide,
   getMapConfig,
   normalizeMapId,
   isFiniteNumber,
@@ -582,17 +584,28 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
   }
 
   private findSeparatedLootPosition(baseX:number,baseY:number,kind:LootKind,expectedBuildingId?:string,expectedRoomIndex?:number):Point|undefined{
-    for(let i=0;i<18;i++){
+    const dock8=this.map.id==='dock8';
+    const attempts=dock8?32:18;
+    for(let i=0;i<attempts;i++){
       const ring=Math.floor(i/6);
-      const radius=i===0?0:42+ring*52+this.lootRandom()*28;
-      const angle=(i*2.399963+this.lootRandom()*.45)%(Math.PI*2);
+      const radius=i===0?(dock8?28+this.lootRandom()*62:0):42+ring*52+this.lootRandom()*(dock8?42:28);
+      const angle=(i*2.399963+this.lootRandom()*(dock8?0.9:0.45))%(Math.PI*2);
       const x=clamp(baseX+Math.cos(angle)*radius,40,this.worldSize-40);
       const y=clamp(baseY+Math.sin(angle)*radius,40,this.worldSize-40);
       if(this.isLootPositionValid(x,y,kind,'',expectedBuildingId,expectedRoomIndex))return{x,y};
     }
+    const expectedRoom=expectedRoomIndex?this.map.rooms.find((room)=>room.index===expectedRoomIndex&&(!expectedBuildingId||room.buildingId===expectedBuildingId)):undefined;
+    if(dock8&&expectedRoom){
+      const inset=36;
+      for(let i=0;i<36;i++){
+        const x=expectedRoom.rect.x+inset+this.lootRandom()*Math.max(1,expectedRoom.rect.w-inset*2);
+        const y=expectedRoom.rect.y+inset+this.lootRandom()*Math.max(1,expectedRoom.rect.h-inset*2);
+        if(this.isLootPositionValid(x,y,kind,'',expectedBuildingId,expectedRoomIndex))return{x,y};
+      }
+    }
     const region=this.map.regions.find((r)=>baseX>=r.x&&baseX<=r.x+r.w&&baseY>=r.y&&baseY<=r.y+r.h);
     if(region){
-      for(let i=0;i<18;i++){
+      for(let i=0;i<(dock8?36:18);i++){
         const x=region.x+55+this.lootRandom()*Math.max(1,region.w-110);
         const y=region.y+55+this.lootRandom()*Math.max(1,region.h-110);
         if(this.isLootPositionValid(x,y,kind,'',expectedBuildingId,expectedRoomIndex))return{x,y};
@@ -670,7 +683,8 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     const now=this.now();
     if(now<(this.vaultCooldownUntil.get(p.id)??0))return false;
     if(distance(p.x,p.y,candidate.start.x,candidate.start.y)>WINDOW_INTERACTION_DISTANCE+8)return false;
-    if(!this.vaultLandingFree(candidate.target.x,candidate.target.y,p.id)){
+    const destination=this.resolveVaultDestination(candidate,p.id);
+    if(!destination){
       client?.send('notice',{type:'warning',message:'창문 반대편이 막혀 있습니다.'});
       return false;
     }
@@ -680,7 +694,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     this.knockback.delete(p.id);
     p.isSniperScoped=false;
     const duration=WINDOW_VAULT_DURATION_MS/1000;
-    this.vaultJobs.set(p.id,{startX:p.x,startY:p.y,targetX:candidate.target.x,targetY:candidate.target.y,startedAt:now,duration,windowId:candidate.portal.id,targetBuildingId:candidate.targetBuildingId,targetRoomIndex:candidate.targetRoomIndex,startBuildingId:p.buildingId,startRoomIndex:p.roomIndex,transitioned:false});
+    this.vaultJobs.set(p.id,{startX:p.x,startY:p.y,targetX:destination.x,targetY:destination.y,startedAt:now,duration,windowId:candidate.portal.id,targetBuildingId:destination.buildingId,targetRoomIndex:destination.roomIndex,startBuildingId:p.buildingId,startRoomIndex:p.roomIndex,transitioned:false});
     this.vaultCooldownUntil.set(p.id,now+duration+WINDOW_VAULT_COOLDOWN_MS/1000);
     p.isVaulting=true;
     p.vaultProgress=0;
@@ -700,6 +714,30 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
     for(const motorcycle of this.state.motorcycles.values())if(distance(x,y,motorcycle.x,motorcycle.y)<PLAYER_BODY_RADIUS+MOTORCYCLE_RADIUS+6)return false;
     for(const player of this.state.players.values())if(player.id!==playerId&&player.alive&&player.phase==='landed'&&distance(x,y,player.x,player.y)<PLAYER_SEPARATION_RADIUS*1.75)return false;
     return true;
+  }
+
+  private resolveVaultDestination(candidate:NonNullable<ReturnType<typeof findPortalVaultCandidate>>,playerId:string){
+    const dx=candidate.target.x-candidate.start.x,dy=candidate.target.y-candidate.start.y,length=Math.hypot(dx,dy)||1;
+    const nx=dx/length,ny=dy/length,tx=-ny,ty=nx;
+    const valid=(x:number,y:number)=>{
+      if(!this.vaultLandingFree(x,y,playerId)||this.terrainKindAt(x,y)==='deep-water')return undefined;
+      const space=spaceAt(x,y,this.map.buildingVisibilityZones,this.map.rooms,0);
+      if(space.buildingId!==candidate.targetBuildingId||space.roomIndex!==candidate.targetRoomIndex)return undefined;
+      return{x,y,buildingId:space.buildingId,roomIndex:space.roomIndex};
+    };
+    const forwardOffsets=[0,12,24,38,54,72,96,124];
+    const lateralOffsets=[0,-14,14,-28,28,-42,42,-60,60,-80,80];
+    for(const forward of forwardOffsets)for(const lateral of lateralOffsets){
+      const result=valid(candidate.target.x+nx*forward+tx*lateral,candidate.target.y+ny*forward+ty*lateral);
+      if(result)return result;
+    }
+    const baseAngle=Math.atan2(ny,nx);
+    for(let radius=12;radius<=168;radius+=12)for(let step=0;step<24;step++){
+      const angle=baseAngle+step*(Math.PI*2/24);
+      const result=valid(candidate.target.x+Math.cos(angle)*radius,candidate.target.y+Math.sin(angle)*radius);
+      if(result)return result;
+    }
+    return undefined;
   }
 
   private clearVault(p:PlayerState){
@@ -2693,7 +2731,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
       if(intent?.failedWindowId===portal.id&&this.now()<(intent.failedWindowUntil??0))continue;
       const a=add(portal.approachA),b=add(portal.approachB);
       if(a<0||b<0)continue;
-      windowPairs.push({a,b,windowId:portal.id,aBuildingId:portal.sideARoomIndex===0?'':portal.buildingId,bBuildingId:portal.sideBRoomIndex===0?'':portal.buildingId,aRoomIndex:portal.sideARoomIndex,bRoomIndex:portal.sideBRoomIndex});
+      windowPairs.push({a,b,windowId:portal.id,aBuildingId:portalBuildingIdForSide(portal,'A'),bBuildingId:portalBuildingIdForSide(portal,'B'),aRoomIndex:portal.sideARoomIndex,bRoomIndex:portal.sideBRoomIndex});
     }
     const routeObstacles=[...this.map.propObstacles,...this.map.obstacles];
     for(const prop of routeObstacles){
