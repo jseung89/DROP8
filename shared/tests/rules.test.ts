@@ -1,5 +1,7 @@
+// DROP8_REFACTOR_018_WEREWOLF_SEASON
+// DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_AUDIO_SETTINGS, audioCategoryGain, audioDistanceGain, audioOcclusionProfile, audioStereoPan, normalizeAudioSettings, soundOcclusionBetween, AMMO_DISPLAY_NAMES, BUSHES, BUILDINGS, DECORATIONS, LARGE_INTERIOR_WALLS, MAP_CONFIGS, MOTORCYCLE_BALANCE, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, OBSTACLES, PLAYER_SPEED, PROJECTILE_CONFIGS, REGION_THEMES, REGIONS, createRoomCode, distance, motorcycleCollisionDamage, motorcycleDirectionRetention, motorcycleSpeedMultiplier, motorcycleSpreadMultiplier, motorcycleSpreadRadians, normalizeAimVector, normalizeAmmoType, normalizeMovementInput, pointInDirectionalScope, sanitizeText, segmentCircleIntersectionT, WEAPONS, circleHitsRect } from '../src/index.js';
+import { DEFAULT_AUDIO_SETTINGS, audioCategoryGain, audioDistanceGain, audioOcclusionProfile, audioStereoPan, normalizeAudioSettings, soundOcclusionBetween, AMMO_DISPLAY_NAMES, BUSHES, BUILDINGS, DECORATIONS, LARGE_INTERIOR_WALLS, MAP_CONFIGS, BAZOOKA_BALANCE, FLAMETHROWER_BALANCE, SUPPLY_DROP_BALANCE, flamethrowerConeContains, MOTORCYCLE_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, OBSTACLES, PLAYER_SPEED, PROJECTILE_CONFIGS, REGION_THEMES, REGIONS, createRoomCode, distance, bazookaVehicleDamage, motorcycleCollisionDamage, motorcycleDirectionRetention, motorcycleSpeedMultiplier, motorcycleSpreadMultiplier, motorcycleSpreadRadians, normalizeAimVector, normalizeAmmoType, normalizeMovementInput, pointInDirectionalScope, sanitizeText, segmentCircleIntersectionT, WEAPONS, circleHitsRect } from '../src/index.js';
 
 describe('shared rules', () => {
   it('creates a readable six-character room code', () => {
@@ -10,8 +12,8 @@ describe('shared rules', () => {
     expect(sanitizeText('<script> hi </script>\u0000', 20)).not.toMatch(/[<>\u0000]/);
   });
 
-  it('contains fists and five firearms including a sniper rifle', () => {
-    expect(Object.keys(WEAPONS)).toEqual(['fists', 'pistol', 'smg', 'rifle', 'shotgun', 'sniper']);
+  it('contains fists and nine equippable weapons including the werewolf counters', () => {
+    expect(Object.keys(WEAPONS)).toEqual(['fists', 'pistol', 'smg', 'rifle', 'shotgun', 'sniper', 'bazooka', 'flamethrower', 'adhesive_sprayer', 'silver_crossbow']);
   });
 
 
@@ -22,15 +24,33 @@ describe('shared rules', () => {
     expect(diagonal.x).toBeCloseTo(Math.SQRT1_2,6);
     expect(diagonal.y).toBeCloseTo(-Math.SQRT1_2,6);
   });
-  it('uses exactly three pickup ammo types and maps sniper to standard ammo', () => {
-    expect(Object.keys(AMMO_DISPLAY_NAMES).sort()).toEqual(['pistol_ammo','shotgun_ammo','standard_ammo']);
+  it('uses seven pickup ammo types and keeps silver bolts separate', () => {
+    expect(Object.keys(AMMO_DISPLAY_NAMES).sort()).toEqual(['adhesive_charge','fuel_ammo','pistol_ammo','rocket_ammo','shotgun_ammo','silver_bolt','standard_ammo']);
     expect(WEAPONS.pistol.ammoType).toBe('pistol_ammo');
     expect(WEAPONS.shotgun.ammoType).toBe('shotgun_ammo');
     expect(WEAPONS.smg.ammoType).toBe('standard_ammo');
     expect(WEAPONS.rifle.ammoType).toBe('standard_ammo');
     expect(WEAPONS.sniper.ammoType).toBe('standard_ammo');
+    expect(WEAPONS.bazooka.ammoType).toBe('rocket_ammo');
+    expect(WEAPONS.adhesive_sprayer.ammoType).toBe('adhesive_charge');
+    expect(WEAPONS.silver_crossbow.ammoType).toBe('silver_bolt');
     expect(normalizeAmmoType('sniper_ammo')).toBe('standard_ammo');
+    expect(normalizeAmmoType('rockets')).toBe('rocket_ammo');
+    expect(normalizeAmmoType('fuel')).toBe('fuel_ammo');
+    expect(normalizeAmmoType('adhesive')).toBe('adhesive_charge');
+    expect(normalizeAmmoType('silver_arrow')).toBe('silver_bolt');
   });
+
+  it('keeps motorcycle performance unchanged and leaves about 5-6 percent hp after a direct bazooka hit',()=>{
+    expect(MOTORCYCLE_BALANCE).toEqual({launchSpeedMultiplier:1.05,maxSpeedMultiplier:1.85,timeToMaxSpeedMs:2400,releaseStopTimeMs:480,scopeMaxSpeedRatio:.10,collisionDamageMinSpeedRatio:.40,maxCollisionDamage:45,mountCollisionGraceMs:500,directionChangePenaltyMs:300});
+    expect(MOTORCYCLE_DESTRUCTION_BALANCE.maxHp).toBe(180);
+    const direct=bazookaVehicleDamage(0,true),remaining=MOTORCYCLE_DESTRUCTION_BALANCE.maxHp-direct;
+    expect(direct).toBe(BAZOOKA_BALANCE.directVehicleDamage);
+    expect(remaining/MOTORCYCLE_DESTRUCTION_BALANCE.maxHp).toBeGreaterThanOrEqual(.05);
+    expect(remaining/MOTORCYCLE_DESTRUCTION_BALANCE.maxHp).toBeLessThanOrEqual(.06);
+    expect(bazookaVehicleDamage(BAZOOKA_BALANCE.explosionRadius*.95,false)).toBeLessThan(direct);
+  });
+
 });
 
 import { REGION_LOOT_TABLES, createSeededRandom, weightedLootChoice } from '../src/index.js';
@@ -303,7 +323,7 @@ describe('Refactor 009 window transit rules', () => {
 });
 
 
-import { ANGLE_AWARE_PORTAL_BALANCE, DOOR_PROXIMITY_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_SCOPE_DEPTH, WINDOW_PORTAL_VIEW_DEPTH, WINDOW_PROXIMITY_BALANCE, angleAwarePortalTarget, crossSpaceOpening, doorPortalOpening, explosionExposureMultiplier, motorcycleExplosionDamage, motorcyclePlayerCollisionDamage, motorcycleProjectileDamage, motorcycleWallCollisionDamage, portalAngularVisibility, portalOpeningGeometry, portalPolygon, portalTarget, portalViewGeometry, radialExplosionDamage, segmentClearOfRects, selectActivePortal, selectActiveWindow, targetVisibilitySamples, visibilitySampleResult, windowOpeningCenter, windowPortalPolygon, windowPortalTarget } from '../src/index.js';
+import { ANGLE_AWARE_PORTAL_BALANCE, DOOR_PROXIMITY_BALANCE, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_SCOPE_DEPTH, WINDOW_PORTAL_VIEW_DEPTH, WINDOW_PROXIMITY_BALANCE, angleAwarePortalTarget, crossSpaceOpening, doorPortalOpening, explosionExposureMultiplier, motorcycleExplosionDamage, motorcyclePlayerCollisionDamage, motorcycleProjectileDamage, motorcycleWallCollisionDamage, portalAngularVisibility, portalOpeningGeometry, portalPolygon, portalTarget, portalViewGeometry, radialExplosionDamage, segmentClearOfRects, selectActivePortal, selectActiveWindow, targetVisibilitySamples, visibilitySampleResult, windowOpeningCenter, windowPortalPolygon, windowPortalTarget } from '../src/index.js';
 
 describe('Refactor 010 window combat and vehicle destruction rules', () => {
   it('limits window sight to a local expanding portal instead of an endless strip', () => {
@@ -576,4 +596,10 @@ describe('Refactor 011 audio rules',()=>{
     expect(soundOcclusionBetween({x:0,y:0,buildingId:''},{x:20,y:0,buildingId:''},[])).toBe('direct');
     expect(soundOcclusionBetween({x:0,y:0,buildingId:''},{x:20,y:0,buildingId:''},[{x:8,y:-4,w:4,h:8}])).toBe('solid');
   });
+});
+
+
+describe('Refactor 015A supply and flamethrower shared rules',()=>{
+  it('defines supply-only flamethrower fuel and stable balance constants',()=>{expect(WEAPONS.flamethrower.magazine).toBe(100);expect(WEAPONS.flamethrower.ammoType).toBe('fuel_ammo');expect(FLAMETHROWER_BALANCE.maxFuelReserve).toBe(200);expect(SUPPLY_DROP_BALANCE.triggerZoneStage).toBe(0);expect(SUPPLY_DROP_BALANCE.bazookaWeight).toBe(0);expect(SUPPLY_DROP_BALANCE.flamethrowerWeight).toBe(100);expect(WEAPONS.flamethrower.damage).toBe(9);expect(FLAMETHROWER_BALANCE.range).toBe(420);expect(FLAMETHROWER_BALANCE.playerDamagePerTick).toBe(9);expect(FLAMETHROWER_BALANCE.vehicleDamagePerTick).toBe(6);});
+  it('uses a directional short-range cone',()=>{expect(flamethrowerConeContains(0,0,0,380,0,22)).toBe(true);expect(flamethrowerConeContains(0,0,0,380,180,22)).toBe(false);expect(flamethrowerConeContains(0,0,0,480,0,22)).toBe(false);});
 });

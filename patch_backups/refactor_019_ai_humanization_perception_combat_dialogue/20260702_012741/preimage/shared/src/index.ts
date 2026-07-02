@@ -1,0 +1,1345 @@
+// DROP8_REFACTOR_018_WEREWOLF_SEASON
+// DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
+// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
+// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
+// DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
+// DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
+// DROP8_REFACTOR_013G_DOCK8_RECOVERY
+// DROP8_REFACTOR_013H1_LARGE_NESTED_ROOM_WINDOW_DOCK8_TERRAIN_LOOT
+import { buildingZonesAt, createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, portalBuildingIdForSide, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility } from './maps/rooms.js';
+import { DOCK8_AI_MACRO_EDGES, DOCK8_AI_MACRO_NODES, DOCK8_BUILDINGS, DOCK8_CROSSINGS, DOCK8_CUSTOM_ROOMS, DOCK8_DECORATIONS, DOCK8_EMERGENCY_SPAWNS, DOCK8_INTERIOR_WALLS, DOCK8_INTERNAL_PORTALS, DOCK8_LOOT_ANCHORS, DOCK8_MOTORCYCLE_SPAWNS, DOCK8_REGIONS, DOCK8_RIVERS, DOCK8_SHALLOW_WATER, DOCK8_SHORE_EXITS, DOCK8_WORLD_PROPS, DOCK8_WORLD_SIZE } from './maps/dock8.js';
+import { LARGE_CUSTOM_ROOMS, LARGE_INTERNAL_PORTALS, LARGE_INTERNAL_WALLS } from './maps/large.js';
+import { SWIM_ENTER_MARGIN, SWIM_EXIT_MARGIN, SWIM_SPEED, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt } from './maps/water.js';
+import type { AiMacroEdge, AiMacroNode, LandCrossing, LootAnchor, MapId, RiverBand, RoomZone, ShoreExit, SpaceDescriptor, SpacePortal, SpaceVisibilityTrace, TerrainKind, WaterZone } from './maps/types.js';
+export { ADHESIVE_SPRAYER_BALANCE, STRIP_TRAP_VEHICLE_PROFILE, WEREWOLF_HUNT_VEHICLE_PROFILE, VEHICLE_MIN_SPEED_MULTIPLIER, aggregateVehicleSlowEffects, coneContains } from './vehicleEffects.js';
+export type { VehicleSlowAggregate, VehicleSlowEffect, VehicleSlowKind, VehicleSlowProfile } from './vehicleEffects.js';
+export { STRIP_TRAP_BALANCE, circleHitsStripTrap, pointSegmentDistanceSquared, stripTrapEndpoints, stripTrapsOverlap } from './stripTrap.js';
+export type { StripTrapGeometry } from './stripTrap.js';
+// DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
+
+export const GAME_NAME = 'DROP 8';
+export const MAX_PLAYERS = 8;
+export const SMALL_WORLD_SIZE = 4096;
+export const LARGE_WORLD_SIZE = 6144;
+export { DOCK8_WORLD_SIZE, SWIM_SPEED, SWIM_ENTER_MARGIN, SWIM_EXIT_MARGIN };
+export const WORLD_SIZE = SMALL_WORLD_SIZE;
+export const SERVER_TICK_RATE = 30;
+export const PATCH_RATE_MS = 50;
+export const CHAT_RADIUS = 700;
+export const PLAYER_BODY_RADIUS = 22;
+export const PLAYER_HIT_RADIUS = 24;
+export const PLAYER_SEPARATION_RADIUS = 24;
+export const PLAYER_RADIUS = PLAYER_BODY_RADIUS;
+export const PLAYER_SPEED = 260;
+export const SNIPER_SCOPE_MOVE_MULTIPLIER = .6;
+export const MOTORCYCLE_RADIUS = 30;
+export const MOTORCYCLE_MOUNT_DISTANCE = 72;
+export const MOTORCYCLE_BALANCE = {
+  launchSpeedMultiplier:1.05,
+  maxSpeedMultiplier:1.85,
+  timeToMaxSpeedMs:2400,
+  releaseStopTimeMs:480,
+  scopeMaxSpeedRatio:.10,
+  collisionDamageMinSpeedRatio:.40,
+  maxCollisionDamage:45,
+  mountCollisionGraceMs:500,
+  directionChangePenaltyMs:300,
+} as const;
+export const MOTORCYCLE_LAUNCH_SPEED = Math.round(PLAYER_SPEED*MOTORCYCLE_BALANCE.launchSpeedMultiplier);
+export const MOTORCYCLE_MAX_SPEED = Math.round(PLAYER_SPEED*MOTORCYCLE_BALANCE.maxSpeedMultiplier);
+export const MOTORCYCLE_REVERSE_SPEED = Math.round(MOTORCYCLE_MAX_SPEED*.48);
+export const MOTORCYCLE_ACCELERATION = 430;
+export const MOTORCYCLE_BRAKE = 620;
+export const MOTORCYCLE_DRAG = 210;
+export const MOTORCYCLE_DIRECT_ACCELERATION = 900;
+export const MOTORCYCLE_DIRECT_DECELERATION = Math.round(MOTORCYCLE_MAX_SPEED/(MOTORCYCLE_BALANCE.releaseStopTimeMs/1000));
+export const MOTORCYCLE_ROTATION_RESPONSE = 12;
+export const MOTORCYCLE_MAX_TURN_RATE = 2.25;
+export const MOTORCYCLE_SCOPE_SPEED_RATIO = MOTORCYCLE_BALANCE.scopeMaxSpeedRatio;
+export const MOTORCYCLE_COLLISION_COOLDOWN = .85;
+// DROP8_REFACTOR_010_WINDOW_VEHICLE_DESTRUCTION
+export const MOTORCYCLE_DESTRUCTION_BALANCE = {
+  maxHp:180,
+  criticalHpRatio:.30,
+  explosionFuseMs:850,
+  explosionRadius:160,
+  maxExplosionDamage:90,
+  minExplosionDamage:12,
+  maxExplosionKnockback:165,
+  recentAttackerCreditMs:5000,
+  destroyedFadeMs:1400,
+  wallCollisionDamageCooldownMs:350,
+  shotgunShotDamageCap:30,
+  directExplosionMultiplier:1,
+  doorExplosionMultiplier:1,
+  windowExplosionMultiplier:.70,
+  solidWallExplosionMultiplier:0,
+} as const;
+export const PLANE_DURATION = 24;
+export const FALL_START_ALTITUDE = 1000;
+
+export type GamePhase = 'LOBBY' | 'PLANE' | 'DROP' | 'ACTIVE' | 'FINISHED';
+export type PlayerPhase = 'lobby' | 'plane' | 'falling' | 'parachute' | 'landed' | 'dead';
+export type Difficulty = 'easy' | 'normal' | 'hard';
+export type ZoneSpeed = 'slow' | 'normal' | 'fast';
+export type WeaponId = 'fists' | 'pistol' | 'smg' | 'rifle' | 'shotgun' | 'sniper' | 'bazooka' | 'flamethrower' | 'adhesive_sprayer' | 'silver_crossbow';
+export type MeleeId = 'bat' | 'pan' | 'pipe' | 'knife';
+export type ThrowableType = import('./throwables.js').ThrowableType;
+export type EquippedId = WeaponId | MeleeId | ThrowableType;
+export type AmmoType = 'none' | 'shotgun_ammo' | 'standard_ammo' | 'pistol_ammo' | 'rocket_ammo' | 'fuel_ammo' | 'adhesive_charge' | 'silver_bolt';
+export type LootKind = WeaponId | MeleeId | ThrowableType | 'shotgun_ammo' | 'standard_ammo' | 'pistol_ammo' | 'rocket_ammo' | 'fuel_ammo' | 'adhesive_charge' | 'silver_bolt' | 'strip_trap' | 'vest' | 'bandage' | 'medkit';
+export type ExplosionWeaponType = 'motorcycle_explosion' | 'fragGrenade' | 'bazooka';
+export type { MapId, RoomZone, SpacePortal, LootAnchor, RiverBand, WaterZone, LandCrossing, ShoreExit, AiMacroNode, AiMacroEdge, SpaceDescriptor, SpaceVisibilityTrace };
+export type MapSizeMode = MapId;
+export type RegionId = 'factory' | 'residential' | 'hospital' | 'warehouse' | 'military' | 'forestCamp';
+
+// DROP8_REFACTOR_011_SOUND_FOUNDATION_COMBAT_AUDIO
+export type AudioCategory='ui'|'weapon'|'movement'|'impact'|'vehicle'|'environment'|'system'|'music';
+export type SoundOcclusion='direct'|'door'|'window'|'solid';
+export interface AudioSettings{master:number;effects:number;environment:number;music:number;muted:boolean;}
+export const DEFAULT_AUDIO_SETTINGS:AudioSettings={master:.70,effects:.85,environment:.35,music:.25,muted:false};
+export const SOUND_OCCLUSION_PROFILES:Record<SoundOcclusion,{volume:number;lowpassHz:number}>={
+  direct:{volume:1,lowpassHz:22000},door:{volume:.95,lowpassHz:15000},window:{volume:.78,lowpassHz:5200},solid:{volume:.45,lowpassHz:1100},
+};
+export function normalizeAudioSettings(value:Partial<AudioSettings>|null|undefined):AudioSettings{return{
+  master:clamp(Number(value?.master??DEFAULT_AUDIO_SETTINGS.master),0,1),effects:clamp(Number(value?.effects??DEFAULT_AUDIO_SETTINGS.effects),0,1),
+  environment:clamp(Number(value?.environment??DEFAULT_AUDIO_SETTINGS.environment),0,1),music:clamp(Number(value?.music??DEFAULT_AUDIO_SETTINGS.music),0,1),muted:Boolean(value?.muted),
+};}
+export function audioCategoryGain(settings:AudioSettings,category:AudioCategory):number{
+  if(settings.muted)return 0;
+  if(category==='music')return settings.music;
+  if(category==='movement'||category==='environment')return settings.environment;
+  return settings.effects;
+}
+export function audioDistanceGain(distanceValue:number,maxDistance:number):number{
+  if(!Number.isFinite(distanceValue)||!Number.isFinite(maxDistance)||maxDistance<=0)return distanceValue<=0?1:0;
+  const ratio=clamp(distanceValue/maxDistance,0,1);if(ratio>=1)return 0;
+  const smooth=ratio*ratio*(3-2*ratio);return Math.max(0,1-smooth);
+}
+export function audioStereoPan(listenerX:number,sourceX:number,maxDistance:number):number{
+  if(!Number.isFinite(listenerX)||!Number.isFinite(sourceX)||!Number.isFinite(maxDistance)||maxDistance<=0)return 0;
+  return clamp((sourceX-listenerX)/maxDistance,-.85,.85);
+}
+export function audioOcclusionProfile(kind:SoundOcclusion){return SOUND_OCCLUSION_PROFILES[kind];}
+
+export interface WeaponData {
+  id: WeaponId; name: string; damage: number; fireInterval: number; magazine: number;
+  reloadSeconds: number; spread: number; projectileSpeed: number; range: number;
+  pellets: number; moveMultiplier: number; ammoType: AmmoType; slot: 'melee' | 'secondary' | 'primary';
+}
+
+export interface MeleeData {
+  id: MeleeId; name: string; damage: number; fireInterval: number; range: number; arc: number; moveMultiplier: number;
+}
+
+export const WEAPONS: Record<WeaponId, WeaponData> = {
+  fists: { id:'fists', name:'주먹', damage:34, fireInterval:.52, magazine:0, reloadSeconds:0, spread:0, projectileSpeed:0, range:74, pellets:1, moveMultiplier:1, ammoType:'none', slot:'melee' },
+  pistol:{ id:'pistol', name:'권총', damage:18, fireInterval:.28, magazine:12, reloadSeconds:1.35, spread:.025, projectileSpeed:1050, range:850, pellets:1, moveMultiplier:1, ammoType:'pistol_ammo', slot:'secondary' },
+  smg:{ id:'smg', name:'기관단총', damage:11, fireInterval:.085, magazine:30, reloadSeconds:1.55, spread:.08, projectileSpeed:1120, range:760, pellets:1, moveMultiplier:1.05, ammoType:'standard_ammo', slot:'primary' },
+  rifle:{ id:'rifle', name:'돌격소총', damage:17, fireInterval:.13, magazine:24, reloadSeconds:1.7, spread:.038, projectileSpeed:1320, range:1050, pellets:1, moveMultiplier:.98, ammoType:'standard_ammo', slot:'primary' },
+  shotgun:{ id:'shotgun', name:'샷건', damage:15, fireInterval:.72, magazine:5, reloadSeconds:2.0, spread:.18, projectileSpeed:860, range:440, pellets:8, moveMultiplier:.96, ammoType:'shotgun_ammo', slot:'primary' },
+  sniper:{ id:'sniper', name:'저격소총', damage:72, fireInterval:1.2, magazine:4, reloadSeconds:2.8, spread:.006, projectileSpeed:2900, range:2300, pellets:1, moveMultiplier:.84, ammoType:'standard_ammo', slot:'primary' },
+  bazooka:{ id:'bazooka', name:'바주카포', damage:0, fireInterval:1.65, magazine:1, reloadSeconds:4.2, spread:.012, projectileSpeed:900, range:1250, pellets:1, moveMultiplier:.78, ammoType:'rocket_ammo', slot:'primary' },
+  flamethrower:{ id:'flamethrower', name:'화염방사기', damage:9, fireInterval:.10, magazine:100, reloadSeconds:4.5, spread:0, projectileSpeed:1, range:420, pellets:1, moveMultiplier:.88, ammoType:'fuel_ammo', slot:'primary' },
+  adhesive_sprayer:{ id:'adhesive_sprayer', name:'점착 분사기', damage:0, fireInterval:.10, magazine:80, reloadSeconds:3.8, spread:0, projectileSpeed:1, range:315, pellets:1, moveMultiplier:.92, ammoType:'adhesive_charge', slot:'primary' },
+  silver_crossbow:{ id:'silver_crossbow', name:'은화살 쇠뇌', damage:14, fireInterval:.42, magazine:4, reloadSeconds:1.35, spread:.16, projectileSpeed:2100, range:1050, pellets:5, moveMultiplier:.96, ammoType:'silver_bolt', slot:'primary' }
+};
+
+
+export const SUPPLY_DROP_BALANCE={
+  triggerZoneStage:0,descentSeconds:5,initialAltitude:620,interactionDistance:88,
+  edgeMargin:150,playerClearance:240,obstacleClearance:58,maxPlacementAttempts:96,
+  bazookaWeight:0,flamethrowerWeight:100,weaponAmmoBundles:2,openCleanupSeconds:90,
+} as const;
+export const FLAMETHROWER_BALANCE={
+  range:420,halfAngleRadians:16*Math.PI/180,tickSeconds:.10,
+  playerDamagePerTick:9,vehicleDamagePerTick:6,fuelPerTick:1,
+  fuelPickupAmount:50,maxFuelReserve:200,visualDurationSeconds:.18,muzzleOffset:34,
+} as const;
+export function flamethrowerConeContains(sourceX:number,sourceY:number,angle:number,targetX:number,targetY:number,targetRadius=0){
+  const dx=targetX-sourceX,dy=targetY-sourceY,d=Math.hypot(dx,dy);if(d>FLAMETHROWER_BALANCE.range+targetRadius)return false;if(d<=targetRadius+FLAMETHROWER_BALANCE.muzzleOffset)return true;
+  const delta=Math.abs(Math.atan2(Math.sin(Math.atan2(dy,dx)-angle),Math.cos(Math.atan2(dy,dx)-angle)));
+  return delta<=FLAMETHROWER_BALANCE.halfAngleRadians+Math.asin(Math.min(1,targetRadius/Math.max(1,d)));
+}
+
+export const MELEE_WEAPONS: Record<MeleeId, MeleeData> = {
+  bat:{id:'bat',name:'야구방망이',damage:38,fireInterval:.68,range:98,arc:1.32,moveMultiplier:1},
+  pan:{id:'pan',name:'프라이팬',damage:45,fireInterval:.82,range:82,arc:1.25,moveMultiplier:.97},
+  pipe:{id:'pipe',name:'쇠파이프',damage:40,fireInterval:.62,range:92,arc:1.3,moveMultiplier:.99},
+  knife:{id:'knife',name:'식칼',damage:34,fireInterval:.36,range:70,arc:1.2,moveMultiplier:1.04}
+};
+
+export const LOOT_LABELS: Record<LootKind,string> = {
+  fists:'주먹', pistol:'권총', smg:'기관단총', rifle:'돌격소총', shotgun:'샷건', sniper:'저격소총', bazooka:'바주카포', flamethrower:'화염방사기', adhesive_sprayer:'점착 분사기', silver_crossbow:'은화살 쇠뇌',
+  bat:'야구방망이', pan:'프라이팬', pipe:'쇠파이프', knife:'식칼',
+  pistol_ammo:'권총탄', standard_ammo:'일반 총알', shotgun_ammo:'샷건탄', rocket_ammo:'로켓탄', fuel_ammo:'연료통', adhesive_charge:'점착 충전통', silver_bolt:'은화살', strip_trap:'로우프로파일 스트립 트랩', vest:'방탄조끼', bandage:'붕대', medkit:'구급상자',
+  fragGrenade:'파편 수류탄', smokeGrenade:'연막탄', incendiaryGrenade:'화염탄'
+};
+
+export const LOOT_COLORS: Record<LootKind,number> = {
+  fists:0xf6f7f8, pistol:0xffd451, smg:0xffb84d, rifle:0xff8f4d, shotgun:0xff6b55, sniper:0x88d7ff, bazooka:0x9de27d, flamethrower:0xff6b2d, adhesive_sprayer:0xd9dde1, silver_crossbow:0xd9e8f2,
+  bat:0xc98b55, pan:0xaeb9c2, pipe:0x8da0ad, knife:0xdde7ee,
+  pistol_ammo:0xffe88a, standard_ammo:0xff9f64, shotgun_ammo:0xff6f7a, rocket_ammo:0xa7e883, fuel_ammo:0xc84d32, adhesive_charge:0xcbd1d6, silver_bolt:0xe8eef2, strip_trap:0x343a40, vest:0x73b9ff, bandage:0x58e49d, medkit:0x2ecf78,
+  fragGrenade:0x455b39, smokeGrenade:0xb9c0c6, incendiaryGrenade:0xd64a37
+};
+
+export interface Rect { x:number; y:number; w:number; h:number; }
+export interface Region { id:RegionId; name:string; x:number; y:number; w:number; h:number; color:number; }
+export interface WeightedLoot { kind:LootKind; weight:number; }
+export type DoorSide = 'north'|'south'|'east'|'west';
+export interface Building extends Rect { doorSide:DoorSide; doorOffset:number; doorWidth:number; regionId:RegionId; }
+export interface DoorVisibilityZone { id:string; buildingId:string; x:number; y:number; width:number; height:number; insideRevealDistance:number; outsideRevealDistance:number; open?:boolean; }
+export interface WindowOpening { id:string; buildingId:string; side:DoorSide; offset:number; x:number; y:number; width:number; height:number; vaultable:boolean; allowsVision:boolean; allowsBullets:boolean; insideRevealDistance:number; outsideRevealDistance:number; }
+export interface BuildingVisibilityZone { id:string; regionId:RegionId; buildingIndex:number; interior:Rect; roof:Rect; doors:DoorVisibilityZone[]; windows:WindowOpening[]; }
+export type DecorKind = 'machine'|'tank'|'container'|'yard'|'fence'|'medicalCross'|'bed'|'ambulance'|'crate'|'forklift'|'sandbag'|'helipad'|'tent'|'campfire'|'log'|'tree';
+export interface RegionTheme { ground:number; groundAccent:number; wall:number; roof:number; accent:number; trait:string; }
+export interface Decoration { id:string; regionId:RegionId; kind:DecorKind; x:number; y:number; w:number; h:number; rotation?:number; }
+export interface Bush { id:string; regionId:RegionId; x:number; y:number; radius:number; density:number; }
+export type WorldPropCollision='solid'|'thin'|'none';
+export interface WorldProp extends Decoration { collision:WorldPropCollision; blocksBullets:boolean; blocksLoot:boolean; }
+export interface PlaneRoute { startX:number; startY:number; endX:number; endY:number; angle:number; }
+export interface ZoneTarget { x:number; y:number; radius:number; }
+export interface ProjectileConfig extends WeaponData { lifetimeMs:number; radius:number; knockback:number; canPenetratePlayers:boolean; canPenetrateProps:boolean; }
+export interface MotorcycleSpawn { id:string; x:number; y:number; rotation:number; }
+export interface MapConfig {
+  id:MapId; mode:MapId; displayName:string; width:number; height:number; recommendedPlayers:{min:number;max:number}; maxPlayers:number;
+  initialZoneRadius:number; zoneFreeSeconds:number; zoneWaitScale:number; zoneShrinkScale:number; planeSpeed:number; planeMargin:number; lootBudget:number; motorcycleBudget?:number; aiCountDefault:number; minimapScale:number;
+  regions:Region[]; buildings:Building[]; buildingVisibilityZones:BuildingVisibilityZone[]; decorations:Decoration[]; worldProps:WorldProp[]; obstacles:Rect[]; propObstacles:Rect[]; collisionObstacles:Rect[]; bulletObstacles:Rect[]; visibilityObstacles:Rect[]; bushes:Bush[];
+  lootSpawns:Array<{id?:string;x:number;y:number;region:string;regionId:RegionId;buildingId?:string;roomIndex?:number;category?:LootAnchor['category']}>;
+  motorcycleSpawns:MotorcycleSpawn[]; emergencySpawnPoints:Array<{x:number;y:number}>;
+  rooms:RoomZone[]; portals:SpacePortal[]; rivers:RiverBand[]; shallowWaterZones:WaterZone[]; landCrossings:LandCrossing[]; shoreExits:ShoreExit[]; aiMacroNodes:AiMacroNode[]; aiMacroEdges:AiMacroEdge[];
+}
+
+export const AMMO_DISPLAY_NAMES:Record<Exclude<AmmoType,'none'>,string>={shotgun_ammo:'샷건탄',standard_ammo:'일반 총알',pistol_ammo:'권총탄',rocket_ammo:'로켓탄',fuel_ammo:'연료',adhesive_charge:'점착 충전',silver_bolt:'은화살'};
+export const RENDER_DEPTH={GROUND:0,FLOOR_DECORATION:5,GROUND_ITEM:10,WORLD_PROP:20,VEHICLE:27,PLAYER:30,PLAYER_OVERLAY:35,BUILDING_ROOF:50,PLANE_SHADOW:80,TRANSPORT_PLANE:100,PLANE_EFFECT:105,WORLD_EFFECT:120,HUD:1000,MODAL:2000} as const;
+
+export { buildingZonesAt, createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, portalBuildingIdForSide, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt };
+export type { TerrainKind };
+
+
+export const REGIONS: Region[] = [
+  { id:'factory', name:'폐공장', x:220, y:260, w:980, h:800, color:0x5f6b73 },
+  { id:'residential', name:'주택가', x:1510, y:240, w:980, h:900, color:0x85755f },
+  { id:'hospital', name:'병원', x:2890, y:300, w:760, h:720, color:0x668a8f },
+  { id:'warehouse', name:'창고지대', x:240, y:2520, w:1020, h:900, color:0x8a6b55 },
+  { id:'military', name:'군사시설', x:1600, y:2650, w:930, h:900, color:0x5d6d57 },
+  { id:'forestCamp', name:'숲속 캠프', x:2920, y:2500, w:820, h:980, color:0x3f704d }
+];
+
+export const REGION_THEMES:Record<RegionId,RegionTheme> = {
+  factory:{ground:0x4d565c,groundAccent:0x89939a,wall:0x3e474d,roof:0x566168,accent:0xf3a64b,trait:'중거리 총기와 탄약이 많은 공업 지대'},
+  residential:{ground:0x716653,groundAccent:0xa58f70,wall:0x68594b,roof:0x8d6a54,accent:0xf0d39a,trait:'권총·붕대 중심의 균형 잡힌 주거 지역'},
+  hospital:{ground:0x5f8589,groundAccent:0xb7e0df,wall:0x3f666b,roof:0xd8efed,accent:0xff5b66,trait:'붕대와 구급상자가 집중되는 의료 지역'},
+  warehouse:{ground:0x765d4b,groundAccent:0xb98a62,wall:0x59483c,roof:0x7f6652,accent:0xffba62,trait:'샷건·산탄과 근접 장비가 많은 창고 지역'},
+  military:{ground:0x52614d,groundAccent:0x87967d,wall:0x39483a,roof:0x5e6e59,accent:0xd2c36f,trait:'돌격소총과 방탄 장비가 나오는 고위험 지역'},
+  forestCamp:{ground:0x356441,groundAccent:0x6f9d63,wall:0x5b4937,roof:0x7c5e3f,accent:0xffc45e,trait:'부쉬 은폐와 근접 파밍에 유리한 숲 지역'},
+};
+
+export const BUSH_HIDE_DISTANCE=150;
+export const BUSH_FIRE_REVEAL_SECONDS=1.25;
+export const BUSH_HIT_REVEAL_SECONDS=.8;
+
+export const REGION_LOOT_TABLES: Record<RegionId, WeightedLoot[]> = {
+  factory:[
+    {kind:'smg',weight:16},{kind:'rifle',weight:13},{kind:'sniper',weight:3},{kind:'pistol_ammo',weight:17},{kind:'standard_ammo',weight:17},{kind:'pipe',weight:12},
+    {kind:'pistol',weight:8},{kind:'vest',weight:7},{kind:'bandage',weight:6},{kind:'medkit',weight:1},{kind:'shotgun',weight:1},{kind:'adhesive_sprayer',weight:3},{kind:'adhesive_charge',weight:5},{kind:'strip_trap',weight:3},{kind:'fragGrenade',weight:4},{kind:'smokeGrenade',weight:3},{kind:'incendiaryGrenade',weight:4},
+  ],
+  residential:[
+    {kind:'pistol',weight:19},{kind:'bandage',weight:18},{kind:'pistol_ammo',weight:18},{kind:'bat',weight:12},
+    {kind:'vest',weight:10},{kind:'smg',weight:8},{kind:'medkit',weight:7},{kind:'rifle',weight:4},{kind:'shotgun',weight:4},{kind:'strip_trap',weight:2},{kind:'fragGrenade',weight:3},{kind:'smokeGrenade',weight:6},{kind:'incendiaryGrenade',weight:3},
+  ],
+  hospital:[
+    {kind:'bandage',weight:27},{kind:'medkit',weight:21},{kind:'vest',weight:18},{kind:'pistol',weight:12},{kind:'pistol_ammo',weight:12},
+    {kind:'smg',weight:7},{kind:'rifle',weight:2},{kind:'shotgun',weight:1},{kind:'fragGrenade',weight:2},{kind:'smokeGrenade',weight:7},{kind:'incendiaryGrenade',weight:2},
+  ],
+  warehouse:[
+    {kind:'shotgun',weight:20},{kind:'shotgun_ammo',weight:22},{kind:'bazooka',weight:18},{kind:'rocket_ammo',weight:14},{kind:'smg',weight:15},{kind:'pan',weight:12},
+    {kind:'vest',weight:10},{kind:'pistol_ammo',weight:9},{kind:'bandage',weight:7},{kind:'rifle',weight:3},{kind:'medkit',weight:2},{kind:'adhesive_sprayer',weight:4},{kind:'adhesive_charge',weight:6},{kind:'strip_trap',weight:5},{kind:'fragGrenade',weight:5},{kind:'smokeGrenade',weight:3},{kind:'incendiaryGrenade',weight:6},
+  ],
+  military:[
+    {kind:'rifle',weight:20},{kind:'sniper',weight:7},{kind:'bazooka',weight:24},{kind:'rocket_ammo',weight:18},{kind:'standard_ammo',weight:24},{kind:'vest',weight:18},{kind:'smg',weight:12},{kind:'medkit',weight:9},
+    {kind:'pistol_ammo',weight:7},{kind:'shotgun',weight:3},{kind:'pistol',weight:3},{kind:'adhesive_sprayer',weight:4},{kind:'adhesive_charge',weight:5},{kind:'strip_trap',weight:5},{kind:'fragGrenade',weight:7},{kind:'smokeGrenade',weight:4},{kind:'incendiaryGrenade',weight:5},
+  ],
+  forestCamp:[
+    {kind:'pistol',weight:16},{kind:'shotgun',weight:14},{kind:'bandage',weight:18},{kind:'knife',weight:12},{kind:'bat',weight:11},
+    {kind:'shotgun_ammo',weight:9},{kind:'pistol_ammo',weight:9},{kind:'medkit',weight:6},{kind:'rifle',weight:3},{kind:'vest',weight:2},{kind:'fragGrenade',weight:3},{kind:'smokeGrenade',weight:6},{kind:'incendiaryGrenade',weight:5},
+  ],
+};
+
+export function lootWeightMultiplierForMap(mapId:MapId,kind:LootKind){
+  if(mapId==='dock8'){
+    if(kind==='sniper')return 1.42;
+    if(kind==='standard_ammo')return 1.36;
+    if(kind==='smokeGrenade')return 1.08;
+  }
+  if(mapId==='large'){
+    if(kind==='sniper')return 1.12;
+    if(kind==='standard_ammo')return 1.1;
+    if(kind==='smokeGrenade')return 1.04;
+  }
+  return 1;
+}
+
+export function adjustedLootTableForMap(mapId:MapId,table:readonly WeightedLoot[]){
+  return table.map((entry)=>({...entry,weight:entry.weight*lootWeightMultiplierForMap(mapId,entry.kind)}));
+}
+
+export const LOOT_MIN_DISTANCE=58;
+export const GUN_LOOT_MIN_DISTANCE=72;
+export const LOOT_DOOR_CLEARANCE=65;
+export const LOOT_WALL_CLEARANCE=28;
+
+export function createSeededRandom(seed:number):()=>number {
+  let state=(seed>>>0)||0x6d2b79f5;
+  return ()=>{
+    state=(state+0x6d2b79f5)>>>0;
+    let value=state;
+    value=Math.imul(value^(value>>>15),value|1);
+    value^=value+Math.imul(value^(value>>>7),value|61);
+    return ((value^(value>>>14))>>>0)/4294967296;
+  };
+}
+
+export function weightedLootChoice(table:readonly WeightedLoot[],random:()=>number=Math.random):LootKind {
+  const total=table.reduce((sum,item)=>sum+Math.max(0,item.weight),0);
+  if(total<=0)return 'bandage';
+  let roll=random()*total;
+  for(const item of table){roll-=Math.max(0,item.weight);if(roll<=0)return item.kind;}
+  return table[table.length-1]?.kind??'bandage';
+}
+
+export function regionAt(x:number,y:number,regions:readonly Region[]=REGIONS):Region|undefined {
+  return regions.find((region)=>x>=region.x&&x<=region.x+region.w&&y>=region.y&&y<=region.y+region.h);
+}
+
+export const BUILDING_WALL=18;
+// DROP8_REFACTOR_009_WINDOW_TRANSIT
+export const WINDOW_WIDTH=72;
+export const WINDOW_INTERACTION_DISTANCE=70;
+export const WINDOW_VAULT_DURATION_MS=320;
+export const WINDOW_VAULT_COOLDOWN_MS=460;
+export const WINDOW_INSIDE_REVEAL_DISTANCE=180;
+export const WINDOW_OUTSIDE_REVEAL_DISTANCE=210;
+// DROP8_REFACTOR_010A_WINDOW_VISIBILITY_DEATH_PRESENTATION
+// DROP8_REFACTOR_010B_WINDOW_PROXIMITY_MOTORCYCLE_EXPLOSION
+export const WINDOW_PROXIMITY_BALANCE = {
+  insideNormalActivationDistance:110,
+  insideScopeActivationDistance:135,
+  outsideNormalActivationDistance:95,
+  outsideScopeActivationDistance:125,
+  insideToOutsideNormalDepth:170,
+  insideToOutsideScopeDepth:290,
+  outsideToInsideNormalDepth:105,
+  outsideToInsideScopeDepth:165,
+  normalExpansionRatio:.08,
+  scopeExpansionRatio:.05,
+} as const;
+// DROP8_REFACTOR_010C_DOOR_PORTAL_VISIBILITY
+export const DOOR_PROXIMITY_BALANCE = {
+  insideNormalActivationDistance:145,
+  insideScopeActivationDistance:175,
+  outsideNormalActivationDistance:120,
+  outsideScopeActivationDistance:150,
+  insideToOutsideNormalDepth:220,
+  insideToOutsideScopeDepth:330,
+  outsideToInsideNormalDepth:145,
+  outsideToInsideScopeDepth:210,
+  normalExpansionRatio:.10,
+  scopeExpansionRatio:.06,
+} as const;
+// DROP8_REFACTOR_010D_ANGLE_AWARE_PORTAL_VISIBILITY
+export const PORTAL_SELECTION_BALANCE = {
+  newSelectionAngleDeg:24,
+  retainedSelectionAngleDeg:30,
+  peripheralReleaseAngleDeg:60,
+  passageHoldMs:300,
+  maxActivePortals:1,
+} as const;
+export const ANGLE_AWARE_PORTAL_BALANCE = {
+  frontAngleDeg:20,
+  sideAngleDeg:40,
+  peripheralAngleDeg:60,
+  sideDepthFactor:.72,
+  sideRevealStrength:.70,
+  windowMinimumRenderDistance:55,
+  doorMinimumRenderDistance:65,
+  windowMaximumViewAngleDeg:30,
+  doorMaximumViewAngleDeg:38,
+} as const;
+export const WINDOW_PORTAL_VIEW_DEPTH=WINDOW_PROXIMITY_BALANCE.insideToOutsideNormalDepth;
+export const WINDOW_PORTAL_SCOPE_DEPTH=WINDOW_PROXIMITY_BALANCE.insideToOutsideScopeDepth;
+export const WINDOW_PORTAL_EXPANSION=WINDOW_PROXIMITY_BALANCE.normalExpansionRatio;
+export const WINDOW_PORTAL_FEATHER=42;
+
+const RAW_BUILDINGS: Rect[] = [
+  {x:300,y:350,w:320,h:120},{x:720,y:380,w:340,h:100},{x:360,y:700,w:160,h:260},{x:760,y:690,w:290,h:190},
+  {x:1600,y:360,w:260,h:210},{x:1980,y:350,w:330,h:170},{x:1600,y:760,w:220,h:250},{x:2040,y:730,w:310,h:210},
+  {x:3010,y:420,w:520,h:180},{x:3100,y:730,w:180,h:230},{x:3390,y:720,w:180,h:230},
+  {x:330,y:2640,w:360,h:170},{x:780,y:2650,w:350,h:170},{x:400,y:3010,w:240,h:220},{x:810,y:3010,w:260,h:210},
+  {x:1690,y:2760,w:370,h:190},{x:2140,y:2760,w:280,h:190},{x:1710,y:3150,w:220,h:250},{x:2100,y:3150,w:300,h:220},
+  {x:3020,y:2660,w:170,h:170},{x:3350,y:2740,w:160,h:160},{x:3140,y:3100,w:170,h:170},{x:3500,y:3220,w:150,h:150},
+  {x:1350,y:1550,w:360,h:180},{x:2320,y:1450,w:190,h:390},{x:1750,y:1900,w:450,h:190}
+];
+
+const DOOR_SIDES:DoorSide[]=['south','east','north','west'];
+export const BUILDINGS:Building[] = RAW_BUILDINGS.map((r,i)=>({
+  ...r,
+  regionId:regionAt(r.x+r.w/2,r.y+r.h/2)?.id??'residential',
+  doorSide:DOOR_SIDES[i%DOOR_SIDES.length]!,
+  doorOffset:.5,
+  doorWidth:Math.max(92,Math.min(128,(i%2===0?r.w:r.h)*.4))
+}));
+
+export function buildingDoorCenter(building:Building):{x:number;y:number}{
+  if(building.doorSide==='north'||building.doorSide==='south')return{x:building.x+building.w*building.doorOffset,y:building.doorSide==='north'?building.y:building.y+building.h};
+  return{x:building.doorSide==='west'?building.x:building.x+building.w,y:building.y+building.h*building.doorOffset};
+}
+
+function oppositeDoorSide(side:DoorSide):DoorSide{return side==='north'?'south':side==='south'?'north':side==='east'?'west':'east';}
+function sideLength(building:Building,side:DoorSide){return side==='north'||side==='south'?building.w:building.h;}
+export function createBuildingWindows(building:Building,buildingId:string,buildingIndex=0):WindowOpening[]{
+  const area=building.w*building.h;
+  const targetCount=area>=90000?3:area>=50000?2:1;
+  const clockwise:Record<DoorSide,DoorSide>={north:'east',east:'south',south:'west',west:'north'};
+  const counter:Record<DoorSide,DoorSide>={north:'west',west:'south',south:'east',east:'north'};
+  const preferred=[oppositeDoorSide(building.doorSide),buildingIndex%2===0?clockwise[building.doorSide]:counter[building.doorSide],buildingIndex%2===0?counter[building.doorSide]:clockwise[building.doorSide],building.doorSide];
+  const windows:WindowOpening[]=[];
+  const offsets=[.3,.7,.5];
+  for(const side of preferred){
+    const length=sideLength(building,side);
+    const width=Math.min(WINDOW_WIDTH,Math.max(56,length-48));
+    if(length<width+48)continue;
+    const edge=Math.min(80,Math.max(24,(length-width)/2));
+    const minOffset=(edge+width/2)/length,maxOffset=1-minOffset;
+    for(const rawOffset of offsets){
+      const offset=clamp(rawOffset,minOffset,maxOffset);
+      const center=length*offset;
+      if(side===building.doorSide&&Math.abs(center-length*building.doorOffset)<building.doorWidth/2+width/2+36)continue;
+      if(windows.some((item)=>item.side===side&&Math.abs(item.offset*length-center)<120))continue;
+      const horizontal=side==='north'||side==='south';
+      const centerX=horizontal?building.x+center:(side==='west'?building.x:building.x+building.w);
+      const centerY=horizontal?(side==='north'?building.y:building.y+building.h):building.y+center;
+      windows.push({id:`${buildingId}-window-${windows.length+1}`,buildingId,side,offset,x:centerX-(horizontal?width/2:BUILDING_WALL),y:centerY-(horizontal?BUILDING_WALL:width/2),width:horizontal?width:BUILDING_WALL*2,height:horizontal?BUILDING_WALL*2:width,vaultable:true,allowsVision:true,allowsBullets:true,insideRevealDistance:WINDOW_INSIDE_REVEAL_DISTANCE,outsideRevealDistance:WINDOW_OUTSIDE_REVEAL_DISTANCE});
+      if(windows.length>=targetCount)return windows;
+      break;
+    }
+  }
+  return windows;
+}
+
+export function createBuildingVisibilityZones(buildings:readonly Building[],prefix='small'):BuildingVisibilityZone[]{return buildings.map((building,index)=>{
+  const id=`${prefix}-building-${index+1}`;
+  const center=buildingDoorCenter(building);
+  const horizontal=building.doorSide==='north'||building.doorSide==='south';
+  return{
+    id,regionId:building.regionId,buildingIndex:index,
+    interior:{x:building.x+BUILDING_WALL,y:building.y+BUILDING_WALL,w:Math.max(1,building.w-BUILDING_WALL*2),h:Math.max(1,building.h-BUILDING_WALL*2)},
+    roof:{x:building.x+BUILDING_WALL,y:building.y+BUILDING_WALL,w:Math.max(1,building.w-BUILDING_WALL*2),h:Math.max(1,building.h-BUILDING_WALL*2)},
+    doors:[{id:`${id}-door`,buildingId:id,x:center.x-(horizontal?building.doorWidth/2:BUILDING_WALL),y:center.y-(horizontal?BUILDING_WALL:building.doorWidth/2),width:horizontal?building.doorWidth:BUILDING_WALL*2,height:horizontal?BUILDING_WALL*2:building.doorWidth,insideRevealDistance:105,outsideRevealDistance:105}],
+    windows:createBuildingWindows(building,id,index),
+  };
+});}
+
+export const BUILDING_VISIBILITY_ZONES:BuildingVisibilityZone[]=createBuildingVisibilityZones(BUILDINGS,'small');
+let ALL_BUILDING_VISIBILITY_ZONES:BuildingVisibilityZone[]=BUILDING_VISIBILITY_ZONES;
+export function buildingZoneById(id:string,zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES):BuildingVisibilityZone|undefined{return zones.find((zone)=>zone.id===id);}
+export function buildingIdAt(x:number,y:number,inset=0,zones:readonly BuildingVisibilityZone[]=BUILDING_VISIBILITY_ZONES):string{
+  const zone=zones.find((item)=>x>=item.interior.x+inset&&x<=item.interior.x+item.interior.w-inset&&y>=item.interior.y+inset&&y<=item.interior.y+item.interior.h-inset);
+  return zone?.id??'';
+}
+function openingConnects(a:{x:number;y:number},b:{x:number;y:number},opening:{x:number;y:number;width:number;height:number}){
+  return segmentRectIntersectionT(a.x,a.y,b.x,b.y,{x:opening.x,y:opening.y,w:opening.width,h:opening.height})!==null;
+}
+
+export type PortalKind='door'|'window';
+export type PortalViewMode='front'|'side'|'peripheral'|'none';
+export type CrossSpaceOpeningResult={kind:'same'|PortalKind;openingId:string;buildingId:string;depth:number;lateral:number;maxDepth:number;viewMode:PortalViewMode;revealStrength:number;aimAngleDeltaDeg:number};
+export type ActivePortalSelection={openingId:string;buildingId:string;kind:PortalKind;distance:number;angleDifferenceDeg:number};
+export type ActiveWindowSelection={windowId:string;buildingId:string;distance:number;angleDifferenceDeg:number};
+export type PortalOpeningGeometry={
+  center:{x:number;y:number};left:{x:number;y:number};right:{x:number;y:number};
+  normal:{x:number;y:number};tangent:{x:number;y:number};width:number;
+};
+export type PortalViewGeometry={
+  polygon:Array<{x:number;y:number}>;
+  observer:{x:number;y:number};renderObserver:{x:number;y:number};
+  lateralOffset:number;normalizedLateralOffset:number;
+  aimAngleDeltaDeg:number;viewMode:PortalViewMode;
+  depthFactor:number;revealStrength:number;effectiveDepth:number;totalViewAngleDeg:number;
+};
+
+export function windowOpeningCenter(window:WindowOpening){return{x:window.x+window.width/2,y:window.y+window.height/2};}
+
+function openingSideFromZone(opening:{x:number;y:number;width:number;height:number},zone:BuildingVisibilityZone):DoorSide{
+  const cx=opening.x+opening.width/2,cy=opening.y+opening.height/2;
+  const candidates:[DoorSide,number][]=[
+    ['north',Math.abs(cy-zone.interior.y)],
+    ['south',Math.abs(cy-(zone.interior.y+zone.interior.h))],
+    ['west',Math.abs(cx-zone.interior.x)],
+    ['east',Math.abs(cx-(zone.interior.x+zone.interior.w))],
+  ];
+  candidates.sort((a,b)=>a[1]-b[1]);
+  return candidates[0]![0];
+}
+
+export function doorPortalOpening(zone:BuildingVisibilityZone,door:DoorVisibilityZone):WindowOpening{
+  return{...door,side:openingSideFromZone(door,zone),offset:.5,vaultable:false,allowsVision:true,allowsBullets:true};
+}
+
+function portalActivationDistance(viewerBuildingId:string,kind:PortalKind,opening:WindowOpening,scoped:boolean){
+  const inside=viewerBuildingId===opening.buildingId;
+  const balance=kind==='door'?DOOR_PROXIMITY_BALANCE:WINDOW_PROXIMITY_BALANCE;
+  return inside
+    ? scoped?balance.insideScopeActivationDistance:balance.insideNormalActivationDistance
+    : scoped?balance.outsideScopeActivationDistance:balance.outsideNormalActivationDistance;
+}
+
+function portalAxes(opening:WindowOpening,toward:'inside'|'outside'){
+  const outward=opening.side==='north'?{x:0,y:-1}:opening.side==='south'?{x:0,y:1}:opening.side==='west'?{x:-1,y:0}:{x:1,y:0};
+  const normal=toward==='outside'?outward:{x:-outward.x,y:-outward.y};
+  const tangent={x:-normal.y,y:normal.x};
+  return{normal,tangent};
+}
+
+export function portalOpeningGeometry(opening:WindowOpening,toward:'inside'|'outside'):PortalOpeningGeometry{
+  const {normal,tangent}=portalAxes(opening,toward);
+  const center=windowOpeningCenter(opening);
+  const width=opening.side==='north'||opening.side==='south'?opening.width:opening.height;
+  const half=width/2;
+  return{
+    center,
+    left:{x:center.x+normal.x*2+tangent.x*half,y:center.y+normal.y*2+tangent.y*half},
+    right:{x:center.x+normal.x*2-tangent.x*half,y:center.y+normal.y*2-tangent.y*half},
+    normal,tangent,width,
+  };
+}
+
+function portalProximityDistance(observer:{x:number;y:number},geometry:PortalOpeningGeometry){
+  const ax=geometry.left.x,ay=geometry.left.y,bx=geometry.right.x,by=geometry.right.y;
+  const abx=bx-ax,aby=by-ay,lengthSquared=abx*abx+aby*aby;
+  const ratio=lengthSquared>0?clamp(((observer.x-ax)*abx+(observer.y-ay)*aby)/lengthSquared,0,1):0;
+  return Math.hypot(observer.x-(ax+abx*ratio),observer.y-(ay+aby*ratio));
+}
+
+export function selectActivePortal(
+  viewer:{x:number;y:number;buildingId?:string},aimX:number,aimY:number,currentOpeningId:string,scoped=false,
+  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,
+):ActivePortalSelection|null{
+  const viewerId=viewer.buildingId??'';
+  const aimLength=Math.hypot(aimX,aimY);
+  if(!Number.isFinite(aimLength)||aimLength<.0001)return null;
+  const nx=aimX/aimLength,ny=aimY/aimLength;
+  const candidates:ActivePortalSelection[]=[];
+  const addCandidate=(zone:BuildingVisibilityZone,opening:WindowOpening,kind:PortalKind)=>{
+    if(!opening.allowsVision)return;
+    const toward=viewerId===opening.buildingId?'outside':'inside';
+    const geometry=portalOpeningGeometry(opening,toward);
+    const center=geometry.center,dx=center.x-viewer.x,dy=center.y-viewer.y,distanceToOpening=Math.hypot(dx,dy);
+    if(portalProximityDistance(viewer,geometry)>portalActivationDistance(viewerId,kind,opening,scoped)||distanceToOpening<.001)return;
+    const dot=clamp((dx/distanceToOpening)*nx+(dy/distanceToOpening)*ny,-1,1);
+    const angleDifferenceDeg=Math.acos(dot)*180/Math.PI;
+    candidates.push({openingId:opening.id,buildingId:zone.id,kind,distance:distanceToOpening,angleDifferenceDeg});
+  };
+  for(const zone of zones){
+    if(viewerId&&zone.id!==viewerId)continue;
+    for(const door of zone.doors)addCandidate(zone,doorPortalOpening(zone,door),'door');
+    for(const window of zone.windows)addCandidate(zone,window,'window');
+  }
+  const retainedNormal=candidates.find((candidate)=>candidate.openingId===currentOpeningId&&candidate.angleDifferenceDeg<=PORTAL_SELECTION_BALANCE.retainedSelectionAngleDeg);
+  if(retainedNormal)return retainedNormal;
+  const bestNew=candidates
+    .filter((candidate)=>candidate.angleDifferenceDeg<=PORTAL_SELECTION_BALANCE.newSelectionAngleDeg)
+    .sort((a,b)=>a.angleDifferenceDeg-b.angleDifferenceDeg||a.distance-b.distance)[0];
+  if(bestNew)return bestNew;
+  return candidates.find((candidate)=>candidate.openingId===currentOpeningId&&candidate.angleDifferenceDeg<=PORTAL_SELECTION_BALANCE.peripheralReleaseAngleDeg)??null;
+}
+
+export function selectActiveWindow(
+  viewer:{x:number;y:number;buildingId?:string},aimX:number,aimY:number,currentWindowId:string,scoped=false,
+  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,
+):ActiveWindowSelection|null{
+  const selected=selectActivePortal(viewer,aimX,aimY,currentWindowId,scoped,zones);
+  return selected?.kind==='window'?{windowId:selected.openingId,buildingId:selected.buildingId,distance:selected.distance,angleDifferenceDeg:selected.angleDifferenceDeg}:null;
+}
+
+function portalDepth(kind:PortalKind,toward:'inside'|'outside',scoped:boolean){
+  const balance=kind==='door'?DOOR_PROXIMITY_BALANCE:WINDOW_PROXIMITY_BALANCE;
+  if(toward==='outside')return scoped?balance.insideToOutsideScopeDepth:balance.insideToOutsideNormalDepth;
+  return scoped?balance.outsideToInsideScopeDepth:balance.outsideToInsideNormalDepth;
+}
+
+function portalExpansion(kind:PortalKind,scoped:boolean){
+  const balance=kind==='door'?DOOR_PROXIMITY_BALANCE:WINDOW_PROXIMITY_BALANCE;
+  return scoped?balance.scopeExpansionRatio:balance.normalExpansionRatio;
+}
+
+function normalizeAngleRadians(value:number){
+  let angle=value;
+  while(angle>Math.PI)angle-=Math.PI*2;
+  while(angle<-Math.PI)angle+=Math.PI*2;
+  return angle;
+}
+
+export function portalAngularVisibility(angleDifferenceDeg:number){
+  const angle=Math.abs(angleDifferenceDeg);
+  const balance=ANGLE_AWARE_PORTAL_BALANCE;
+  if(angle<=balance.frontAngleDeg)return{viewMode:'front' as const,depthFactor:1,revealStrength:1};
+  if(angle<=balance.sideAngleDeg){
+    const ratio=smoothstep((angle-balance.frontAngleDeg)/(balance.sideAngleDeg-balance.frontAngleDeg));
+    return{viewMode:'side' as const,depthFactor:lerpNumber(1,balance.sideDepthFactor,ratio),revealStrength:lerpNumber(1,balance.sideRevealStrength,ratio)};
+  }
+  if(angle<=balance.peripheralAngleDeg){
+    const ratio=smoothstep((angle-balance.sideAngleDeg)/(balance.peripheralAngleDeg-balance.sideAngleDeg));
+    return{viewMode:'peripheral' as const,depthFactor:lerpNumber(balance.sideDepthFactor,0,ratio),revealStrength:lerpNumber(balance.sideRevealStrength,0,ratio)};
+  }
+  return{viewMode:'none' as const,depthFactor:0,revealStrength:0};
+}
+
+function portalMinimumRenderDistance(kind:PortalKind){return kind==='door'?ANGLE_AWARE_PORTAL_BALANCE.doorMinimumRenderDistance:ANGLE_AWARE_PORTAL_BALANCE.windowMinimumRenderDistance;}
+function portalMaximumViewAngleDeg(kind:PortalKind){return kind==='door'?ANGLE_AWARE_PORTAL_BALANCE.doorMaximumViewAngleDeg:ANGLE_AWARE_PORTAL_BALANCE.windowMaximumViewAngleDeg;}
+
+export function portalViewGeometry(
+  opening:WindowOpening,kind:PortalKind,observer:{x:number;y:number},toward:'inside'|'outside',scoped:boolean,
+  aimX:number,aimY:number,forRender=false,extraDepth=0,
+):PortalViewGeometry{
+  const geometry=portalOpeningGeometry(opening,toward);
+  const toCenterX=geometry.center.x-observer.x,toCenterY=geometry.center.y-observer.y,toCenterLength=Math.hypot(toCenterX,toCenterY);
+  const aimLength=Math.hypot(aimX,aimY);
+  const aimDot=toCenterLength>.0001&&aimLength>.0001?clamp((toCenterX/toCenterLength)*(aimX/aimLength)+(toCenterY/toCenterLength)*(aimY/aimLength),-1,1):-1;
+  const aimAngleDeltaDeg=Math.acos(aimDot)*180/Math.PI;
+  const angular=portalAngularVisibility(aimAngleDeltaDeg);
+  const lateralOffset=(observer.x-geometry.center.x)*geometry.tangent.x+(observer.y-geometry.center.y)*geometry.tangent.y;
+  const normalizedLateralOffset=clamp(lateralOffset/Math.max(1,geometry.width/2),-1,1);
+  let renderObserver={x:observer.x,y:observer.y};
+  if(forRender){
+    const behindDistance=-((observer.x-geometry.center.x)*geometry.normal.x+(observer.y-geometry.center.y)*geometry.normal.y);
+    const minimum=portalMinimumRenderDistance(kind);
+    if(behindDistance<minimum){
+      renderObserver={
+        x:geometry.center.x-geometry.normal.x*minimum+geometry.tangent.x*lateralOffset,
+        y:geometry.center.y-geometry.normal.y*minimum+geometry.tangent.y*lateralOffset,
+      };
+    }
+  }
+  if(angular.viewMode==='none'||angular.depthFactor<=0)return{polygon:[],observer:{...observer},renderObserver,lateralOffset,normalizedLateralOffset,aimAngleDeltaDeg,viewMode:'none',depthFactor:0,revealStrength:0,effectiveDepth:0,totalViewAngleDeg:0};
+  const centerAngle=Math.atan2(geometry.center.y-renderObserver.y,geometry.center.x-renderObserver.x);
+  let leftAngle=Math.atan2(geometry.left.y-renderObserver.y,geometry.left.x-renderObserver.x);
+  let rightAngle=Math.atan2(geometry.right.y-renderObserver.y,geometry.right.x-renderObserver.x);
+  let leftDelta=normalizeAngleRadians(leftAngle-centerAngle),rightDelta=normalizeAngleRadians(rightAngle-centerAngle);
+  const rawSpan=Math.abs(normalizeAngleRadians(rightAngle-leftAngle));
+  const maximumSpan=portalMaximumViewAngleDeg(kind)*Math.PI/180;
+  if(rawSpan>maximumSpan&&rawSpan>.0001){
+    const scale=maximumSpan/rawSpan;
+    leftDelta*=scale;rightDelta*=scale;
+    leftAngle=centerAngle+leftDelta;rightAngle=centerAngle+rightDelta;
+  }
+  const effectiveDepth=Math.max(8,portalDepth(kind,toward,scoped)*angular.depthFactor+extraDepth);
+  const leftDirection={x:Math.cos(leftAngle),y:Math.sin(leftAngle)};
+  const rightDirection={x:Math.cos(rightAngle),y:Math.sin(rightAngle)};
+  const farLeft={x:geometry.left.x+leftDirection.x*effectiveDepth,y:geometry.left.y+leftDirection.y*effectiveDepth};
+  const farRight={x:geometry.right.x+rightDirection.x*effectiveDepth,y:geometry.right.y+rightDirection.y*effectiveDepth};
+  return{
+    polygon:[geometry.left,geometry.right,farRight,farLeft],observer:{...observer},renderObserver,
+    lateralOffset,normalizedLateralOffset,aimAngleDeltaDeg,viewMode:angular.viewMode,
+    depthFactor:angular.depthFactor,revealStrength:angular.revealStrength,effectiveDepth,
+    totalViewAngleDeg:Math.abs(normalizeAngleRadians(rightAngle-leftAngle))*180/Math.PI,
+  };
+}
+
+function pointInConvexPolygon(point:{x:number;y:number},polygon:readonly {x:number;y:number}[]){
+  if(polygon.length<3)return false;
+  let sign=0;
+  for(let index=0;index<polygon.length;index++){
+    const a=polygon[index]!,b=polygon[(index+1)%polygon.length]!;
+    const cross=(b.x-a.x)*(point.y-a.y)-(b.y-a.y)*(point.x-a.x);
+    if(Math.abs(cross)<.0001)continue;
+    const current=cross>0?1:-1;
+    if(sign===0)sign=current;else if(sign!==current)return false;
+  }
+  return true;
+}
+
+export function angleAwarePortalTarget(
+  opening:WindowOpening,kind:PortalKind,observer:{x:number;y:number},targetX:number,targetY:number,targetBuildingId:string,
+  scoped=false,aimX=1,aimY=0,
+){
+  const toward=targetBuildingId===opening.buildingId?'inside':'outside';
+  const view=portalViewGeometry(opening,kind,observer,toward,scoped,aimX,aimY,false);
+  const fixed=portalTarget(opening,kind,targetX,targetY,targetBuildingId,scoped);
+  const withinDepth=fixed.depth>=-BUILDING_WALL&&fixed.depth<=view.effectiveDepth+BUILDING_WALL;
+  return{...fixed,maxDepth:view.effectiveDepth,visible:withinDepth&&view.polygon.length>0&&pointInConvexPolygon({x:targetX,y:targetY},view.polygon),viewMode:view.viewMode,revealStrength:view.revealStrength,aimAngleDeltaDeg:view.aimAngleDeltaDeg,effectiveDepth:view.effectiveDepth};
+}
+
+export function portalTarget(opening:WindowOpening,kind:PortalKind,targetX:number,targetY:number,targetBuildingId:string,scoped=false){
+  const toward=targetBuildingId===opening.buildingId?'inside':'outside';
+  const {normal,tangent}=portalAxes(opening,toward);
+  const centerX=opening.x+opening.width/2,centerY=opening.y+opening.height/2;
+  const dx=targetX-centerX,dy=targetY-centerY;
+  const depth=dx*normal.x+dy*normal.y;
+  const lateral=Math.abs(dx*tangent.x+dy*tangent.y);
+  const openingWidth=opening.side==='north'||opening.side==='south'?opening.width:opening.height;
+  const maxDepth=portalDepth(kind,toward,scoped);
+  const nearPadding=kind==='door'?12:10;
+  const widthAtDepth=openingWidth/2+nearPadding+Math.max(0,depth)*portalExpansion(kind,scoped);
+  return{visible:depth>=-BUILDING_WALL&&depth<=maxDepth&&lateral<=widthAtDepth,depth,lateral,maxDepth,widthAtDepth,toward};
+}
+
+export function portalPolygon(opening:WindowOpening,kind:PortalKind,toward:'inside'|'outside',scoped=false,extraDepth=0){
+  const {normal,tangent}=portalAxes(opening,toward);
+  const centerX=opening.x+opening.width/2,centerY=opening.y+opening.height/2;
+  const openingWidth=opening.side==='north'||opening.side==='south'?opening.width:opening.height;
+  const maxDepth=Math.max(8,portalDepth(kind,toward,scoped)+extraDepth);
+  const nearHalf=openingWidth/2+(kind==='door'?10:8);
+  const farHalf=nearHalf+maxDepth*portalExpansion(kind,scoped);
+  const nearX=centerX+normal.x*2,nearY=centerY+normal.y*2;
+  const farX=centerX+normal.x*maxDepth,farY=centerY+normal.y*maxDepth;
+  return[
+    {x:nearX+tangent.x*nearHalf,y:nearY+tangent.y*nearHalf},
+    {x:nearX-tangent.x*nearHalf,y:nearY-tangent.y*nearHalf},
+    {x:farX-tangent.x*farHalf,y:farY-tangent.y*farHalf},
+    {x:farX+tangent.x*farHalf,y:farY+tangent.y*farHalf},
+  ];
+}
+
+export function angleAwarePortalPolygon(opening:WindowOpening,kind:PortalKind,observer:{x:number;y:number},toward:'inside'|'outside',scoped:boolean,aimX:number,aimY:number,extraDepth=0){
+  return portalViewGeometry(opening,kind,observer,toward,scoped,aimX,aimY,true,extraDepth);
+}
+
+export function windowPortalTarget(window:WindowOpening,targetX:number,targetY:number,targetBuildingId:string,scoped=false){return portalTarget(window,'window',targetX,targetY,targetBuildingId,scoped);}
+export function windowPortalPolygon(window:WindowOpening,toward:'inside'|'outside',scoped=false,extraDepth=0){return portalPolygon(window,'window',toward,scoped,extraDepth);}
+
+export function crossSpaceOpening(
+  viewer:{x:number;y:number;buildingId?:string},target:{x:number;y:number;buildingId?:string},scoped=false,
+  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,allowedOpeningId?:string,aimDirection?:{x:number;y:number},
+):CrossSpaceOpeningResult|null{
+  const viewerId=viewer.buildingId??'',targetId=target.buildingId??'';
+  if(viewerId===targetId)return{kind:'same',openingId:'',buildingId:viewerId,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY,viewMode:'front',revealStrength:1,aimAngleDeltaDeg:0};
+  if(viewerId&&targetId)return null;
+  const indoor=viewerId?viewer:target;
+  const zone=buildingZoneById(indoor.buildingId??'',zones);
+  if(!zone)return null;
+  const candidates:Array<{t:number;result:CrossSpaceOpeningResult}>=[];
+  for(const door of zone.doors){
+    if(allowedOpeningId!==undefined&&door.id!==allowedOpeningId)continue;
+    const opening=doorPortalOpening(zone,door);
+    const t=segmentRectIntersectionT(viewer.x,viewer.y,target.x,target.y,{x:door.x,y:door.y,w:door.width,h:door.height});
+    if(t===null)continue;
+    const portal=aimDirection?angleAwarePortalTarget(opening,'door',viewer,target.x,target.y,targetId,scoped,aimDirection.x,aimDirection.y):{...portalTarget(opening,'door',target.x,target.y,targetId,scoped),viewMode:'front' as const,revealStrength:1,aimAngleDeltaDeg:0};
+    if(!portal.visible)continue;
+    candidates.push({t,result:{kind:'door',openingId:door.id,buildingId:zone.id,depth:portal.depth,lateral:portal.lateral,maxDepth:portal.maxDepth,viewMode:portal.viewMode,revealStrength:portal.revealStrength,aimAngleDeltaDeg:portal.aimAngleDeltaDeg}});
+  }
+  for(const window of zone.windows){
+    if(!window.allowsVision||(allowedOpeningId!==undefined&&window.id!==allowedOpeningId))continue;
+    const t=segmentRectIntersectionT(viewer.x,viewer.y,target.x,target.y,{x:window.x,y:window.y,w:window.width,h:window.height});
+    if(t===null)continue;
+    const portal=aimDirection?angleAwarePortalTarget(window,'window',viewer,target.x,target.y,targetId,scoped,aimDirection.x,aimDirection.y):{...portalTarget(window,'window',target.x,target.y,targetId,scoped),viewMode:'front' as const,revealStrength:1,aimAngleDeltaDeg:0};
+    if(!portal.visible)continue;
+    candidates.push({t,result:{kind:'window',openingId:window.id,buildingId:zone.id,depth:portal.depth,lateral:portal.lateral,maxDepth:portal.maxDepth,viewMode:portal.viewMode,revealStrength:portal.revealStrength,aimAngleDeltaDeg:portal.aimAngleDeltaDeg}});
+  }
+  candidates.sort((a,b)=>a.t-b.t);
+  return candidates[0]?.result??null;
+}
+
+function crossSpaceOpeningGeometry(
+  viewer:{x:number;y:number;buildingId?:string},target:{x:number;y:number;buildingId?:string},
+  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,
+):CrossSpaceOpeningResult|null{
+  const viewerId=viewer.buildingId??'',targetId=target.buildingId??'';
+  if(viewerId===targetId)return{kind:'same',openingId:'',buildingId:viewerId,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY,viewMode:'front',revealStrength:1,aimAngleDeltaDeg:0};
+  if(viewerId&&targetId)return null;
+  const indoor=viewerId?viewer:target;
+  const zone=buildingZoneById(indoor.buildingId??'',zones);
+  if(!zone)return null;
+  const candidates:Array<{t:number;result:CrossSpaceOpeningResult}>=[];
+  for(const door of zone.doors){
+    const t=segmentRectIntersectionT(viewer.x,viewer.y,target.x,target.y,{x:door.x,y:door.y,w:door.width,h:door.height});
+    if(t!==null)candidates.push({t,result:{kind:'door',openingId:door.id,buildingId:zone.id,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY,viewMode:'front',revealStrength:1,aimAngleDeltaDeg:0}});
+  }
+  for(const window of zone.windows){
+    const t=segmentRectIntersectionT(viewer.x,viewer.y,target.x,target.y,{x:window.x,y:window.y,w:window.width,h:window.height});
+    if(t!==null)candidates.push({t,result:{kind:'window',openingId:window.id,buildingId:zone.id,depth:0,lateral:0,maxDepth:Number.POSITIVE_INFINITY,viewMode:'front',revealStrength:1,aimAngleDeltaDeg:0}});
+  }
+  candidates.sort((a,b)=>a.t-b.t);
+  return candidates[0]?.result??null;
+}
+
+export function soundOcclusionBetween(
+  source:{x:number;y:number;buildingId?:string},listener:{x:number;y:number;buildingId?:string},rects:readonly Rect[],
+  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,padding=0,
+):SoundOcclusion{
+  if(!segmentClearOfRects(source.x,source.y,listener.x,listener.y,rects,padding))return'solid';
+  const opening=crossSpaceOpeningGeometry(source,listener,zones);
+  if(!opening)return source.buildingId===listener.buildingId?'direct':'solid';
+  return opening.kind==='door'?'door':opening.kind==='window'?'window':'direct';
+}
+
+export function explosionExposureMultiplier(
+  source:{x:number;y:number;buildingId?:string},target:{x:number;y:number;buildingId?:string},rects:readonly Rect[],
+  zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,targetRadius=PLAYER_HIT_RADIUS,padding=0,
+):number{
+  let multiplier=0;
+  for(const sample of targetVisibilitySamples(source.x,source.y,target.x,target.y,targetRadius)){
+    if(!segmentClearOfRects(source.x,source.y,sample.x,sample.y,rects,padding))continue;
+    const opening=crossSpaceOpeningGeometry(source,{x:sample.x,y:sample.y,buildingId:target.buildingId},zones);
+    if(!opening)continue;
+    const candidate=opening.kind==='window'?MOTORCYCLE_DESTRUCTION_BALANCE.windowExplosionMultiplier
+      : opening.kind==='door'?MOTORCYCLE_DESTRUCTION_BALANCE.doorExplosionMultiplier
+      : MOTORCYCLE_DESTRUCTION_BALANCE.directExplosionMultiplier;
+    multiplier=Math.max(multiplier,candidate);
+  }
+  return multiplier;
+}
+
+export function buildingSpacesVisible(a:{x:number;y:number;buildingId?:string},b:{x:number;y:number;buildingId?:string}):boolean{
+  return crossSpaceOpening(a,b,false)!==null;
+}
+export function buildingSpacesInteractable(a:{x:number;y:number;buildingId?:string},b:{x:number;y:number;buildingId?:string}):boolean{
+  const aId=a.buildingId??'',bId=b.buildingId??'';
+  if(aId===bId)return true;
+  if(aId&&bId)return false;
+  const indoor=aId?a:b;
+  const outdoor=aId?b:a;
+  const zone=buildingZoneById(indoor.buildingId??'');
+  return Boolean(zone?.doors.some((door)=>openingConnects(indoor,outdoor,door)));
+}
+export function windowVaultPoints(window:WindowOpening,clearance=PLAYER_BODY_RADIUS+14):{inside:{x:number;y:number};outside:{x:number;y:number}}{
+  const cx=window.x+window.width/2,cy=window.y+window.height/2;
+  if(window.side==='north')return{outside:{x:cx,y:cy-clearance},inside:{x:cx,y:cy+BUILDING_WALL+clearance}};
+  if(window.side==='south')return{outside:{x:cx,y:cy+clearance},inside:{x:cx,y:cy-BUILDING_WALL-clearance}};
+  if(window.side==='west')return{outside:{x:cx-clearance,y:cy},inside:{x:cx+BUILDING_WALL+clearance,y:cy}};
+  return{outside:{x:cx+clearance,y:cy},inside:{x:cx-BUILDING_WALL-clearance,y:cy}};
+}
+export function findWindowVaultCandidate(x:number,y:number,buildingId:string,zones:readonly BuildingVisibilityZone[]=ALL_BUILDING_VISIBILITY_ZONES,maxDistance=WINDOW_INTERACTION_DISTANCE){
+  let best:{window:WindowOpening;from:'inside'|'outside';start:{x:number;y:number};target:{x:number;y:number};targetBuildingId:string;distance:number}|undefined;
+  for(const zone of zones){
+    if(buildingId&&buildingId!==zone.id)continue;
+    for(const window of zone.windows){
+      if(!window.vaultable)continue;
+      const points=windowVaultPoints(window);
+      const from=buildingId===zone.id?'inside':'outside';
+      const start=from==='inside'?points.inside:points.outside;
+      const target=from==='inside'?points.outside:points.inside;
+      const d=distance(x,y,start.x,start.y);
+      if(d<=maxDistance&&(!best||d<best.distance))best={window,from,start,target,targetBuildingId:from==='inside'?'':zone.id,distance:d};
+    }
+  }
+  return best;
+}
+
+const WALL=BUILDING_WALL;
+export function wallsForBuilding(b:Building):Rect[]{
+  const walls:Rect[]=[];
+  const addHorizontal=(y:number,door:boolean)=>{
+    if(!door){walls.push({x:b.x,y,w:b.w,h:WALL});return;}
+    const center=b.x+b.w*b.doorOffset,half=b.doorWidth/2;
+    const left=Math.max(0,center-half-b.x),rightStart=center+half;
+    if(left>0)walls.push({x:b.x,y,w:left,h:WALL});
+    if(rightStart<b.x+b.w)walls.push({x:rightStart,y,w:b.x+b.w-rightStart,h:WALL});
+  };
+  const addVertical=(x:number,door:boolean)=>{
+    if(!door){walls.push({x,y:b.y,w:WALL,h:b.h});return;}
+    const center=b.y+b.h*b.doorOffset,half=b.doorWidth/2;
+    const top=Math.max(0,center-half-b.y),bottomStart=center+half;
+    if(top>0)walls.push({x,y:b.y,w:WALL,h:top});
+    if(bottomStart<b.y+b.h)walls.push({x,y:bottomStart,w:WALL,h:b.y+b.h-bottomStart});
+  };
+  addHorizontal(b.y,b.doorSide==='north');
+  addHorizontal(b.y+b.h-WALL,b.doorSide==='south');
+  addVertical(b.x,b.doorSide==='west');
+  addVertical(b.x+b.w-WALL,b.doorSide==='east');
+  return walls;
+}
+
+export const OBSTACLES:Rect[] = BUILDINGS.flatMap(wallsForBuilding);
+
+
+export const DECORATIONS:Decoration[] = [
+  {id:'factory-machine-1',regionId:'factory',kind:'machine',x:420,y:560,w:110,h:54},
+  {id:'factory-machine-2',regionId:'factory',kind:'machine',x:850,y:555,w:125,h:58},
+  {id:'factory-tank-1',regionId:'factory',kind:'tank',x:1110,y:820,w:54,h:76},
+  {id:'factory-container-1',regionId:'factory',kind:'container',x:250,y:985,w:150,h:55},
+  {id:'factory-container-2',regionId:'factory',kind:'container',x:940,y:980,w:170,h:55},
+  {id:'res-yard-1',regionId:'residential',kind:'yard',x:1880,y:600,w:105,h:80},
+  {id:'res-yard-2',regionId:'residential',kind:'yard',x:2260,y:1010,w:105,h:80},
+  {id:'res-fence-1',regionId:'residential',kind:'fence',x:1500,y:665,w:210,h:18},
+  {id:'res-fence-2',regionId:'residential',kind:'fence',x:2050,y:650,w:250,h:18},
+  {id:'res-fence-3',regionId:'residential',kind:'fence',x:1810,y:1090,w:190,h:18},
+  {id:'hospital-cross-1',regionId:'hospital',kind:'medicalCross',x:3210,y:510,w:54,h:54},
+  {id:'hospital-cross-2',regionId:'hospital',kind:'medicalCross',x:3460,y:835,w:48,h:48},
+  {id:'hospital-bed-1',regionId:'hospital',kind:'bed',x:3140,y:805,w:72,h:32},
+  {id:'hospital-bed-2',regionId:'hospital',kind:'bed',x:3410,y:805,w:72,h:32},
+  {id:'hospital-ambulance',regionId:'hospital',kind:'ambulance',x:2925,y:930,w:120,h:58},
+  {id:'warehouse-crate-1',regionId:'warehouse',kind:'crate',x:700,y:2910,w:62,h:62},
+  {id:'warehouse-crate-2',regionId:'warehouse',kind:'crate',x:740,y:2982,w:62,h:62},
+  {id:'warehouse-crate-3',regionId:'warehouse',kind:'crate',x:1100,y:3180,w:70,h:70},
+  {id:'warehouse-forklift',regionId:'warehouse',kind:'forklift',x:260,y:3300,w:98,h:54},
+  {id:'warehouse-container',regionId:'warehouse',kind:'container',x:1060,y:2550,w:160,h:52},
+  {id:'military-sandbag-1',regionId:'military',kind:'sandbag',x:1605,y:3000,w:155,h:32},
+  {id:'military-sandbag-2',regionId:'military',kind:'sandbag',x:2370,y:3040,w:150,h:32},
+  {id:'military-sandbag-3',regionId:'military',kind:'sandbag',x:1965,y:3490,w:170,h:32},
+  {id:'military-helipad',regionId:'military',kind:'helipad',x:2440,y:3420,w:110,h:110},
+  {id:'forest-tent-1',regionId:'forestCamp',kind:'tent',x:2925,y:2920,w:86,h:68},
+  {id:'forest-tent-2',regionId:'forestCamp',kind:'tent',x:3650,y:2890,w:86,h:68},
+  {id:'forest-campfire',regionId:'forestCamp',kind:'campfire',x:3310,y:2970,w:50,h:50},
+  {id:'forest-log-1',regionId:'forestCamp',kind:'log',x:2990,y:3400,w:105,h:28,rotation:.18},
+  {id:'forest-log-2',regionId:'forestCamp',kind:'log',x:3500,y:3500,w:105,h:28,rotation:-.2},
+  {id:'forest-tree-1',regionId:'forestCamp',kind:'tree',x:2950,y:2580,w:62,h:62},
+  {id:'forest-tree-2',regionId:'forestCamp',kind:'tree',x:3710,y:2670,w:62,h:62},
+  {id:'forest-tree-3',regionId:'forestCamp',kind:'tree',x:3260,y:3460,w:62,h:62},
+];
+
+const SOLID_PROP_KINDS=new Set<DecorKind>(['machine','tank','container','bed','ambulance','crate','forklift','sandbag','tent','log','tree']);
+const THIN_PROP_KINDS=new Set<DecorKind>(['fence']);
+export const WORLD_PROPS:WorldProp[]=DECORATIONS.map((decoration)=>{
+  const collision:WorldPropCollision=THIN_PROP_KINDS.has(decoration.kind)?'thin':SOLID_PROP_KINDS.has(decoration.kind)?'solid':'none';
+  return {...decoration,collision,blocksBullets:collision!=='none',blocksLoot:collision!=='none'};
+});
+
+function mergeIntervals(intervals:Array<{start:number;end:number}>){
+  const sorted=intervals.filter((item)=>item.end>item.start).sort((a,b)=>a.start-b.start);const merged:Array<{start:number;end:number}>=[];
+  for(const item of sorted){const last=merged.at(-1);if(last&&item.start<=last.end)last.end=Math.max(last.end,item.end);else merged.push({...item});}
+  return merged;
+}
+export function projectileWallsForBuilding(building:Building,windows:readonly WindowOpening[]):Rect[]{
+  const walls:Rect[]=[];
+  const sideIntervals=(side:DoorSide,length:number)=>{
+    const intervals:Array<{start:number;end:number}>=[];
+    if(building.doorSide===side){const center=length*building.doorOffset;intervals.push({start:center-building.doorWidth/2,end:center+building.doorWidth/2});}
+    for(const window of windows.filter((item)=>item.side===side&&item.allowsBullets)){const center=length*window.offset;const width=side==='north'||side==='south'?window.width:window.height;intervals.push({start:center-width/2,end:center+width/2});}
+    return mergeIntervals(intervals.map((item)=>({start:clamp(item.start,0,length),end:clamp(item.end,0,length)})));
+  };
+  const addHorizontal=(side:'north'|'south',y:number)=>{let cursor=0;for(const opening of sideIntervals(side,building.w)){if(opening.start>cursor)walls.push({x:building.x+cursor,y,w:opening.start-cursor,h:BUILDING_WALL});cursor=Math.max(cursor,opening.end);}if(cursor<building.w)walls.push({x:building.x+cursor,y,w:building.w-cursor,h:BUILDING_WALL});};
+  const addVertical=(side:'west'|'east',x:number)=>{let cursor=0;for(const opening of sideIntervals(side,building.h)){if(opening.start>cursor)walls.push({x,y:building.y+cursor,w:BUILDING_WALL,h:opening.start-cursor});cursor=Math.max(cursor,opening.end);}if(cursor<building.h)walls.push({x,y:building.y+cursor,w:BUILDING_WALL,h:building.h-cursor});};
+  addHorizontal('north',building.y);addHorizontal('south',building.y+building.h-BUILDING_WALL);addVertical('west',building.x);addVertical('east',building.x+building.w-BUILDING_WALL);
+  return walls;
+}
+export const PROP_OBSTACLES:Rect[]=WORLD_PROPS.filter((prop)=>prop.collision!=='none').map((prop)=>({x:prop.x,y:prop.y,w:prop.w,h:prop.h}));
+export const COLLISION_OBSTACLES:Rect[]=[...OBSTACLES,...PROP_OBSTACLES];
+export const BULLET_BUILDING_OBSTACLES:Rect[]=BUILDINGS.flatMap((building,index)=>projectileWallsForBuilding(building,BUILDING_VISIBILITY_ZONES[index]?.windows??[]));
+export const BULLET_OBSTACLES:Rect[]=[...BULLET_BUILDING_OBSTACLES,...PROP_OBSTACLES];
+export const VISIBILITY_OBSTACLES:Rect[]=BULLET_OBSTACLES;
+
+export function createPlaneRoute(random:()=>number=Math.random,worldSize=WORLD_SIZE,margin=280):PlaneRoute{
+  const directions=[
+    {x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1},
+    {x:Math.SQRT1_2,y:Math.SQRT1_2},{x:Math.SQRT1_2,y:-Math.SQRT1_2},
+    {x:-Math.SQRT1_2,y:Math.SQRT1_2},{x:-Math.SQRT1_2,y:-Math.SQRT1_2},
+  ];
+  const direction=directions[Math.floor(random()*directions.length)]??directions[0]!;
+  const perpendicular={x:-direction.y,y:direction.x};
+  const offset=(random()-.5)*worldSize*.34;
+  const center={x:worldSize/2+perpendicular.x*offset,y:worldSize/2+perpendicular.y*offset};
+  const min=-margin,max=worldSize+margin;
+  const distanceToEdge=(dx:number,dy:number)=>{
+    const tx=dx>0?(max-center.x)/dx:dx<0?(min-center.x)/dx:Number.POSITIVE_INFINITY;
+    const ty=dy>0?(max-center.y)/dy:dy<0?(min-center.y)/dy:Number.POSITIVE_INFINITY;
+    return Math.min(tx>0?tx:Number.POSITIVE_INFINITY,ty>0?ty:Number.POSITIVE_INFINITY);
+  };
+  const forward=distanceToEdge(direction.x,direction.y);
+  const backward=distanceToEdge(-direction.x,-direction.y);
+  const startX=center.x-direction.x*backward;
+  const startY=center.y-direction.y*backward;
+  const endX=center.x+direction.x*forward;
+  const endY=center.y+direction.y*forward;
+  return {startX,startY,endX,endY,angle:Math.atan2(endY-startY,endX-startX)};
+}
+
+export function createInitialZone(
+  random:()=>number,
+  radius:number,
+  worldSize=WORLD_SIZE,
+  safetyMargin=28,
+  requiredReachablePoints:readonly {x:number;y:number}[]=[],
+):ZoneTarget{
+  const cell=worldSize/3;
+  const outerSectors=[
+    [0,0],[1,0],[2,0],
+    [0,1],      [2,1],
+    [0,2],[1,2],[2,2],
+  ] as const;
+  const sampleSector=(sx:number,sy:number)=>{
+    const inset=Math.min(cell*.18,Math.max(12,safetyMargin));
+    const lowX=Math.max(safetyMargin,sx*cell+inset);
+    const highX=Math.min(worldSize-safetyMargin,(sx+1)*cell-inset);
+    const lowY=Math.max(safetyMargin,sy*cell+inset);
+    const highY=Math.min(worldSize-safetyMargin,(sy+1)*cell-inset);
+    return{
+      x:lowX+Math.max(0,highX-lowX)*random(),
+      y:lowY+Math.max(0,highY-lowY)*random(),
+      radius,
+    };
+  };
+  for(let attempt=0;attempt<96;attempt++){
+    const useCenter=random()<(requiredReachablePoints.length?.12:.2);
+    const [sx,sy]=useCenter?[1,1] as const:outerSectors[Math.floor(random()*outerSectors.length)]??outerSectors[0]!;
+    const candidate=sampleSector(sx,sy);
+    if(requiredReachablePoints.length&& !requiredReachablePoints.some((point)=>distance(candidate.x,candidate.y,point.x,point.y)<=radius))continue;
+    return candidate;
+  }
+  const fallbackPoint=requiredReachablePoints[0];
+  if(fallbackPoint)return{x:clamp(fallbackPoint.x,safetyMargin,worldSize-safetyMargin),y:clamp(fallbackPoint.y,safetyMargin,worldSize-safetyMargin),radius};
+  return{x:worldSize/2,y:worldSize/2,radius};
+}
+
+export function createNextZone(
+  random:()=>number,
+  currentX:number,currentY:number,currentRadius:number,nextRadius:number,stage:number,
+  safetyMargin=28,worldSize=WORLD_SIZE,
+):ZoneTarget{
+  const factors=[.7,.78,.86,.92,1,1];
+  const factor=factors[Math.max(0,Math.min(factors.length-1,stage))]??1;
+  const containmentDistance=Math.max(0,currentRadius-nextRadius-safetyMargin);
+  const maxDistance=containmentDistance*factor;
+  const fullMin=nextRadius,fullMax=worldSize-nextRadius;
+  const nearestFullX=clamp(currentX,fullMin,fullMax),nearestFullY=clamp(currentY,fullMin,fullMax);
+  const fullBoundsFeasible=fullMax>=fullMin&&distance(currentX,currentY,nearestFullX,nearestFullY)<=maxDistance+1e-6;
+  const min=fullBoundsFeasible?fullMin:safetyMargin;
+  const max=fullBoundsFeasible?fullMax:worldSize-safetyMargin;
+  for(let attempt=0;attempt<96;attempt++){
+    const angle=random()*Math.PI*2;
+    const minDistance=maxDistance>40?maxDistance*.18:0;
+    const travel=minDistance+(maxDistance-minDistance)*Math.sqrt(random());
+    const x=currentX+Math.cos(angle)*travel;
+    const y=currentY+Math.sin(angle)*travel;
+    if(x<min||x>max||y<min||y>max)continue;
+    if(distance(currentX,currentY,x,y)+nextRadius>currentRadius-safetyMargin+1e-6)continue;
+    return{x,y,radius:nextRadius};
+  }
+  const x=clamp(currentX,min,max),y=clamp(currentY,min,max);
+  if(distance(currentX,currentY,x,y)+nextRadius<=currentRadius-safetyMargin+1e-6)return{x,y,radius:nextRadius};
+  return{x:currentX,y:currentY,radius:nextRadius};
+}
+
+
+function createBushes():Bush[]{
+  const random=createSeededRandom(0x004b2026);
+  const plans:Array<[RegionId,number]>=[['factory',3],['residential',5],['hospital',2],['warehouse',3],['military',5],['forestCamp',30]];
+  const bushes:Bush[]=[];
+  for(const [regionId,count] of plans){
+    const region=REGIONS.find((item)=>item.id===regionId)!;
+    let placed=0;
+    for(let attempt=0;attempt<count*60&&placed<count;attempt++){
+      const radius=regionId==='forestCamp'?36+random()*18:32+random()*13;
+      const x=region.x+55+random()*Math.max(1,region.w-110);
+      const y=region.y+55+random()*Math.max(1,region.h-110);
+      if(COLLISION_OBSTACLES.some((rect)=>circleHitsRect(x,y,radius+10,rect)))continue;
+      if(BUILDINGS.some((building)=>distance(x,y,buildingDoorCenter(building).x,buildingDoorCenter(building).y)<radius+82))continue;
+      if(bushes.some((bush)=>distance(x,y,bush.x,bush.y)<radius+bush.radius+22))continue;
+      bushes.push({id:`bush-${regionId}-${placed+1}`,regionId,x:Math.round(x),y:Math.round(y),radius:Math.round(radius),density:.72+random()*.24});
+      placed++;
+    }
+  }
+  return bushes;
+}
+
+export const BUSHES:Bush[]=createBushes();
+export function bushContaining(x:number,y:number,padding=0):Bush|undefined{return BUSHES.find((bush)=>distance(x,y,bush.x,bush.y)<=Math.max(1,bush.radius-padding));}
+
+export const LOOT_SPAWNS = Array.from({length: 76}, (_,i) => {
+  const r = REGIONS[i % REGIONS.length]!;
+  const col = i % 6, row = Math.floor(i / 6) % 5;
+  return { x: r.x + 90 + col * Math.max(95, (r.w-180)/6), y: r.y + 100 + row * Math.max(105, (r.h-200)/5), region: r.name, regionId:r.id };
+});
+
+
+const LARGE_SCALE=1.5;
+function scaleRegion(region:Region):Region{return{...region,x:Math.round(region.x*LARGE_SCALE),y:Math.round(region.y*LARGE_SCALE),w:Math.round(region.w*LARGE_SCALE),h:Math.round(region.h*LARGE_SCALE)};}
+function scaleBuilding(building:Building):Building{return{...building,x:Math.round(building.x*LARGE_SCALE),y:Math.round(building.y*LARGE_SCALE),w:Math.round(building.w*LARGE_SCALE),h:Math.round(building.h*LARGE_SCALE),doorWidth:Math.round(building.doorWidth*1.18)};}
+function scaleDecoration(item:Decoration):Decoration{return{...item,id:`large-${item.id}`,x:Math.round(item.x*LARGE_SCALE),y:Math.round(item.y*LARGE_SCALE),w:Math.round(item.w*1.2),h:Math.round(item.h*1.2)};}
+export const LARGE_REGIONS:Region[]=REGIONS.map(scaleRegion);
+const LARGE_EXTRA_BUILDINGS:Building[]=[
+  {x:4200,y:1700,w:920,h:560,doorSide:'south',doorOffset:.28,doorWidth:170,regionId:'hospital'},
+  {x:650,y:1800,w:1050,h:640,doorSide:'east',doorOffset:.56,doorWidth:180,regionId:'factory'},
+  {x:2450,y:3900,w:1120,h:620,doorSide:'north',doorOffset:.46,doorWidth:190,regionId:'warehouse'},
+  {x:4200,y:4100,w:900,h:700,doorSide:'west',doorOffset:.48,doorWidth:180,regionId:'military'},
+];
+export const LARGE_BUILDINGS:Building[]=[...BUILDINGS.map(scaleBuilding),...LARGE_EXTRA_BUILDINGS];
+export const LARGE_BUILDING_VISIBILITY_ZONES=createBuildingVisibilityZones(LARGE_BUILDINGS,'large');
+export const LARGE_INTERIOR_WALLS:Rect[]=LARGE_INTERNAL_WALLS.map((wall)=>({...wall}));
+export const LARGE_OBSTACLES:Rect[]=[...LARGE_BUILDINGS.flatMap(wallsForBuilding),...LARGE_INTERIOR_WALLS];
+export const LARGE_DECORATIONS:Decoration[]=[...DECORATIONS.map(scaleDecoration),
+  {id:'large-hospital-courtyard',regionId:'hospital',kind:'bed',x:4460,y:2030,w:130,h:46},
+  {id:'large-factory-machine-a',regionId:'factory',kind:'machine',x:980,y:2100,w:180,h:72},
+  {id:'large-logistics-containers',regionId:'warehouse',kind:'container',x:2750,y:4300,w:220,h:70},
+  {id:'large-military-sandbag',regionId:'military',kind:'sandbag',x:4100,y:4720,w:260,h:42},
+];
+export const LARGE_WORLD_PROPS:WorldProp[]=LARGE_DECORATIONS.map((decoration)=>{const collision:WorldPropCollision=THIN_PROP_KINDS.has(decoration.kind)?'thin':SOLID_PROP_KINDS.has(decoration.kind)?'solid':'none';return{...decoration,collision,blocksBullets:collision!=='none',blocksLoot:collision!=='none'};});
+export const LARGE_PROP_OBSTACLES:Rect[]=LARGE_WORLD_PROPS.filter((prop)=>prop.collision!=='none').map((prop)=>({x:prop.x,y:prop.y,w:prop.w,h:prop.h}));
+export const LARGE_COLLISION_OBSTACLES:Rect[]=[...LARGE_OBSTACLES,...LARGE_PROP_OBSTACLES];
+export const LARGE_BULLET_BUILDING_OBSTACLES:Rect[]=LARGE_BUILDINGS.flatMap((building,index)=>projectileWallsForBuilding(building,LARGE_BUILDING_VISIBILITY_ZONES[index]?.windows??[]));
+export const LARGE_BULLET_OBSTACLES:Rect[]=[...LARGE_BULLET_BUILDING_OBSTACLES,...LARGE_INTERIOR_WALLS,...LARGE_PROP_OBSTACLES];
+export const LARGE_VISIBILITY_OBSTACLES:Rect[]=LARGE_BULLET_OBSTACLES;
+function makeBushesForMap(regions:readonly Region[],buildings:readonly Building[],obstacles:readonly Rect[],seed:number,large=false):Bush[]{
+  const random=createSeededRandom(seed);const plans:Array<[RegionId,number]>=[['factory',large?6:3],['residential',large?9:5],['hospital',large?5:2],['warehouse',large?6:3],['military',large?9:5],['forestCamp',large?48:30]];const bushes:Bush[]=[];
+  for(const [regionId,count] of plans){const region=regions.find((item)=>item.id===regionId)!;let placed=0;for(let attempt=0;attempt<count*80&&placed<count;attempt++){const radius=regionId==='forestCamp'?36+random()*20:32+random()*14;const x=region.x+55+random()*Math.max(1,region.w-110);const y=region.y+55+random()*Math.max(1,region.h-110);if(obstacles.some((rect)=>circleHitsRect(x,y,radius+10,rect)))continue;if(buildings.some((building)=>distance(x,y,buildingDoorCenter(building).x,buildingDoorCenter(building).y)<radius+82))continue;if(bushes.some((bush)=>distance(x,y,bush.x,bush.y)<radius+bush.radius+22))continue;bushes.push({id:`${large?'large':'small'}-bush-${regionId}-${placed+1}`,regionId,x:Math.round(x),y:Math.round(y),radius:Math.round(radius),density:.72+random()*.24});placed++;}}
+  return bushes;
+}
+export const LARGE_BUSHES=makeBushesForMap(LARGE_REGIONS,LARGE_BUILDINGS,LARGE_COLLISION_OBSTACLES,0x006e2026,true);
+
+export const SMALL_ROOMS:RoomZone[]=createDefaultRoomZones(BUILDING_VISIBILITY_ZONES,1);
+export const SMALL_SPACE_PORTALS:SpacePortal[]=createExternalSpacePortals(BUILDING_VISIBILITY_ZONES,SMALL_ROOMS);
+export const LARGE_ROOMS:RoomZone[]=createDefaultRoomZones(LARGE_BUILDING_VISIBILITY_ZONES,1001,LARGE_CUSTOM_ROOMS);
+export const LARGE_SPACE_PORTALS:SpacePortal[]=[...createExternalSpacePortals(LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS),...LARGE_INTERNAL_PORTALS];
+
+function explicitLootAnchor(id:string,x:number,y:number,regionId:RegionId,zones:readonly BuildingVisibilityZone[],rooms:readonly RoomZone[],category:LootAnchor['category']='normal'){
+  const space=spaceAt(x,y,zones,rooms,0);
+  return{id,x,y,region:regionId,regionId,buildingId:space.buildingId,roomIndex:space.roomIndex,category};
+}
+
+export const SMALL_CENTRAL_LOOT_SPAWNS=[
+  explicitLootAnchor('small-central-24-weapon',1450,1610,'residential',BUILDING_VISIBILITY_ZONES,SMALL_ROOMS,'weapon'),
+  explicitLootAnchor('small-central-24-ammo',1585,1665,'residential',BUILDING_VISIBILITY_ZONES,SMALL_ROOMS,'ammo'),
+  explicitLootAnchor('small-central-24-heal',1645,1605,'residential',BUILDING_VISIBILITY_ZONES,SMALL_ROOMS,'heal'),
+  explicitLootAnchor('small-central-25-weapon',2380,1540,'residential',BUILDING_VISIBILITY_ZONES,SMALL_ROOMS,'weapon'),
+  explicitLootAnchor('small-central-25-ammo',2450,1650,'residential',BUILDING_VISIBILITY_ZONES,SMALL_ROOMS,'ammo'),
+  explicitLootAnchor('small-central-25-normal',2385,1760,'residential',BUILDING_VISIBILITY_ZONES,SMALL_ROOMS,'normal'),
+  explicitLootAnchor('small-central-26-throw',1845,1960,'residential',BUILDING_VISIBILITY_ZONES,SMALL_ROOMS,'throwable'),
+  explicitLootAnchor('small-central-26-heal',1980,2025,'residential',BUILDING_VISIBILITY_ZONES,SMALL_ROOMS,'heal'),
+  explicitLootAnchor('small-central-26-normal',2110,1960,'residential',BUILDING_VISIBILITY_ZONES,SMALL_ROOMS,'normal'),
+];
+
+export const LARGE_CENTRAL_LOOT_SPAWNS=[
+  explicitLootAnchor('large-central-24-weapon',2170,2410,'residential',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'weapon'),
+  explicitLootAnchor('large-central-24-ammo',2400,2500,'residential',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'ammo'),
+  explicitLootAnchor('large-central-25-heal',3570,2320,'residential',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'heal'),
+  explicitLootAnchor('large-central-25-normal',3650,2520,'residential',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'normal'),
+  explicitLootAnchor('large-central-26-weapon',2780,2940,'residential',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'weapon'),
+  explicitLootAnchor('large-central-26-throw',3130,3040,'residential',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'throwable'),
+  explicitLootAnchor('large-central-27-heal',4380,1860,'hospital',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'heal'),
+  explicitLootAnchor('large-central-27-normal',4880,2090,'hospital',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'normal'),
+  explicitLootAnchor('large-central-28-weapon',810,1980,'factory',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'weapon'),
+  explicitLootAnchor('large-central-28-ammo',1450,2220,'factory',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'ammo'),
+  explicitLootAnchor('large-central-29-weapon',2640,4090,'warehouse',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'weapon'),
+  explicitLootAnchor('large-central-29-ammo',3320,4330,'warehouse',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'ammo'),
+  explicitLootAnchor('large-central-30-throw',4390,4300,'military',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'throwable'),
+  explicitLootAnchor('large-central-30-heal',4780,4540,'military',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'heal'),
+  explicitLootAnchor('large-central-30-weapon',4950,4250,'military',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'weapon'),
+  explicitLootAnchor('large-central-30-normal',4580,4660,'military',LARGE_BUILDING_VISIBILITY_ZONES,LARGE_ROOMS,'normal'),
+];
+
+export const DOCK8_BUILDING_VISIBILITY_ZONES:BuildingVisibilityZone[]=createBuildingVisibilityZones(DOCK8_BUILDINGS as Building[],'dock8');
+export const DOCK8_ROOMS:RoomZone[]=createDefaultRoomZones(DOCK8_BUILDING_VISIBILITY_ZONES,10001,DOCK8_CUSTOM_ROOMS);
+export const DOCK8_SPACE_PORTALS:SpacePortal[]=[...createExternalSpacePortals(DOCK8_BUILDING_VISIBILITY_ZONES,DOCK8_ROOMS),...DOCK8_INTERNAL_PORTALS];
+export const DOCK8_OBSTACLES:Rect[]=[...(DOCK8_BUILDINGS as Building[]).flatMap(wallsForBuilding),...DOCK8_INTERIOR_WALLS];
+export const DOCK8_PROP_OBSTACLES:Rect[]=(DOCK8_WORLD_PROPS as WorldProp[]).filter((prop)=>prop.collision!=='none').map((prop)=>({x:prop.x,y:prop.y,w:prop.w,h:prop.h}));
+export const DOCK8_COLLISION_OBSTACLES:Rect[]=[...DOCK8_OBSTACLES,...DOCK8_PROP_OBSTACLES];
+export const DOCK8_BULLET_BUILDING_OBSTACLES:Rect[]=(DOCK8_BUILDINGS as Building[]).flatMap((building,index)=>projectileWallsForBuilding(building,DOCK8_BUILDING_VISIBILITY_ZONES[index]?.windows??[]));
+export const DOCK8_BULLET_OBSTACLES:Rect[]=[...DOCK8_BULLET_BUILDING_OBSTACLES,...DOCK8_INTERIOR_WALLS,...DOCK8_PROP_OBSTACLES];
+export const DOCK8_VISIBILITY_OBSTACLES:Rect[]=DOCK8_BULLET_OBSTACLES;
+export const DOCK8_BUSHES:Bush[]=makeBushesForMap(DOCK8_REGIONS as Region[],DOCK8_BUILDINGS as Building[],DOCK8_COLLISION_OBSTACLES,0x008d2026,true).filter((bush)=>!isDeepWaterAt(bush.x,bush.y,DOCK8_RIVERS,DOCK8_CROSSINGS,8));
+function makeLootSpawns(regions:readonly Region[],count:number){return Array.from({length:count},(_,i)=>{const r=regions[i%regions.length]!;const col=i%7,row=Math.floor(i/7)%6;return{x:r.x+90+col*Math.max(95,(r.w-180)/7),y:r.y+100+row*Math.max(105,(r.h-200)/6),region:r.name,regionId:r.id};});}
+export const LARGE_LOOT_SPAWNS=makeLootSpawns(LARGE_REGIONS,126);
+export const DOCK8_LOOT_SPAWNS=DOCK8_LOOT_ANCHORS.map((anchor)=>({id:anchor.id,x:anchor.x,y:anchor.y,region:(DOCK8_REGIONS as Region[]).find((region)=>region.id===anchor.regionId)?.name??'8번 부두',regionId:anchor.regionId as RegionId,buildingId:anchor.buildingId,roomIndex:anchor.roomIndex,category:anchor.category}));
+
+export const SMALL_MOTORCYCLE_SPAWNS:MotorcycleSpawn[]=[
+  {id:'bike-small-1',x:1320,y:1260,rotation:0},
+  {id:'bike-small-2',x:1360,y:3520,rotation:-Math.PI/2},
+  {id:'bike-small-3',x:2780,y:2240,rotation:Math.PI},
+];
+export const LARGE_MOTORCYCLE_SPAWNS:MotorcycleSpawn[]=[
+  {id:'bike-large-1',x:1250,y:1250,rotation:0},
+  {id:'bike-large-2',x:2520,y:1600,rotation:Math.PI/2},
+  {id:'bike-large-3',x:3700,y:3200,rotation:Math.PI},
+  {id:'bike-large-4',x:5200,y:2500,rotation:-Math.PI/2},
+  {id:'bike-large-5',x:4400,y:5450,rotation:Math.PI},
+  {id:'bike-large-6',x:1050,y:5000,rotation:0},
+];
+
+export function smoothstep(value:number):number{const t=clamp(value,0,1);return t*t*(3-2*t);}
+export function lerpNumber(from:number,to:number,t:number):number{return from+(to-from)*clamp(t,0,1);}
+
+export function normalizeAimVector(x:number,y:number):{x:number;y:number}|null{
+  if(!Number.isFinite(x)||!Number.isFinite(y))return null;
+  const length=Math.hypot(x,y);
+  if(length<1e-4||length>1e6)return null;
+  return{x:x/length,y:y/length};
+}
+
+export function motorcycleSpeedMultiplier(heldMs:number):number{
+  const time=Math.max(0,heldMs);
+  if(time<=350)return lerpNumber(1.05,1.15,smoothstep(time/350));
+  if(time<=1300)return lerpNumber(1.15,1.50,smoothstep((time-350)/950));
+  return lerpNumber(1.50,1.85,smoothstep((time-1300)/1100));
+}
+
+export function motorcycleDirectionRetention(angleRadians:number):number{
+  const degrees=Math.abs(angleRadians)*180/Math.PI;
+  if(degrees<=30)return 1;
+  if(degrees<=75)return .88;
+  if(degrees<=135)return .70;
+  return .48;
+}
+
+export function pointInDirectionalScope(viewerX:number,viewerY:number,aimX:number,aimY:number,targetX:number,targetY:number,maxDistance=WEAPONS.sniper.range,halfAngleRadians=Math.PI/14):boolean{
+  const aim=normalizeAimVector(aimX,aimY);
+  if(!aim)return false;
+  const dx=targetX-viewerX,dy=targetY-viewerY,distanceToTarget=Math.hypot(dx,dy);
+  if(distanceToTarget<=1)return true;
+  if(distanceToTarget>maxDistance)return false;
+  const dot=(dx/distanceToTarget)*aim.x+(dy/distanceToTarget)*aim.y;
+  return dot>=Math.cos(halfAngleRadians);
+}
+
+export function motorcycleSpreadMultiplier(speedRatio:number):number{
+  const speed=clamp(speedRatio,0,1);
+  if(speed<=.2)return 1;
+  if(speed<=.4)return lerpNumber(1,1.35,(speed-.2)/.2);
+  if(speed<=.6)return lerpNumber(1.35,1.8,(speed-.4)/.2);
+  if(speed<=.8)return lerpNumber(1.8,2.5,(speed-.6)/.2);
+  return lerpNumber(2.5,3.3,(speed-.8)/.2);
+}
+
+export function motorcycleSpreadRadians(weaponId:WeaponId,baseSpread:number,speedRatio:number,turnRatio:number):number{
+  const speed=clamp(speedRatio,0,1),turn=clamp(turnRatio,0,1);
+  const weaponFactor=weaponId==='pistol'?.72:weaponId==='sniper'?1.85:weaponId==='shotgun'?1.18:weaponId==='rifle'?1.12:1;
+  const turnExtra=weaponId==='sniper'?.055:weaponId==='shotgun'?.022:.014;
+  return baseSpread*(1+(motorcycleSpreadMultiplier(speed)-1)*weaponFactor)+turn*turnExtra;
+}
+
+export function motorcycleCollisionDamage(speed:number,maxSpeed=MOTORCYCLE_MAX_SPEED,reverse=false):number{
+  const ratio=clamp(Math.abs(speed)/Math.max(1,maxSpeed),0,1);
+  if(ratio<MOTORCYCLE_BALANCE.collisionDamageMinSpeedRatio)return 0;
+  let damage:number;
+  if(ratio<.6)damage=lerpNumber(8,15,(ratio-.4)/.2);
+  else if(ratio<.8)damage=lerpNumber(15,30,(ratio-.6)/.2);
+  else damage=lerpNumber(30,MOTORCYCLE_BALANCE.maxCollisionDamage,(ratio-.8)/.2);
+  const rounded=Math.round(damage);
+  return reverse?Math.round(rounded*.5):rounded;
+}
+
+export const MAP_CONFIGS:Record<MapId,MapConfig>={
+  small:{
+    id:'small',mode:'small',displayName:'작은 맵',width:SMALL_WORLD_SIZE,height:SMALL_WORLD_SIZE,recommendedPlayers:{min:2,max:4},maxPlayers:MAX_PLAYERS,
+    initialZoneRadius:1650,zoneFreeSeconds:50,zoneWaitScale:1,zoneShrinkScale:1,planeSpeed:1,planeMargin:280,lootBudget:85,aiCountDefault:8,minimapScale:1,
+    regions:REGIONS,buildings:BUILDINGS,buildingVisibilityZones:BUILDING_VISIBILITY_ZONES,decorations:DECORATIONS,worldProps:WORLD_PROPS,
+    obstacles:OBSTACLES,propObstacles:PROP_OBSTACLES,collisionObstacles:COLLISION_OBSTACLES,bulletObstacles:BULLET_OBSTACLES,visibilityObstacles:VISIBILITY_OBSTACLES,
+    bushes:BUSHES,lootSpawns:[...SMALL_CENTRAL_LOOT_SPAWNS,...LOOT_SPAWNS],motorcycleSpawns:SMALL_MOTORCYCLE_SPAWNS,
+    emergencySpawnPoints:[{x:180,y:180},{x:SMALL_WORLD_SIZE-180,y:180},{x:180,y:SMALL_WORLD_SIZE-180},{x:SMALL_WORLD_SIZE-180,y:SMALL_WORLD_SIZE-180}],
+    rooms:SMALL_ROOMS,portals:SMALL_SPACE_PORTALS,rivers:[],shallowWaterZones:[],landCrossings:[],shoreExits:[],aiMacroNodes:[],aiMacroEdges:[],
+  },
+  large:{
+    id:'large',mode:'large',displayName:'큰 맵',width:LARGE_WORLD_SIZE,height:LARGE_WORLD_SIZE,recommendedPlayers:{min:6,max:8},maxPlayers:MAX_PLAYERS,
+    initialZoneRadius:2300,zoneFreeSeconds:65,zoneWaitScale:1.2,zoneShrinkScale:1.15,planeSpeed:1.28,planeMargin:360,lootBudget:142,aiCountDefault:8,minimapScale:.67,
+    regions:LARGE_REGIONS,buildings:LARGE_BUILDINGS,buildingVisibilityZones:LARGE_BUILDING_VISIBILITY_ZONES,decorations:LARGE_DECORATIONS,worldProps:LARGE_WORLD_PROPS,
+    obstacles:LARGE_OBSTACLES,propObstacles:LARGE_PROP_OBSTACLES,collisionObstacles:LARGE_COLLISION_OBSTACLES,bulletObstacles:LARGE_BULLET_OBSTACLES,visibilityObstacles:LARGE_VISIBILITY_OBSTACLES,
+    bushes:LARGE_BUSHES,lootSpawns:[...LARGE_CENTRAL_LOOT_SPAWNS,...LARGE_LOOT_SPAWNS],motorcycleSpawns:LARGE_MOTORCYCLE_SPAWNS,
+    emergencySpawnPoints:[{x:240,y:240},{x:LARGE_WORLD_SIZE-240,y:240},{x:240,y:LARGE_WORLD_SIZE-240},{x:LARGE_WORLD_SIZE-240,y:LARGE_WORLD_SIZE-240},{x:LARGE_WORLD_SIZE/2,y:LARGE_WORLD_SIZE/2}],
+    rooms:LARGE_ROOMS,portals:LARGE_SPACE_PORTALS,rivers:[],shallowWaterZones:[],landCrossings:[],shoreExits:[],aiMacroNodes:[],aiMacroEdges:[],
+  },
+  dock8:{
+    id:'dock8',mode:'dock8',displayName:'8번 부두',width:DOCK8_WORLD_SIZE,height:DOCK8_WORLD_SIZE,recommendedPlayers:{min:6,max:8},maxPlayers:MAX_PLAYERS,
+    initialZoneRadius:2550,zoneFreeSeconds:85,zoneWaitScale:1.18,zoneShrinkScale:1.12,planeSpeed:1.42,planeMargin:420,lootBudget:280,motorcycleBudget:8,aiCountDefault:8,minimapScale:.57,
+    regions:DOCK8_REGIONS as Region[],buildings:DOCK8_BUILDINGS as Building[],buildingVisibilityZones:DOCK8_BUILDING_VISIBILITY_ZONES,decorations:DOCK8_DECORATIONS as Decoration[],worldProps:DOCK8_WORLD_PROPS as WorldProp[],
+    obstacles:DOCK8_OBSTACLES,propObstacles:DOCK8_PROP_OBSTACLES,collisionObstacles:DOCK8_COLLISION_OBSTACLES,bulletObstacles:DOCK8_BULLET_OBSTACLES,visibilityObstacles:DOCK8_VISIBILITY_OBSTACLES,
+    bushes:DOCK8_BUSHES,lootSpawns:DOCK8_LOOT_SPAWNS,motorcycleSpawns:DOCK8_MOTORCYCLE_SPAWNS,
+    emergencySpawnPoints:DOCK8_EMERGENCY_SPAWNS,
+    rooms:DOCK8_ROOMS,portals:DOCK8_SPACE_PORTALS,rivers:DOCK8_RIVERS,shallowWaterZones:DOCK8_SHALLOW_WATER,landCrossings:DOCK8_CROSSINGS,shoreExits:DOCK8_SHORE_EXITS,aiMacroNodes:DOCK8_AI_MACRO_NODES,aiMacroEdges:DOCK8_AI_MACRO_EDGES,
+  },
+};
+ALL_BUILDING_VISIBILITY_ZONES=[...BUILDING_VISIBILITY_ZONES,...LARGE_BUILDING_VISIBILITY_ZONES,...DOCK8_BUILDING_VISIBILITY_ZONES];
+export function normalizeMapId(value:unknown):MapId{return value==='large'?'large':value==='dock8'?'dock8':'small';}
+export function getMapConfig(mode:MapId|string='small'):MapConfig{return MAP_CONFIGS[normalizeMapId(mode)];}
+export function normalizeAmmoType(value:unknown):Exclude<AmmoType,'none'>|undefined{const raw=String(value??'').toLowerCase();if(['silver_bolt','silver','silver_arrow','bolt'].includes(raw))return'silver_bolt';if(['adhesive_charge','adhesive','adhesive_ammo','foam_charge'].includes(raw))return'adhesive_charge';if(['fuel_ammo','fuel','fuel_canister','flamethrower_fuel'].includes(raw))return'fuel_ammo';if(['rocket_ammo','rocket','rockets','bazooka_ammo'].includes(raw))return'rocket_ammo';if(['shotgun_ammo','shotgun_shell','shell','shells'].includes(raw))return'shotgun_ammo';if(['pistol_ammo','pistol_round','handgun_ammo','small','small_ammo'].includes(raw))return'pistol_ammo';if(['standard_ammo','rifle','rifle_ammo','smg_ammo','sniper_ammo','assault_ammo','machinegun_ammo'].includes(raw))return'standard_ammo';return undefined;}
+export function segmentCircleIntersectionT(x1:number,y1:number,x2:number,y2:number,cx:number,cy:number,radius:number):number|null{const dx=x2-x1,dy=y2-y1,fx=x1-cx,fy=y1-cy;const a=dx*dx+dy*dy;if(a<=1e-9)return fx*fx+fy*fy<=radius*radius?0:null;const b=2*(fx*dx+fy*dy),c=fx*fx+fy*fy-radius*radius,disc=b*b-4*a*c;if(disc<0)return null;const root=Math.sqrt(disc),t1=(-b-root)/(2*a),t2=(-b+root)/(2*a);if(t1>=0&&t1<=1)return t1;if(t2>=0&&t2<=1)return t2;return null;}
+export function segmentRectIntersectionT(x1:number,y1:number,x2:number,y2:number,rect:Rect,padding=0):number|null{const minX=rect.x-padding,maxX=rect.x+rect.w+padding,minY=rect.y-padding,maxY=rect.y+rect.h+padding,dx=x2-x1,dy=y2-y1;let tMin=0,tMax=1;for(const [start,delta,min,max] of [[x1,dx,minX,maxX],[y1,dy,minY,maxY]] as const){if(Math.abs(delta)<1e-9){if(start<min||start>max)return null;continue;}let a=(min-start)/delta,b=(max-start)/delta;if(a>b)[a,b]=[b,a];tMin=Math.max(tMin,a);tMax=Math.min(tMax,b);if(tMin>tMax)return null;}return tMin;}
+
+export function segmentClearOfRects(x1:number,y1:number,x2:number,y2:number,rects:readonly Rect[],padding=0):boolean{
+  for(const rect of rects)if(segmentRectIntersectionT(x1,y1,x2,y2,rect,padding)!==null)return false;
+  return true;
+}
+
+export function targetVisibilitySamples(viewerX:number,viewerY:number,targetX:number,targetY:number,targetRadius=PLAYER_HIT_RADIUS){
+  const dx=targetX-viewerX,dy=targetY-viewerY,length=Math.hypot(dx,dy)||1;
+  const perpendicularX=-dy/length,perpendicularY=dx/length,offset=targetRadius*.65;
+  return [
+    {x:targetX,y:targetY,kind:'center' as const},
+    {x:targetX+perpendicularX*offset,y:targetY+perpendicularY*offset,kind:'side' as const},
+    {x:targetX-perpendicularX*offset,y:targetY-perpendicularY*offset,kind:'side' as const},
+  ];
+}
+
+export function visibilitySampleResult(viewerX:number,viewerY:number,targetX:number,targetY:number,rects:readonly Rect[],targetRadius=PLAYER_HIT_RADIUS,padding=0){
+  const samples=targetVisibilitySamples(viewerX,viewerY,targetX,targetY,targetRadius);
+  let visibleCount=0,centerVisible=false;
+  for(const sample of samples){
+    if(!segmentClearOfRects(viewerX,viewerY,sample.x,sample.y,rects,padding))continue;
+    visibleCount++;
+    if(sample.kind==='center')centerVisible=true;
+  }
+  return{visibleCount,centerVisible,characterVisible:visibleCount>0,nameplateVisible:centerVisible||visibleCount>=2};
+}
+
+export function motorcycleProjectileDamage(weaponId:WeaponId,baseDamage:number):number{
+  const multiplier=weaponId==='pistol'?.90:weaponId==='smg'?.65:weaponId==='rifle'?.80:weaponId==='shotgun'?.45:weaponId==='sniper'?1.25:0;
+  return Math.max(0,Math.round(baseDamage*multiplier));
+}
+
+export function motorcycleWallCollisionDamage(speed:number,maxSpeed=MOTORCYCLE_MAX_SPEED,frontal=true):number{
+  const ratio=clamp(Math.abs(speed)/Math.max(1,maxSpeed),0,1);
+  if(ratio<.4)return 0;
+  let damage=ratio<.6?lerpNumber(6,12,(ratio-.4)/.2):ratio<.8?lerpNumber(12,22,(ratio-.6)/.2):lerpNumber(22,36,(ratio-.8)/.2);
+  if(!frontal)damage*=.45;
+  return Math.max(0,Math.round(damage));
+}
+
+export function motorcyclePlayerCollisionDamage(speed:number,maxSpeed=MOTORCYCLE_MAX_SPEED):number{
+  const ratio=clamp(Math.abs(speed)/Math.max(1,maxSpeed),0,1);
+  if(ratio<.4)return 0;
+  if(ratio<.7)return Math.round(lerpNumber(4,8,(ratio-.4)/.3));
+  return Math.round(lerpNumber(8,14,(ratio-.7)/.3));
+}
+
+export const BAZOOKA_BALANCE={
+  projectileRadius:7,explosionRadius:190,maxPlayerDamage:112,minPlayerDamage:12,selfDamageMultiplier:.82,
+  directVehicleDamage:170,maxSplashVehicleDamage:128,minSplashVehicleDamage:14,structureDamage:120,
+  aiMinimumRange:285,rocketPickupAmount:2,maxRocketReserve:8,
+} as const;
+
+export function radialExplosionDamage(distanceFromCenter:number,radius:number,maxDamage:number,minDamage:number):number{
+  if(!Number.isFinite(distanceFromCenter)||distanceFromCenter<0||radius<=0||distanceFromCenter>radius)return 0;
+  const ratio=smoothstep(distanceFromCenter/radius);
+  return Math.max(0,Math.round(lerpNumber(maxDamage,minDamage,ratio)));
+}
+
+export function bazookaPlayerDamage(distanceFromCenter:number,self=false):number{const base=radialExplosionDamage(distanceFromCenter,BAZOOKA_BALANCE.explosionRadius,BAZOOKA_BALANCE.maxPlayerDamage,BAZOOKA_BALANCE.minPlayerDamage);return self?base*BAZOOKA_BALANCE.selfDamageMultiplier:base;}
+export function bazookaVehicleDamage(distanceFromCenter:number,directHit=false):number{return directHit?BAZOOKA_BALANCE.directVehicleDamage:radialExplosionDamage(distanceFromCenter,BAZOOKA_BALANCE.explosionRadius,BAZOOKA_BALANCE.maxSplashVehicleDamage,BAZOOKA_BALANCE.minSplashVehicleDamage);}
+
+export function motorcycleExplosionDamage(distanceFromCenter:number):number{
+  const radius=MOTORCYCLE_DESTRUCTION_BALANCE.explosionRadius;
+  if(!Number.isFinite(distanceFromCenter)||distanceFromCenter<0||distanceFromCenter>radius)return 0;
+  const anchors=[
+    {distance:0,damage:90},
+    {distance:50,damage:85},
+    {distance:90,damage:68},
+    {distance:125,damage:38},
+    {distance:radius,damage:MOTORCYCLE_DESTRUCTION_BALANCE.minExplosionDamage},
+  ];
+  for(let index=1;index<anchors.length;index++){
+    const previous=anchors[index-1]!,next=anchors[index]!;
+    if(distanceFromCenter>next.distance)continue;
+    const ratio=smoothstep((distanceFromCenter-previous.distance)/Math.max(1,next.distance-previous.distance));
+    return Math.max(0,Math.round(lerpNumber(previous.damage,next.damage,ratio)));
+  }
+  return 0;
+}
+export const PROJECTILE_CONFIGS:Record<Exclude<WeaponId,'fists'>,ProjectileConfig>=Object.fromEntries((Object.keys(WEAPONS) as WeaponId[]).filter((id)=>id!=='fists').map((id)=>{const weapon=WEAPONS[id];return[id,{...weapon,lifetimeMs:Math.ceil(weapon.range/weapon.projectileSpeed*1000+120),radius:id==='shotgun'?3:2.4,knockback:id==='sniper'?520:id==='shotgun'?330:id==='rifle'?260:190,canPenetratePlayers:false,canPenetrateProps:false}];})) as Record<Exclude<WeaponId,'fists'>,ProjectileConfig>;
+
+const SAFE_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export function createRoomCode(random=Math.random): string {
+  let result=''; for(let i=0;i<6;i++) result += SAFE_CHARS[Math.floor(random()*SAFE_CHARS.length)]; return result;
+}
+export function sanitizeText(value:unknown,max=80):string { return String(value ?? '').replace(/[<>]/g,'').replace(/[\u0000-\u001F\u007F]/g,'').trim().slice(0,max); }
+export function clamp(n:number,min:number,max:number):number { return Math.max(min,Math.min(max,n)); }
+export function normalizeMovementInput(x:number,y:number):{x:number;y:number}{
+  const length=Math.hypot(x,y);
+  if(length<=1||length===0)return{x,y};
+  return{x:x/length,y:y/length};
+}
+export function distance(ax:number,ay:number,bx:number,by:number):number { return Math.hypot(ax-bx,ay-by); }
+export function distanceSq(ax:number,ay:number,bx:number,by:number):number { const dx=ax-bx,dy=ay-by; return dx*dx+dy*dy; }
+export function isFiniteNumber(v:unknown):v is number { return typeof v==='number' && Number.isFinite(v); }
+export function circleHitsRect(x:number,y:number,r:number,rect:Rect):boolean { const nx=clamp(x,rect.x,rect.x+rect.w), ny=clamp(y,rect.y,rect.y+rect.h); return (x-nx)**2+(y-ny)**2 < r*r; }
+
+export * from './throwables.js';
+export * from './werewolfSeason.js';

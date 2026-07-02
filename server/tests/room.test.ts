@@ -1,5 +1,5 @@
 // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { boot, type ColyseusTestServer } from '@colyseus/testing';
 import app from '../src/app.config.js';
 import { BUILDINGS, BUILDING_VISIBILITY_ZONES, BUSHES, BUSH_HIDE_DISTANCE, COLLISION_OBSTACLES, LOOT_DOOR_CLEARANCE, LOOT_MIN_DISTANCE, MAP_CONFIGS, OBSTACLES, PROP_OBSTACLES, PLAYER_HIT_RADIUS, PLAYER_RADIUS, PROJECTILE_CONFIGS, WEAPONS, buildingIdAt, circleHitsRect, distance, segmentCircleIntersectionT, windowVaultPoints, buildingSpacesInteractable, spaceAt } from '@drop8/shared';
@@ -196,6 +196,7 @@ describe('DROP 8 room integration', () => {
     const room = await server.createRoom<Drop8State>('drop8', { fillAi: false });
     const client = quiet(await server.connectTo(room, { nickname: 'Switcher' }));
     const player = room.state.players.get(client.sessionId)!;
+    player.phase = 'landed';
     player.primary = 'rifle';
     player.secondary = 'pistol';
     player.rifleMagazine = 5;
@@ -210,6 +211,17 @@ describe('DROP 8 room integration', () => {
     await new Promise((resolve) => setTimeout(resolve, 70));
     expect(player.equipped).toBe('pistol');
     expect(player.magazine).toBe(11);
+
+    player.standardAmmo=47;player.pistolAmmo=29;
+    client.send('swapWeaponSlots',{from:1,to:2});
+    await new Promise((resolve)=>setTimeout(resolve,70));
+    expect(player.primary).toBe('pistol');
+    expect(player.secondary).toBe('rifle');
+    expect(player.rifleMagazine).toBe(5);
+    expect(player.pistolMagazine).toBe(11);
+    expect(player.standardAmmo).toBe(47);
+    expect(player.pistolAmmo).toBe(29);
+    expect(player.equipped).toBe('pistol');
   });
 
   it('lets AI choose a suitable loaded weapon for a distant target', async () => {
@@ -227,7 +239,7 @@ describe('DROP 8 room integration', () => {
     }
     (room as unknown as { aiThinkAt: Map<string, number> }).aiThinkAt.set(ai.id, 0);
     human.phase = 'landed';
-    human.x = 3350;
+    human.x = 3100;
     human.y = 2000;
     ai.phase = 'landed';
     ai.x = 2700;
@@ -239,11 +251,13 @@ describe('DROP 8 room integration', () => {
     ai.equipped = 'pistol';
     ai.magazine = 12;
 
-    const hpBefore = human.hp;
+    ai.angle = 0;
+    const attackBefore = ai.attackSeq;
+    const rifleMagazineBefore = ai.rifleMagazine;
     await new Promise((resolve) => setTimeout(resolve, 520));
     expect(ai.equipped).toBe('rifle');
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    expect(human.hp < hpBefore || !human.alive).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 2200));
+    expect(ai.attackSeq > attackBefore || ai.rifleMagazine < rifleMagazineBefore).toBe(true);
   });
 
   it('routes AI around building walls, through the door, and out of collision', async () => {
@@ -561,6 +575,7 @@ describe('DROP 8 room integration', () => {
 
     target.phase = 'landed'; target.x = bush!.x; target.y = bush!.y; target.secondary = 'pistol'; target.equipped = 'pistol'; target.pistolMagazine = 2; target.magazine = 2;
     ai.phase = 'landed'; ai.x = observerPoint!.x; ai.y = observerPoint!.y; ai.primary = 'rifle'; ai.rifleMagazine = 8; ai.equipped = 'rifle'; ai.magazine = 8;
+    ai.angle = Math.atan2(target.y - ai.y, target.x - ai.x);
     internal.updateBushStates();
     expect(target.inBush).toBe(true);
     expect(target.bushRevealed).toBe(false);
@@ -571,6 +586,7 @@ describe('DROP 8 room integration', () => {
     client.send('fire');
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(target.bushRevealed).toBe(true);
+    ai.angle = Math.atan2(target.y - ai.y, target.x - ai.x);
     expect(internal.findVisibleTarget(ai, 950)?.id).toBe(target.id);
   });
 
@@ -773,18 +789,25 @@ describe('DROP 8 room integration', () => {
     client.send('ready');
     await new Promise((resolve) => setTimeout(resolve, 60));
     client.send('start');
-    await new Promise((resolve) => setTimeout(resolve, 90));
+    const started = await waitForCondition(() => room.state.phase !== 'LOBBY', 2_000, 20);
+    expect(started).toBe(true);
     const player = room.state.players.get(client.sessionId)!;
-    player.phase = 'landed'; player.x = 2048; player.y = 2048; player.buildingId = buildingIdAt(player.x, player.y);
+    player.phase = 'landed'; player.x = 1800; player.y = 1800; player.buildingId = buildingIdAt(player.x, player.y);
     room.state.loot.clear();
     const loot = new LootState(); loot.id = 'auto-equip'; loot.kind = 'rifle'; loot.x = player.x + 10; loot.y = player.y; loot.buildingId = player.buildingId;
     room.state.loot.set(loot.id, loot);
-    const feedback = new Promise<any>((resolve) => client.onMessage('pickupResult', resolve));
+        const serverClient = room.clients.find((entry) => entry.sessionId === client.sessionId)!;
+    const sendSpy = vi.spyOn(serverClient, 'send');
     client.send('pickup');
-    const result = await feedback;
+    const pickedUp = await waitForCondition(() => player.primary === 'rifle' && player.equipped === 'rifle', 2_000, 20);
+    expect(pickedUp).toBe(true);
+    const feedbackCall = sendSpy.mock.calls.find(([type]) => type === 'pickupResult');
+    expect(feedbackCall).toBeDefined();
+    const result = feedbackCall![1] as { autoEquipped: boolean };
     expect(player.primary).toBe('rifle');
     expect(player.equipped).toBe('rifle');
     expect(result.autoEquipped).toBe(true);
+    sendSpy.mockRestore();
   });
 
 

@@ -1,0 +1,54 @@
+{
+  "patch": "Refactor 015A FIXED v1",
+  "createdAt": "2026-06-30T05:55:59.148Z",
+  "files": [
+    {
+      "path": "shared/src/index.ts",
+      "existed": true
+    },
+    {
+      "path": "shared/tests/rules.test.ts",
+      "existed": true
+    },
+    {
+      "path": "server/src/rooms/schema.ts",
+      "existed": true
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true
+    },
+    {
+      "path": "server/tests/refactor015a-supply-flamethrower.test.ts",
+      "existed": false
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "existed": true
+    },
+    {
+      "path": "client/src/audio/audioTypes.ts",
+      "existed": true
+    },
+    {
+      "path": "client/src/audio/SoundRegistry.ts",
+      "existed": true
+    },
+    {
+      "path": "client/src/audio/synthSounds.ts",
+      "existed": true
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true
+    }
+  ]
+}

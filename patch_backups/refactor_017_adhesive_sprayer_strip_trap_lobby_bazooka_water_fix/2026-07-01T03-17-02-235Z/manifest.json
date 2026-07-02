@@ -1,0 +1,182 @@
+{
+  "patchId": "DROP8 Refactor 017 FIXED v1",
+  "patchFile": "DROP8_refactor_017_adhesive_sprayer_strip_trap_lobby_bazooka_water_fix_patch_FIXED_v1.ts",
+  "createdAt": "2026-07-01T03:17:02.302Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "shared/src/index.ts",
+      "existed": true,
+      "beforeSha256": "50487d3f13621321f6e2713fa336f80944c277706d64747ebb1ab4da3eedaf3b",
+      "eol": "LF"
+    },
+    {
+      "path": "server/src/rooms/schema.ts",
+      "existed": true,
+      "beforeSha256": "21f9030e66a60f4450564dbb91dcf6e3e1faf6760beef2a2684601a23d2860ba",
+      "eol": "LF"
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "2bb54f817574be4e6a89cd74d30c766dfea3ec4863ba048ecb86de2f0e7abd07",
+      "eol": "LF"
+    },
+    {
+      "path": "server/src/roomRegistry.ts",
+      "existed": true,
+      "beforeSha256": "ef1734ec2a0e8d56a335b4dab7b7395d393e494e8ea1ebb79f9a3aee966f7616",
+      "eol": "LF"
+    },
+    {
+      "path": "server/src/app.config.ts",
+      "existed": true,
+      "beforeSha256": "0d2e6a9ccd419347bc1a5aaf7cfbb924ca0782a00138493f120ad706df0d79de",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true,
+      "beforeSha256": "028d010a65726e412ec327e2ab2310c1c7782432f7cae3165886bf206315eef5",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "existed": true,
+      "beforeSha256": "79028924e5a5ed8fc82e2f8a747c63234ec7819ed866610346a5c315c629c0ae",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true,
+      "beforeSha256": "6df5cddcd0f564800ce9048ab6b5a1326f26a17e9e858af9a9af75d45ae5abd6",
+      "eol": "LF"
+    },
+    {
+      "path": "client/index.html",
+      "existed": true,
+      "beforeSha256": "debb928c6bb8781d354d2d4d977160a7be4dad230ca7563a6b59bcef2ecdeb25",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/style.css",
+      "existed": true,
+      "beforeSha256": "c1457beda12b705f684046d3c97e767f1a69d89371caabf11cdd279ece97f0de",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/audio/audioTypes.ts",
+      "existed": true,
+      "beforeSha256": "ff6129cef6203b14f50d670a63b311e0d792c3e892efee493bec1c7db5b5ec82",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/audio/SoundRegistry.ts",
+      "existed": true,
+      "beforeSha256": "1638f34faa1270e4da09a981ce174c0b63384b1ebc04e94082d3bebbdefb13eb",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/audio/synthSounds.ts",
+      "existed": true,
+      "beforeSha256": "d5bb599c6622bc6b5c44c0683241d3e28c3a732c83b5fed027362a6ec5578c88",
+      "eol": "LF"
+    },
+    {
+      "path": "server/tests/room-registry.test.ts",
+      "existed": true,
+      "beforeSha256": "a3b66d36884909f02c8db32a4f1311884f505bcfde0354d4bf215395522e21a3",
+      "eol": "LF"
+    },
+    {
+      "path": "README.md",
+      "existed": true,
+      "beforeSha256": "48614413fa24ccad1bc00618356770a23519953eacf507643c05548fbfb94433",
+      "eol": "LF"
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "b728eb465362ef59ec6c671b18d55f7296ebd738e4dde190ecf5ce9fbf221fab",
+      "eol": "LF"
+    },
+    {
+      "path": "docs/TEST_PLAN.md",
+      "existed": true,
+      "beforeSha256": "2ba801cc1d15f26b244977e09f3bc2ce5d6d62e1b57ff5ee174365d7827ec746",
+      "eol": "LF"
+    },
+    {
+      "path": "shared/src/vehicleEffects.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "shared/src/stripTrap.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "server/src/rooms/vehicleStatus.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "shared/tests/refactor017-adhesive-status.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "shared/tests/refactor017-strip-trap-geometry.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "server/tests/refactor017-adhesive-strip-trap.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "server/tests/refactor017-bazooka-water-collision.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "server/tests/refactor017-lobby-room-list.integration.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    }
+  ],
+  "createdFiles": [
+    "shared/src/vehicleEffects.ts",
+    "shared/src/stripTrap.ts",
+    "server/src/rooms/vehicleStatus.ts",
+    "shared/tests/refactor017-adhesive-status.test.ts",
+    "shared/tests/refactor017-strip-trap-geometry.test.ts",
+    "server/tests/refactor017-adhesive-strip-trap.test.ts",
+    "server/tests/refactor017-bazooka-water-collision.test.ts",
+    "server/tests/refactor017-lobby-room-list.integration.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

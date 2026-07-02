@@ -1,3 +1,7 @@
+// DROP8_REFACTOR_018_WEREWOLF_SEASON
+// DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
+// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
+// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
 // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
 // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 // DROP8_REFACTOR_013G_DOCK8_RECOVERY
@@ -7,6 +11,10 @@ import { DOCK8_AI_MACRO_EDGES, DOCK8_AI_MACRO_NODES, DOCK8_BUILDINGS, DOCK8_CROS
 import { LARGE_CUSTOM_ROOMS, LARGE_INTERNAL_PORTALS, LARGE_INTERNAL_WALLS } from './maps/large.js';
 import { SWIM_ENTER_MARGIN, SWIM_EXIT_MARGIN, SWIM_SPEED, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt } from './maps/water.js';
 import type { AiMacroEdge, AiMacroNode, LandCrossing, LootAnchor, MapId, RiverBand, RoomZone, ShoreExit, SpaceDescriptor, SpacePortal, SpaceVisibilityTrace, TerrainKind, WaterZone } from './maps/types.js';
+export { ADHESIVE_SPRAYER_BALANCE, STRIP_TRAP_VEHICLE_PROFILE, WEREWOLF_HUNT_VEHICLE_PROFILE, VEHICLE_MIN_SPEED_MULTIPLIER, aggregateVehicleSlowEffects, coneContains } from './vehicleEffects.js';
+export type { VehicleSlowAggregate, VehicleSlowEffect, VehicleSlowKind, VehicleSlowProfile } from './vehicleEffects.js';
+export { STRIP_TRAP_BALANCE, circleHitsStripTrap, pointSegmentDistanceSquared, stripTrapEndpoints, stripTrapsOverlap } from './stripTrap.js';
+export type { StripTrapGeometry } from './stripTrap.js';
 // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
 
 export const GAME_NAME = 'DROP 8';
@@ -74,12 +82,13 @@ export type GamePhase = 'LOBBY' | 'PLANE' | 'DROP' | 'ACTIVE' | 'FINISHED';
 export type PlayerPhase = 'lobby' | 'plane' | 'falling' | 'parachute' | 'landed' | 'dead';
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export type ZoneSpeed = 'slow' | 'normal' | 'fast';
-export type WeaponId = 'fists' | 'pistol' | 'smg' | 'rifle' | 'shotgun' | 'sniper';
+export type WeaponId = 'fists' | 'pistol' | 'smg' | 'rifle' | 'shotgun' | 'sniper' | 'bazooka' | 'flamethrower' | 'adhesive_sprayer' | 'silver_crossbow';
 export type MeleeId = 'bat' | 'pan' | 'pipe' | 'knife';
 export type ThrowableType = import('./throwables.js').ThrowableType;
 export type EquippedId = WeaponId | MeleeId | ThrowableType;
-export type AmmoType = 'none' | 'shotgun_ammo' | 'standard_ammo' | 'pistol_ammo';
-export type LootKind = WeaponId | MeleeId | ThrowableType | 'shotgun_ammo' | 'standard_ammo' | 'pistol_ammo' | 'vest' | 'bandage' | 'medkit';
+export type AmmoType = 'none' | 'shotgun_ammo' | 'standard_ammo' | 'pistol_ammo' | 'rocket_ammo' | 'fuel_ammo' | 'adhesive_charge' | 'silver_bolt';
+export type LootKind = WeaponId | MeleeId | ThrowableType | 'shotgun_ammo' | 'standard_ammo' | 'pistol_ammo' | 'rocket_ammo' | 'fuel_ammo' | 'adhesive_charge' | 'silver_bolt' | 'strip_trap' | 'vest' | 'bandage' | 'medkit';
+export type ExplosionWeaponType = 'motorcycle_explosion' | 'fragGrenade' | 'bazooka';
 export type { MapId, RoomZone, SpacePortal, LootAnchor, RiverBand, WaterZone, LandCrossing, ShoreExit, AiMacroNode, AiMacroEdge, SpaceDescriptor, SpaceVisibilityTrace };
 export type MapSizeMode = MapId;
 export type RegionId = 'factory' | 'residential' | 'hospital' | 'warehouse' | 'military' | 'forestCamp';
@@ -124,32 +133,53 @@ export interface MeleeData {
 }
 
 export const WEAPONS: Record<WeaponId, WeaponData> = {
-  fists: { id:'fists', name:'주먹', damage:10, fireInterval:.55, magazine:0, reloadSeconds:0, spread:0, projectileSpeed:0, range:65, pellets:1, moveMultiplier:1, ammoType:'none', slot:'melee' },
+  fists: { id:'fists', name:'주먹', damage:34, fireInterval:.52, magazine:0, reloadSeconds:0, spread:0, projectileSpeed:0, range:74, pellets:1, moveMultiplier:1, ammoType:'none', slot:'melee' },
   pistol:{ id:'pistol', name:'권총', damage:18, fireInterval:.28, magazine:12, reloadSeconds:1.35, spread:.025, projectileSpeed:1050, range:850, pellets:1, moveMultiplier:1, ammoType:'pistol_ammo', slot:'secondary' },
   smg:{ id:'smg', name:'기관단총', damage:11, fireInterval:.085, magazine:30, reloadSeconds:1.55, spread:.08, projectileSpeed:1120, range:760, pellets:1, moveMultiplier:1.05, ammoType:'standard_ammo', slot:'primary' },
   rifle:{ id:'rifle', name:'돌격소총', damage:17, fireInterval:.13, magazine:24, reloadSeconds:1.7, spread:.038, projectileSpeed:1320, range:1050, pellets:1, moveMultiplier:.98, ammoType:'standard_ammo', slot:'primary' },
-  shotgun:{ id:'shotgun', name:'샷건', damage:10, fireInterval:.72, magazine:5, reloadSeconds:2.0, spread:.24, projectileSpeed:860, range:440, pellets:7, moveMultiplier:.96, ammoType:'shotgun_ammo', slot:'primary' },
-  sniper:{ id:'sniper', name:'저격소총', damage:72, fireInterval:1.2, magazine:4, reloadSeconds:2.8, spread:.006, projectileSpeed:2900, range:2300, pellets:1, moveMultiplier:.84, ammoType:'standard_ammo', slot:'primary' }
+  shotgun:{ id:'shotgun', name:'샷건', damage:15, fireInterval:.72, magazine:5, reloadSeconds:2.0, spread:.18, projectileSpeed:860, range:440, pellets:8, moveMultiplier:.96, ammoType:'shotgun_ammo', slot:'primary' },
+  sniper:{ id:'sniper', name:'저격소총', damage:72, fireInterval:1.2, magazine:4, reloadSeconds:2.8, spread:.006, projectileSpeed:2900, range:2300, pellets:1, moveMultiplier:.84, ammoType:'standard_ammo', slot:'primary' },
+  bazooka:{ id:'bazooka', name:'바주카포', damage:0, fireInterval:1.65, magazine:1, reloadSeconds:4.2, spread:.012, projectileSpeed:900, range:1250, pellets:1, moveMultiplier:.78, ammoType:'rocket_ammo', slot:'primary' },
+  flamethrower:{ id:'flamethrower', name:'화염방사기', damage:9, fireInterval:.10, magazine:100, reloadSeconds:4.5, spread:0, projectileSpeed:1, range:420, pellets:1, moveMultiplier:.88, ammoType:'fuel_ammo', slot:'primary' },
+  adhesive_sprayer:{ id:'adhesive_sprayer', name:'점착 분사기', damage:0, fireInterval:.10, magazine:80, reloadSeconds:3.8, spread:0, projectileSpeed:1, range:315, pellets:1, moveMultiplier:.92, ammoType:'adhesive_charge', slot:'primary' },
+  silver_crossbow:{ id:'silver_crossbow', name:'은화살 쇠뇌', damage:14, fireInterval:.42, magazine:4, reloadSeconds:1.35, spread:.16, projectileSpeed:2100, range:1050, pellets:5, moveMultiplier:.96, ammoType:'silver_bolt', slot:'primary' }
 };
 
+
+export const SUPPLY_DROP_BALANCE={
+  triggerZoneStage:0,descentSeconds:5,initialAltitude:620,interactionDistance:88,
+  edgeMargin:150,playerClearance:240,obstacleClearance:58,maxPlacementAttempts:96,
+  bazookaWeight:0,flamethrowerWeight:100,weaponAmmoBundles:2,openCleanupSeconds:90,
+} as const;
+export const FLAMETHROWER_BALANCE={
+  range:420,halfAngleRadians:16*Math.PI/180,tickSeconds:.10,
+  playerDamagePerTick:9,vehicleDamagePerTick:6,fuelPerTick:1,
+  fuelPickupAmount:50,maxFuelReserve:200,visualDurationSeconds:.18,muzzleOffset:34,
+} as const;
+export function flamethrowerConeContains(sourceX:number,sourceY:number,angle:number,targetX:number,targetY:number,targetRadius=0){
+  const dx=targetX-sourceX,dy=targetY-sourceY,d=Math.hypot(dx,dy);if(d>FLAMETHROWER_BALANCE.range+targetRadius)return false;if(d<=targetRadius+FLAMETHROWER_BALANCE.muzzleOffset)return true;
+  const delta=Math.abs(Math.atan2(Math.sin(Math.atan2(dy,dx)-angle),Math.cos(Math.atan2(dy,dx)-angle)));
+  return delta<=FLAMETHROWER_BALANCE.halfAngleRadians+Math.asin(Math.min(1,targetRadius/Math.max(1,d)));
+}
+
 export const MELEE_WEAPONS: Record<MeleeId, MeleeData> = {
-  bat:{id:'bat',name:'야구방망이',damage:24,fireInterval:.72,range:88,arc:1.15,moveMultiplier:1},
-  pan:{id:'pan',name:'프라이팬',damage:29,fireInterval:.88,range:72,arc:1.05,moveMultiplier:.97},
-  pipe:{id:'pipe',name:'쇠파이프',damage:22,fireInterval:.66,range:82,arc:1.1,moveMultiplier:.99},
-  knife:{id:'knife',name:'식칼',damage:17,fireInterval:.38,range:60,arc:.95,moveMultiplier:1.04}
+  bat:{id:'bat',name:'야구방망이',damage:38,fireInterval:.68,range:98,arc:1.32,moveMultiplier:1},
+  pan:{id:'pan',name:'프라이팬',damage:45,fireInterval:.82,range:82,arc:1.25,moveMultiplier:.97},
+  pipe:{id:'pipe',name:'쇠파이프',damage:40,fireInterval:.62,range:92,arc:1.3,moveMultiplier:.99},
+  knife:{id:'knife',name:'식칼',damage:34,fireInterval:.36,range:70,arc:1.2,moveMultiplier:1.04}
 };
 
 export const LOOT_LABELS: Record<LootKind,string> = {
-  fists:'주먹', pistol:'권총', smg:'기관단총', rifle:'돌격소총', shotgun:'샷건', sniper:'저격소총',
+  fists:'주먹', pistol:'권총', smg:'기관단총', rifle:'돌격소총', shotgun:'샷건', sniper:'저격소총', bazooka:'바주카포', flamethrower:'화염방사기', adhesive_sprayer:'점착 분사기', silver_crossbow:'은화살 쇠뇌',
   bat:'야구방망이', pan:'프라이팬', pipe:'쇠파이프', knife:'식칼',
-  pistol_ammo:'권총탄', standard_ammo:'일반 총알', shotgun_ammo:'샷건탄', vest:'방탄조끼', bandage:'붕대', medkit:'구급상자',
+  pistol_ammo:'권총탄', standard_ammo:'일반 총알', shotgun_ammo:'샷건탄', rocket_ammo:'로켓탄', fuel_ammo:'연료통', adhesive_charge:'점착 충전통', silver_bolt:'은화살', strip_trap:'로우프로파일 스트립 트랩', vest:'방탄조끼', bandage:'붕대', medkit:'구급상자',
   fragGrenade:'파편 수류탄', smokeGrenade:'연막탄', incendiaryGrenade:'화염탄'
 };
 
 export const LOOT_COLORS: Record<LootKind,number> = {
-  fists:0xf6f7f8, pistol:0xffd451, smg:0xffb84d, rifle:0xff8f4d, shotgun:0xff6b55, sniper:0x88d7ff,
+  fists:0xf6f7f8, pistol:0xffd451, smg:0xffb84d, rifle:0xff8f4d, shotgun:0xff6b55, sniper:0x88d7ff, bazooka:0x9de27d, flamethrower:0xff6b2d, adhesive_sprayer:0xd9dde1, silver_crossbow:0xd9e8f2,
   bat:0xc98b55, pan:0xaeb9c2, pipe:0x8da0ad, knife:0xdde7ee,
-  pistol_ammo:0xffe88a, standard_ammo:0xff9f64, shotgun_ammo:0xff6f7a, vest:0x73b9ff, bandage:0x58e49d, medkit:0x2ecf78,
+  pistol_ammo:0xffe88a, standard_ammo:0xff9f64, shotgun_ammo:0xff6f7a, rocket_ammo:0xa7e883, fuel_ammo:0xc84d32, adhesive_charge:0xcbd1d6, silver_bolt:0xe8eef2, strip_trap:0x343a40, vest:0x73b9ff, bandage:0x58e49d, medkit:0x2ecf78,
   fragGrenade:0x455b39, smokeGrenade:0xb9c0c6, incendiaryGrenade:0xd64a37
 };
 
@@ -180,7 +210,7 @@ export interface MapConfig {
   rooms:RoomZone[]; portals:SpacePortal[]; rivers:RiverBand[]; shallowWaterZones:WaterZone[]; landCrossings:LandCrossing[]; shoreExits:ShoreExit[]; aiMacroNodes:AiMacroNode[]; aiMacroEdges:AiMacroEdge[];
 }
 
-export const AMMO_DISPLAY_NAMES:Record<Exclude<AmmoType,'none'>,string>={shotgun_ammo:'샷건탄',standard_ammo:'일반 총알',pistol_ammo:'권총탄'};
+export const AMMO_DISPLAY_NAMES:Record<Exclude<AmmoType,'none'>,string>={shotgun_ammo:'샷건탄',standard_ammo:'일반 총알',pistol_ammo:'권총탄',rocket_ammo:'로켓탄',fuel_ammo:'연료',adhesive_charge:'점착 충전',silver_bolt:'은화살'};
 export const RENDER_DEPTH={GROUND:0,FLOOR_DECORATION:5,GROUND_ITEM:10,WORLD_PROP:20,VEHICLE:27,PLAYER:30,PLAYER_OVERLAY:35,BUILDING_ROOF:50,PLANE_SHADOW:80,TRANSPORT_PLANE:100,PLANE_EFFECT:105,WORLD_EFFECT:120,HUD:1000,MODAL:2000} as const;
 
 export { buildingZonesAt, createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, portalBuildingIdForSide, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt };
@@ -212,23 +242,23 @@ export const BUSH_HIT_REVEAL_SECONDS=.8;
 export const REGION_LOOT_TABLES: Record<RegionId, WeightedLoot[]> = {
   factory:[
     {kind:'smg',weight:16},{kind:'rifle',weight:13},{kind:'sniper',weight:3},{kind:'pistol_ammo',weight:17},{kind:'standard_ammo',weight:17},{kind:'pipe',weight:12},
-    {kind:'pistol',weight:8},{kind:'vest',weight:7},{kind:'bandage',weight:6},{kind:'medkit',weight:1},{kind:'shotgun',weight:1},{kind:'fragGrenade',weight:4},{kind:'smokeGrenade',weight:3},{kind:'incendiaryGrenade',weight:4},
+    {kind:'pistol',weight:8},{kind:'vest',weight:7},{kind:'bandage',weight:6},{kind:'medkit',weight:1},{kind:'shotgun',weight:1},{kind:'adhesive_sprayer',weight:3},{kind:'adhesive_charge',weight:5},{kind:'strip_trap',weight:3},{kind:'fragGrenade',weight:4},{kind:'smokeGrenade',weight:3},{kind:'incendiaryGrenade',weight:4},
   ],
   residential:[
     {kind:'pistol',weight:19},{kind:'bandage',weight:18},{kind:'pistol_ammo',weight:18},{kind:'bat',weight:12},
-    {kind:'vest',weight:10},{kind:'smg',weight:8},{kind:'medkit',weight:7},{kind:'rifle',weight:4},{kind:'shotgun',weight:4},{kind:'fragGrenade',weight:3},{kind:'smokeGrenade',weight:6},{kind:'incendiaryGrenade',weight:3},
+    {kind:'vest',weight:10},{kind:'smg',weight:8},{kind:'medkit',weight:7},{kind:'rifle',weight:4},{kind:'shotgun',weight:4},{kind:'strip_trap',weight:2},{kind:'fragGrenade',weight:3},{kind:'smokeGrenade',weight:6},{kind:'incendiaryGrenade',weight:3},
   ],
   hospital:[
     {kind:'bandage',weight:27},{kind:'medkit',weight:21},{kind:'vest',weight:18},{kind:'pistol',weight:12},{kind:'pistol_ammo',weight:12},
     {kind:'smg',weight:7},{kind:'rifle',weight:2},{kind:'shotgun',weight:1},{kind:'fragGrenade',weight:2},{kind:'smokeGrenade',weight:7},{kind:'incendiaryGrenade',weight:2},
   ],
   warehouse:[
-    {kind:'shotgun',weight:20},{kind:'shotgun_ammo',weight:22},{kind:'smg',weight:15},{kind:'pan',weight:12},
-    {kind:'vest',weight:10},{kind:'pistol_ammo',weight:9},{kind:'bandage',weight:7},{kind:'rifle',weight:3},{kind:'medkit',weight:2},{kind:'fragGrenade',weight:5},{kind:'smokeGrenade',weight:3},{kind:'incendiaryGrenade',weight:6},
+    {kind:'shotgun',weight:20},{kind:'shotgun_ammo',weight:22},{kind:'bazooka',weight:18},{kind:'rocket_ammo',weight:14},{kind:'smg',weight:15},{kind:'pan',weight:12},
+    {kind:'vest',weight:10},{kind:'pistol_ammo',weight:9},{kind:'bandage',weight:7},{kind:'rifle',weight:3},{kind:'medkit',weight:2},{kind:'adhesive_sprayer',weight:4},{kind:'adhesive_charge',weight:6},{kind:'strip_trap',weight:5},{kind:'fragGrenade',weight:5},{kind:'smokeGrenade',weight:3},{kind:'incendiaryGrenade',weight:6},
   ],
   military:[
-    {kind:'rifle',weight:20},{kind:'sniper',weight:7},{kind:'standard_ammo',weight:24},{kind:'vest',weight:18},{kind:'smg',weight:12},{kind:'medkit',weight:9},
-    {kind:'pistol_ammo',weight:7},{kind:'shotgun',weight:3},{kind:'pistol',weight:3},{kind:'fragGrenade',weight:7},{kind:'smokeGrenade',weight:4},{kind:'incendiaryGrenade',weight:5},
+    {kind:'rifle',weight:20},{kind:'sniper',weight:7},{kind:'bazooka',weight:24},{kind:'rocket_ammo',weight:18},{kind:'standard_ammo',weight:24},{kind:'vest',weight:18},{kind:'smg',weight:12},{kind:'medkit',weight:9},
+    {kind:'pistol_ammo',weight:7},{kind:'shotgun',weight:3},{kind:'pistol',weight:3},{kind:'adhesive_sprayer',weight:4},{kind:'adhesive_charge',weight:5},{kind:'strip_trap',weight:5},{kind:'fragGrenade',weight:7},{kind:'smokeGrenade',weight:4},{kind:'incendiaryGrenade',weight:5},
   ],
   forestCamp:[
     {kind:'pistol',weight:16},{kind:'shotgun',weight:14},{kind:'bandage',weight:18},{kind:'knife',weight:12},{kind:'bat',weight:11},
@@ -1209,7 +1239,7 @@ export const MAP_CONFIGS:Record<MapId,MapConfig>={
 ALL_BUILDING_VISIBILITY_ZONES=[...BUILDING_VISIBILITY_ZONES,...LARGE_BUILDING_VISIBILITY_ZONES,...DOCK8_BUILDING_VISIBILITY_ZONES];
 export function normalizeMapId(value:unknown):MapId{return value==='large'?'large':value==='dock8'?'dock8':'small';}
 export function getMapConfig(mode:MapId|string='small'):MapConfig{return MAP_CONFIGS[normalizeMapId(mode)];}
-export function normalizeAmmoType(value:unknown):Exclude<AmmoType,'none'>|undefined{const raw=String(value??'').toLowerCase();if(['shotgun_ammo','shotgun_shell','shell','shells'].includes(raw))return'shotgun_ammo';if(['pistol_ammo','pistol_round','handgun_ammo','small','small_ammo'].includes(raw))return'pistol_ammo';if(['standard_ammo','rifle','rifle_ammo','smg_ammo','sniper_ammo','assault_ammo','machinegun_ammo'].includes(raw))return'standard_ammo';return undefined;}
+export function normalizeAmmoType(value:unknown):Exclude<AmmoType,'none'>|undefined{const raw=String(value??'').toLowerCase();if(['silver_bolt','silver','silver_arrow','bolt'].includes(raw))return'silver_bolt';if(['adhesive_charge','adhesive','adhesive_ammo','foam_charge'].includes(raw))return'adhesive_charge';if(['fuel_ammo','fuel','fuel_canister','flamethrower_fuel'].includes(raw))return'fuel_ammo';if(['rocket_ammo','rocket','rockets','bazooka_ammo'].includes(raw))return'rocket_ammo';if(['shotgun_ammo','shotgun_shell','shell','shells'].includes(raw))return'shotgun_ammo';if(['pistol_ammo','pistol_round','handgun_ammo','small','small_ammo'].includes(raw))return'pistol_ammo';if(['standard_ammo','rifle','rifle_ammo','smg_ammo','sniper_ammo','assault_ammo','machinegun_ammo'].includes(raw))return'standard_ammo';return undefined;}
 export function segmentCircleIntersectionT(x1:number,y1:number,x2:number,y2:number,cx:number,cy:number,radius:number):number|null{const dx=x2-x1,dy=y2-y1,fx=x1-cx,fy=y1-cy;const a=dx*dx+dy*dy;if(a<=1e-9)return fx*fx+fy*fy<=radius*radius?0:null;const b=2*(fx*dx+fy*dy),c=fx*fx+fy*fy-radius*radius,disc=b*b-4*a*c;if(disc<0)return null;const root=Math.sqrt(disc),t1=(-b-root)/(2*a),t2=(-b+root)/(2*a);if(t1>=0&&t1<=1)return t1;if(t2>=0&&t2<=1)return t2;return null;}
 export function segmentRectIntersectionT(x1:number,y1:number,x2:number,y2:number,rect:Rect,padding=0):number|null{const minX=rect.x-padding,maxX=rect.x+rect.w+padding,minY=rect.y-padding,maxY=rect.y+rect.h+padding,dx=x2-x1,dy=y2-y1;let tMin=0,tMax=1;for(const [start,delta,min,max] of [[x1,dx,minX,maxX],[y1,dy,minY,maxY]] as const){if(Math.abs(delta)<1e-9){if(start<min||start>max)return null;continue;}let a=(min-start)/delta,b=(max-start)/delta;if(a>b)[a,b]=[b,a];tMin=Math.max(tMin,a);tMax=Math.min(tMax,b);if(tMin>tMax)return null;}return tMin;}
 
@@ -1259,11 +1289,20 @@ export function motorcyclePlayerCollisionDamage(speed:number,maxSpeed=MOTORCYCLE
   return Math.round(lerpNumber(8,14,(ratio-.7)/.3));
 }
 
+export const BAZOOKA_BALANCE={
+  projectileRadius:7,explosionRadius:190,maxPlayerDamage:112,minPlayerDamage:12,selfDamageMultiplier:.82,
+  directVehicleDamage:170,maxSplashVehicleDamage:128,minSplashVehicleDamage:14,structureDamage:120,
+  aiMinimumRange:285,rocketPickupAmount:2,maxRocketReserve:8,
+} as const;
+
 export function radialExplosionDamage(distanceFromCenter:number,radius:number,maxDamage:number,minDamage:number):number{
   if(!Number.isFinite(distanceFromCenter)||distanceFromCenter<0||radius<=0||distanceFromCenter>radius)return 0;
   const ratio=smoothstep(distanceFromCenter/radius);
   return Math.max(0,Math.round(lerpNumber(maxDamage,minDamage,ratio)));
 }
+
+export function bazookaPlayerDamage(distanceFromCenter:number,self=false):number{const base=radialExplosionDamage(distanceFromCenter,BAZOOKA_BALANCE.explosionRadius,BAZOOKA_BALANCE.maxPlayerDamage,BAZOOKA_BALANCE.minPlayerDamage);return self?base*BAZOOKA_BALANCE.selfDamageMultiplier:base;}
+export function bazookaVehicleDamage(distanceFromCenter:number,directHit=false):number{return directHit?BAZOOKA_BALANCE.directVehicleDamage:radialExplosionDamage(distanceFromCenter,BAZOOKA_BALANCE.explosionRadius,BAZOOKA_BALANCE.maxSplashVehicleDamage,BAZOOKA_BALANCE.minSplashVehicleDamage);}
 
 export function motorcycleExplosionDamage(distanceFromCenter:number):number{
   const radius=MOTORCYCLE_DESTRUCTION_BALANCE.explosionRadius;
@@ -1303,3 +1342,6 @@ export function isFiniteNumber(v:unknown):v is number { return typeof v==='numbe
 export function circleHitsRect(x:number,y:number,r:number,rect:Rect):boolean { const nx=clamp(x,rect.x,rect.x+rect.w), ny=clamp(y,rect.y,rect.y+rect.h); return (x-nx)**2+(y-ny)**2 < r*r; }
 
 export * from './throwables.js';
+export * from './werewolfSeason.js';
+export * from './aiHumanization.js';
+// DROP8_REFACTOR_019_AI_HUMANIZATION

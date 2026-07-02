@@ -1,0 +1,29 @@
+{
+  "maps": [
+    {
+      "id": "small",
+      "name": "작은 맵",
+      "size": 4096,
+      "altarCandidates": 6,
+      "armoryCandidates": 6,
+      "minDistance": 900
+    },
+    {
+      "id": "large",
+      "name": "큰 맵",
+      "size": 6144,
+      "altarCandidates": 6,
+      "armoryCandidates": 6,
+      "minDistance": 1400
+    },
+    {
+      "id": "dock8",
+      "name": "8번 부두",
+      "size": 7168,
+      "altarCandidates": 6,
+      "armoryCandidates": 6,
+      "minDistance": 1600
+    }
+  ],
+  "policy": "실외 육지·월드 여백·충돌체·수풀·오토바이·긴급 스폰 거리 검증"
+}

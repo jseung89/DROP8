@@ -12,6 +12,7 @@ const clientRoot = path.join(projectRoot, 'client');
 const clientDist = path.join(clientRoot, 'dist');
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+// DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
 // Refactor 013: tests import app.config.ts directly, so keep the encoder limit here too.
 Encoder.BUFFER_SIZE = 64 * 1024;
 
@@ -32,8 +33,14 @@ const server = defineServer({
       response.json({ ok: true, game: 'DROP 8', mode: isDevelopment ? 'development' : 'production' });
     });
 
-    app.get('/api/rooms', (_request, response) => {
-      response.json({ rooms: listPublicRooms() });
+    app.get('/api/rooms', async (_request, response) => {
+      try{
+        response.setHeader('Cache-Control','no-store');
+        response.json({ rooms: await listPublicRooms() });
+      }catch(error){
+        console.error('[DROP8 Refactor 017] room list query failed',error);
+        response.status(503).json({rooms:[],error:'ROOM_LIST_UNAVAILABLE'});
+      }
     });
 
     if (vite) {

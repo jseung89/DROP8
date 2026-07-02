@@ -1,0 +1,266 @@
+
+========== buildRoute ==========
+  private buildRoute(sx:number,sy:number,tx:number,ty:number,intent?:AiIntent):AiRoutePoint[]{
+    const startPoint=this.isPositionFree(sx,sy)?{x:sx,y:sy}:this.findNearestFreePoint(sx,sy)??{x:sx,y:sy};
+    const goalPoint=this.isPositionFree(tx,ty)?{x:tx,y:ty}:this.findNearestFreePoint(tx,ty)??{x:tx,y:ty};
+    if(!this.segmentBlocked(startPoint.x,startPoint.y,goalPoint.x,goalPoint.y))return[goalPoint];
+
+    const clearance=PLAYER_BODY_RADIUS+12;
+    const source=this.buildingAt(startPoint.x,startPoint.y);
+    const target=this.buildingAt(goalPoint.x,goalPoint.y);
+    const sourceSpace=spaceAt(startPoint.x,startPoint.y,this.map.buildingVisibilityZones,this.map.rooms,12);
+    const targetSpace=spaceAt(goalPoint.x,goalPoint.y,this.map.buildingVisibilityZones,this.map.rooms,12);
+    const sourceId=sourceSpace.buildingId;
+    const targetId=targetSpace.buildingId;
+    const relevant=this.map.buildings.filter((building)=>{
+      if(building===source||building===target)return true;
+      return this.segmentRect(startPoint.x,startPoint.y,goalPoint.x,goalPoint.y,{
+        x:building.x-clearance-90,
+        y:building.y-clearance-90,
+        w:building.w+(clearance+90)*2,
+        h:building.h+(clearance+90)*2,
+      });
+    });
+
+    const nodes:AiRoutePoint[]=[startPoint,goalPoint];
+    const add=(point:Point)=>{
+      const x=clamp(point.x,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
+      const y=clamp(point.y,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
+      if(!this.isPositionFree(x,y,PLAYER_BODY_RADIUS+1))return-1;
+      const existing=nodes.findIndex((node)=>distance(node.x,node.y,x,y)<12);
+      if(existing>=0)return existing;
+      nodes.push({x,y});
+      return nodes.length-1;
+    };
+    const windowPairs:Array<{a:number;b:number;windowId:string;aBuildingId:string;bBuildingId:string;aRoomIndex:number;bRoomIndex:number}>=[];
+    for(const building of relevant){
+      add({x:building.x-clearance,y:building.y-clearance});
+      add({x:building.x+building.w+clearance,y:building.y-clearance});
+      add({x:building.x-clearance,y:building.y+building.h+clearance});
+      add({x:building.x+building.w+clearance,y:building.y+building.h+clearance});
+      const door=this.doorPoints(building);
+      add(door.outside);
+      add(door.inside);
+    }
+    const relevantBuildingIds=new Set(relevant.map((building)=>this.map.buildingVisibilityZones[this.map.buildings.indexOf(building)]?.id).filter((id):id is string=>Boolean(id)));
+    for(const portal of this.map.portals){
+      if(portal.kind!=='window'||!portal.vaultable)continue;
+      if(!relevantBuildingIds.has(portal.buildingId)&&portal.buildingId!==sourceId&&portal.buildingId!==targetId)continue;
+      if(intent?.failedWindowId===portal.id&&this.now()<(intent.failedWindowUntil??0))continue;
+      const a=add(portal.approachA),b=add(portal.approachB);
+      if(a<0||b<0)continue;
+      windowPairs.push({a,b,windowId:portal.id,aBuildingId:portalBuildingIdForSide(portal,'A'),bBuildingId:portalBuildingIdForSide(portal,'B'),aRoomIndex:portal.sideARoomIndex,bRoomIndex:portal.sideBRoomIndex});
+    }
+    const routeObstacles=[...this.map.propObstacles,...this.map.obstacles];
+    for(const prop of routeObstacles){
+      if(!this.segmentRect(startPoint.x,startPoint.y,goalPoint.x,goalPoint.y,{x:prop.x-clearance-48,y:prop.y-clearance-48,w:prop.w+(clearance+48)*2,h:prop.h+(clearance+48)*2}))continue;
+      add({x:prop.x-clearance,y:prop.y-clearance});
+      add({x:prop.x+prop.w+clearance,y:prop.y-clearance});
+      add({x:prop.x-clearance,y:prop.y+prop.h+clearance});
+      add({x:prop.x+prop.w+clearance,y:prop.y+prop.h+clearance});
+    }
+
+    const edges=new Map<number,AiRouteEdge[]>();
+    for(let i=0;i<nodes.length;i++)edges.set(i,[]);
+    for(let i=0;i<nodes.length;i++){
+      for(let j=i+1;j<nodes.length;j++){
+        const a=nodes[i]!;
+        const b=nodes[j]!;
+        if(this.segmentBlocked(a.x,a.y,b.x,b.y))continue;
+        const cost=distance(a.x,a.y,b.x,b.y);
+        edges.get(i)!.push({to:j,cost,kind:'move'});
+        edges.get(j)!.push({to:i,cost,kind:'move'});
+      }
+    }
+    for(const pair of windowPairs){
+      const crossingCost=distance(nodes[pair.a]!.x,nodes[pair.a]!.y,nodes[pair.b]!.x,nodes[pair.b]!.y)+70;
+      edges.get(pair.a)!.push({to:pair.b,cost:crossingCost,kind:'window',windowId:pair.windowId,targetBuildingId:pair.bBuildingId,targetRoomIndex:pair.bRoomIndex});
+      edges.get(pair.b)!.push({to:pair.a,cost:crossingCost,kind:'window',windowId:pair.windowId,targetBuildingId:pair.aBuildingId,targetRoomIndex:pair.aRoomIndex});
+    }
+
+    const distances=new Array<number>(nodes.length).fill(Number.POSITIVE_INFINITY);
+    const previous=new Array<number>(nodes.length).fill(-1);
+    const previousEdge=new Array<AiRouteEdge|undefined>(nodes.length);
+    const visited=new Set<number>();
+    distances[0]=0;
+    for(let count=0;count<nodes.length;count++){
+      let current=-1;
+      let best=Number.POSITIVE_INFINITY;
+      for(let i=0;i<nodes.length;i++){
+        if(!visited.has(i)&&distances[i]<best){best=distances[i];current=i;}
+      }
+      if(current<0||current===1)break;
+      visited.add(current);
+      for(const edge of edges.get(current)??[]){
+        const next=best+edge.cost;
+        if(next<distances[edge.to]){distances[edge.to]=next;previous[edge.to]=current;previousEdge[edge.to]=edge;}
+      }
+    }
+    if(!Number.isFinite(distances[1]))return this.fallbackRoute(startPoint,goalPoint,relevant);
+    const indices:number[]=[];
+    for(let cursor=1;cursor>=0;cursor=previous[cursor]){
+      indices.push(cursor);
+      if(cursor===0)break;
+    }
+    indices.reverse();
+    const route:AiRoutePoint[]=[];
+    for(let index=1;index<indices.length;index++){
+      const fromIndex=indices[index-1]!,toIndex=indices[index]!;
+      const edge=previousEdge[toIndex];
+      if(edge?.kind==='window'){
+        const from=nodes[fromIndex]!,to=nodes[toIndex]!;
+        const action:AiRoutePoint={x:from.x,y:from.y,kind:'window',windowId:edge.windowId,targetX:to.x,targetY:to.y,targetBuildingId:edge.targetBuildingId,targetRoomIndex:edge.targetRoomIndex};
+        const previousPoint=route.at(-1);
+        if(previousPoint&&previousPoint.kind===undefined&&distance(previousPoint.x,previousPoint.y,action.x,action.y)<12)route[route.length-1]=action;
+        else route.push(action);
+      }else route.push(nodes[toIndex]!);
+    }
+    return route;
+  }
+
+
+========== buildAiRoute ==========
+  private buildAiRoute(p:PlayerState,tx:number,ty:number,intent?:AiIntent):AiRoutePoint[]{
+    const river=this.map.rivers[0];
+    if(!river)return this.buildRoute(p.x,p.y,tx,ty,intent);
+    const startSide=this.terrainKindAt(p.x,p.y)==='deep-water'?'water':riverLandSideAt(p.x,p.y,river);
+    const targetSide=this.terrainKindAt(tx,ty)==='deep-water'?'water':riverLandSideAt(tx,ty,river);
+    if(startSide==='water'||targetSide==='water'||startSide===targetSide)return this.buildRoute(p.x,p.y,tx,ty,intent);
+    const candidates:Array<{entry:Point;exit:Point;cost:number}>=[];
+    for(const crossing of this.map.landCrossings){
+      if(!crossing.allowsPlayer)continue;
+      const west={x:crossing.rect.x-36,y:crossing.rect.y+crossing.rect.h/2};
+      const east={x:crossing.rect.x+crossing.rect.w+36,y:crossing.rect.y+crossing.rect.h/2};
+      const entry=startSide==='west'?west:east,exit=startSide==='west'?east:west;
+      const crossingCost=crossing.rect.w/Math.max(.25,crossing.movementMultiplier);
+      candidates.push({entry,exit,cost:distance(p.x,p.y,entry.x,entry.y)+crossingCost+distance(exit.x,exit.y,tx,ty)});
+    }
+    if(p.hp>45){
+      const west=this.map.shoreExits.filter((exit)=>exit.normal.x<0);
+      const east=this.map.shoreExits.filter((exit)=>exit.normal.x>0);
+      for(const a of west){
+        const b=east.reduce<typeof east[number]|undefined>((best,candidate)=>!best||Math.abs(candidate.landingPoint.y-a.landingPoint.y)<Math.abs(best.landingPoint.y-a.landingPoint.y)?candidate:best,undefined);
+        if(!b)continue;
+        const entry=startSide==='west'?a.landingPoint:b.landingPoint,exit=startSide==='west'?b.landingPoint:a.landingPoint;
+        const swimDistance=distance(entry.x,entry.y,exit.x,exit.y);
+        candidates.push({entry,exit,cost:distance(p.x,p.y,entry.x,entry.y)+swimDistance*(PLAYER_SPEED/SWIM_SPEED)+distance(exit.x,exit.y,tx,ty)+220});
+      }
+    }
+    candidates.sort((a,b)=>a.cost-b.cost);
+    const selected=candidates[0];
+    if(!selected)return this.buildRoute(p.x,p.y,tx,ty,intent);
+    const toEntry=this.buildRoute(p.x,p.y,selected.entry.x,selected.entry.y,intent);
+    const fromExit=this.buildRoute(selected.exit.x,selected.exit.y,tx,ty,intent);
+    return[...toEntry,selected.exit,...fromExit].filter((point,index,array)=>index===0||distance(point.x,point.y,array[index-1]!.x,array[index-1]!.y)>8);
+  }
+
+
+========== segmentBlocked ==========
+  private segmentBlocked(x1:number,y1:number,x2:number,y2:number,clearance=PLAYER_BODY_RADIUS+3){
+    return this.map.collisionObstacles.some((rect)=>this.segmentRect(x1,y1,x2,y2,{
+      x:rect.x-clearance,
+      y:rect.y-clearance,
+      w:rect.w+clearance*2,
+      h:rect.h+clearance*2,
+    }));
+  }
+
+
+========== segmentRect ==========
+  private segmentRect(x1:number,y1:number,x2:number,y2:number,r:{x:number;y:number;w:number;h:number}){
+    return segmentRectIntersectionT(x1,y1,x2,y2,r)!==null;
+  }
+}
+
+
+========== playerMovementPositionFree ==========
+  private playerMovementPositionFree(p:PlayerState,x:number,y:number){
+    if(!this.isPositionFree(x,y)||!this.playerClearOfMotorcycles(x,y,p.vehicleId))return false;
+    if(!this.map.rivers.length)return true;
+    const crossing=crossingAt(x,y,this.map.landCrossings);
+    if(crossing)return crossing.allowsPlayer;
+    return true;
+  }
+
+
+========== isPositionFree ==========
+  private isPositionFree(x:number,y:number,radius=PLAYER_BODY_RADIUS){
+    if(!Number.isFinite(x)||!Number.isFinite(y))return false;
+    if(x<radius||y<radius||x>this.worldSize-radius||y>this.worldSize-radius)return false;
+    return !this.map.collisionObstacles.some((rect)=>circleHitsRect(x,y,radius,rect));
+  }
+
+
+========== findAiBuildingExitPoint ==========
+  private findAiBuildingExitPoint(p:PlayerState,memory:AiHumanMemory){if(!p.buildingId)return undefined;const index=this.map.buildingVisibilityZones.findIndex((zone)=>zone.id===p.buildingId),building=index>=0?this.map.buildings[index]:undefined;if(!building)return undefined;const door=this.doorPoints(building).outside;if(this.isPositionFree(door.x,door.y))return door;let selected:Point|undefined,best=Number.POSITIVE_INFINITY;for(const portal of this.map.portals){if(portal.buildingId!==p.buildingId)continue;for(const point of [portal.approachA,portal.approachB,portal.landingA,portal.landingB]){const space=spaceAt(point.x,point.y,this.map.buildingVisibilityZones,this.map.rooms,12);if(!space.outdoors||!this.isPositionFree(point.x,point.y))continue;const d=distance(p.x,p.y,point.x,point.y);if(d<best){best=d;selected={x:point.x,y:point.y};}}}return selected;}
+
+
+========== MAP REFERENCES ==========
+      const expectedSpace=spaceAt(spawn.x,spawn.y,this.map.buildingVisibilityZones,this.map.rooms,0);
+      const lootSpace=spaceAt(l.x,l.y,this.map.buildingVisibilityZones,this.map.rooms,0);
+    return this.map.buildings.map((building)=>{
+    if(this.map.collisionObstacles.some((rect)=>circleHitsRect(x,y,LOOT_WALL_CLEARANCE,rect)))return false;
+    if(this.map.portals.some((portal)=>circleHitsRect(x,y,LOOT_DOOR_CLEARANCE*.75,portal.opening)))return false;
+    const space=spaceAt(x,y,this.map.buildingVisibilityZones,this.map.rooms,0);
+    const candidate=findPortalVaultCandidate(p.x,p.y,p.buildingId,p.roomIndex,this.map.portals,WINDOW_INTERACTION_DISTANCE);
+    const portal=this.map.portals.find((candidate)=>candidate.id===windowId&&candidate.kind==='window'&&candidate.vaultable);
+      const space=spaceAt(x,y,this.map.buildingVisibilityZones,this.map.rooms,0);
+        if(safe){p.x=safe.x;p.y=safe.y;const space=spaceAt(safe.x,safe.y,this.map.buildingVisibilityZones,this.map.rooms,0);p.buildingId=space.buildingId;p.roomIndex=space.roomIndex;p.insideBuilding=Boolean(p.buildingId);p.buildingTransitionSeq++;}
+      const space=spaceAt(point.x,point.y,this.map.buildingVisibilityZones,this.map.rooms,0);
+    const pos=this.findNearestFreePoint(x,y,120)??{x,y};const loot=new LootState();loot.id=`loot-${++this.lootSeq}`;loot.kind=kind;loot.x=pos.x;loot.y=pos.y;const sp=spaceAt(pos.x,pos.y,this.map.buildingVisibilityZones,this.map.rooms,0);loot.buildingId=sp.buildingId;loot.roomIndex=sp.roomIndex;if(kind==='silver_bolt')loot.ammoCount=amount;this.state.loot.set(loot.id,loot);
+      if(!traceSpaceVisibility({x:originX,y:originY,roomIndex:p.roomIndex},{x:target.x,y:target.y,roomIndex:target.roomIndex},this.map.portals,this.map.visibilityObstacles,3).visible)continue;
+    const space=spaceAt(x,y,this.map.buildingVisibilityZones,this.map.rooms,2),terrain=this.terrainKindAt(x,y);
+      if(this.map.collisionObstacles.some((rect)=>circleHitsRect(px,py,STRIP_TRAP_BALANCE.width/2+3,rect))){c.send('notice',{type:'warning',message:'벽이나 장애물과 겹쳐 설치할 수 없습니다.'});return;}
+    p.isDriving=false;p.vehicleId='';p.isSniperScoped=false;p.x=point.x;p.y=point.y;const dismountSpace=spaceAt(point.x,point.y,this.map.buildingVisibilityZones,this.map.rooms,0);p.buildingId=dismountSpace.buildingId;p.roomIndex=dismountSpace.roomIndex;p.insideBuilding=Boolean(p.buildingId);
+    if(point){p.x=point.x;p.y=point.y;const dismountSpace=spaceAt(point.x,point.y,this.map.buildingVisibilityZones,this.map.rooms,0);p.buildingId=dismountSpace.buildingId;p.roomIndex=dismountSpace.roomIndex;p.insideBuilding=Boolean(p.buildingId);this.lastSafePositions.set(p.id,{x:p.x,y:p.y,mapId:this.map.id,buildingId:p.buildingId,roomIndex:p.roomIndex,recordedAt:this.now()});}
+    if(!this.isPositionFree(x,y)||buildingIdAt(x,y,0,this.map.buildingVisibilityZones))return false;
+      if(!spaceInteractionAllowed(p,l,this.map.portals))continue;
+      const space=spaceAt(x,y,this.map.buildingVisibilityZones,this.map.rooms,0);
+      if(this.map.collisionObstacles.some((rect)=>circleHitsRect(x,y,LOOT_WALL_CLEARANCE,rect)))return false;
+      object.x=next.x;object.y=next.y;object.z=next.z;object.vx=next.vx;object.vy=next.vy;object.vz=next.vz;object.bounces=next.bounces;object.phase=next.phase;object.buildingId=buildingIdAt(object.x,object.y,0,this.map.buildingVisibilityZones);
+      const exposure=explosionExposureMultiplier(source,target,this.map.visibilityObstacles,this.map.buildingVisibilityZones,PLAYER_HIT_RADIUS);if(exposure<=0)continue;
+      const exposure=explosionExposureMultiplier(source,vehicle,this.map.visibilityObstacles,this.map.buildingVisibilityZones,MOTORCYCLE_RADIUS);if(exposure>0)this.damageMotorcycle(vehicle,raw,object.ownerId,'파편 수류탄');
+    for(const target of this.state.players.values())if(target.alive&&fireFieldContains(field,target,this.map.buildingVisibilityZones))this.damage(target,FIRE_TIMING.playerInitialDamage,object.ownerId,'화염탄',0,Math.atan2(target.y-field.y,target.x-field.x));
+    for(const vehicle of this.state.motorcycles.values())if(!vehicle.destroyed&&fireFieldContains(field,vehicle,this.map.buildingVisibilityZones))this.damageMotorcycle(vehicle,FIRE_TIMING.vehicleInitialDamage,object.ownerId,'화염탄');
+      if(!target.alive||target.phase!=='landed')continue;const field=fields.find((candidate)=>fireFieldContains(candidate,target,this.map.buildingVisibilityZones));if(field)this.damage(target,FIRE_TIMING.playerTickDamage,field.ownerId,'화염탄',0,Math.atan2(target.y-field.y,target.x-field.x));
+      if(vehicle.destroyed)continue;const field=fields.find((candidate)=>fireFieldContains(candidate,vehicle,this.map.buildingVisibilityZones));if(field)this.damageMotorcycle(vehicle,vehicleTick,field.ownerId,'화염탄');
+      motorcycle.buildingId=buildingIdAt(point.x,point.y,0,this.map.buildingVisibilityZones);
+    if(this.map.collisionObstacles.some((rect)=>circleHitsRect(x,y,MOTORCYCLE_RADIUS,rect)))return false;
+    if(this.map.buildingVisibilityZones.some((zone)=>circleHitsRect(x,y,MOTORCYCLE_RADIUS+3,zone.roof)))return false;
+        motorcycle.buildingId=buildingIdAt(motorcycle.x,motorcycle.y,0,this.map.buildingVisibilityZones);
+      motorcycle.buildingId=buildingIdAt(motorcycle.x,motorcycle.y,0,this.map.buildingVisibilityZones);
+      const exposure=explosionExposureMultiplier(source,target,this.map.visibilityObstacles,this.map.buildingVisibilityZones,PLAYER_HIT_RADIUS);
+      const exposure=explosionExposureMultiplier(source,other,this.map.visibilityObstacles,this.map.buildingVisibilityZones,MOTORCYCLE_RADIUS);
+      buildings:this.map.buildings,
+    return !this.map.collisionObstacles.some((rect)=>circleHitsRect(x,y,radius,rect));
+    if(buildingIdAt(x,y,0,this.map.buildingVisibilityZones))return false;
+    for(const zone of this.map.buildingVisibilityZones){
+    if(now-state.movingSince>=1&&this.map.collisionObstacles.some((rect)=>circleHitsRect(p.x,p.y,PLAYER_BODY_RADIUS+8,rect)))this.recoverPlayer(p,'stuck');
+    for(const rect of this.map.bulletObstacles){const t=segmentRectIntersectionT(x1,y1,x2,y2,rect,padding);if(t!==null&&(closest===null||t<closest))closest=t;}
+      rocket.x=nx;rocket.y=ny;rocket.buildingId=buildingIdAt(nx,ny,0,this.map.buildingVisibilityZones);
+    const now=this.now(),buildingId=buildingIdAt(rocket.x,rocket.y,0,this.map.buildingVisibilityZones),source={x:rocket.x,y:rocket.y,buildingId};
+      const exposure=explosionExposureMultiplier(source,target,this.map.visibilityObstacles,this.map.buildingVisibilityZones,PLAYER_HIT_RADIUS);const applied=Math.round(raw*exposure);if(applied<=0)continue;
+      const exposure=direct?1:explosionExposureMultiplier(source,vehicle,this.map.visibilityObstacles,this.map.buildingVisibilityZones,MOTORCYCLE_RADIUS);const applied=Math.round(raw*exposure);if(applied>0)this.damageMotorcycle(vehicle,applied,rocket.ownerId,'바주카포');
+    if(buildingIdAt(x,y,0,this.map.buildingVisibilityZones))return false;
+    if(this.map.collisionObstacles.some((rect)=>circleHitsRect(x,y,b.obstacleClearance,rect)))return false;
+  private aiCanVisuallyAcquire(viewer:PlayerState,target:PlayerState,intent:AiIntent){const memory=this.ensureAiMemory(viewer),profile=this.ensureAiProfile(viewer),state=this.aiVisualState(intent,memory),d=distance(viewer.x,viewer.y,target.x,target.y),max=aiVisionDistance(state,viewer.insideBuilding,profile.focus);if(d>max)return false;const targetAngle=Math.atan2(target.y-viewer.y,target.x-viewer.x);if(d>AI_HUMANIZATION.hiddenBushDistance&&Math.abs(this.angleDiff(targetAngle,viewer.angle))>aiVisionFovRadians(state,profile.focus)/2)return false;if(target.inBush&&!target.bushRevealed&&d>AI_HUMANIZATION.hiddenBushDistance)return false;if(!this.canSeeTarget(viewer,target))return false;if(this.map.bulletObstacles.some((rect)=>this.segmentRect(viewer.x,viewer.y,target.x,target.y,rect)))return false;return true;}
+  private findAiBuildingExitPoint(p:PlayerState,memory:AiHumanMemory){if(!p.buildingId)return undefined;const index=this.map.buildingVisibilityZones.findIndex((zone)=>zone.id===p.buildingId),building=index>=0?this.map.buildings[index]:undefined;if(!building)return undefined;const door=this.doorPoints(building).outside;if(this.isPositionFree(door.x,door.y))return door;let selected:Point|undefined,best=Number.POSITIVE_INFINITY;for(const portal of this.map.portals){if(portal.buildingId!==p.buildingId)continue;for(const point of [portal.approachA,portal.approachB,portal.landingA,portal.landingB]){const space=spaceAt(point.x,point.y,this.map.buildingVisibilityZones,this.map.rooms,12);if(!space.outdoors||!this.isPositionFree(point.x,point.y))continue;const d=distance(p.x,p.y,point.x,point.y);if(d<best){best=d;selected={x:point.x,y:point.y};}}}return selected;}
+  private findAiCoverPoint(p:PlayerState,target:PlayerState){let selected:Point|undefined,best=-Infinity;const away=Math.atan2(p.y-target.y,p.x-target.x);for(const radius of [100,150,210])for(let i=-3;i<=3;i++){const angle=away+i*Math.PI/8,x=clamp(p.x+Math.cos(angle)*radius,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS),y=clamp(p.y+Math.sin(angle)*radius,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);if(!this.isPositionFree(x,y)||this.segmentBlocked(p.x,p.y,x,y,PLAYER_BODY_RADIUS))continue;const trace=traceSpaceVisibility({x,y,roomIndex:spaceAt(x,y,this.map.buildingVisibilityZones,this.map.rooms,12).roomIndex},{x:target.x,y:target.y,roomIndex:target.roomIndex},this.map.portals,this.map.visibilityObstacles,3);const blocked=!trace.visible||!visibilitySampleResult(x,y,target.x,target.y,this.map.visibilityObstacles,PLAYER_HIT_RADIUS,2).characterVisible;const score=(blocked?500:0)+distance(x,y,target.x,target.y)*.2-distance(p.x,p.y,x,y);if(score>best){best=score;selected={x,y};}}return selected;}
+    const fire=[...this.state.fireFields.values()].find((field)=>fireFieldContains(field,p,this.map.buildingVisibilityZones));
+    if(target?.alive){if(now>=memory.nextVisionCheckAt){memory.nextVisionCheckAt=now+AI_HUMANIZATION.visualRefreshSeconds;memory.targetVisible=this.aiCanVisuallyAcquire(p,target,intent);if(memory.targetVisible)this.rememberAiTarget(p,target,intent);else this.markAiTargetLost(p,intent,target);}if(memory.targetVisible){const d=distance(p.x,p.y,target.x,target.y);this.chooseAiWeapon(p,d);const weaponId=p.equipped as WeaponId,movementRatio=intent.mode==='hold'?.3:1;refreshAiAim(memory,profile,p.id+target.id,now,d,movementRatio,weaponId);const aimX=target.x+memory.aimOffsetX,aimY=target.y+memory.aimOffsetY,desiredAngle=Math.atan2(aimY-p.y,aimX-p.x),weaponTurn=weaponId==='pistol'||weaponId==='smg'?1.18:weaponId==='sniper'||weaponId==='bazooka'||weaponId==='silver_crossbow'?.72:1,previousAngle=p.angle;p.angle=turnAngleToward(p.angle,desiredAngle,profile.turnRate*weaponTurn*dt);const aimDelta=Math.abs(this.angleDiff(desiredAngle,p.angle));if(Math.abs(this.angleDiff(p.angle,previousAngle))>.08)memory.reactionReadyAt=Math.max(memory.reactionReadyAt,now+.08);const shotPathBlocked=this.map.bulletObstacles.some((rect)=>this.segmentRect(p.x,p.y,aimX,aimY,rect));const canShoot=[now>=memory.reactionReadyAt,aimDelta<(weaponId==='shotgun'?.22:.14),now>=memory.burstCooldownUntil,!shotPathBlocked].every(Boolean);if(canShoot){if(p.equipped==='fists'||p.equipped in MELEE_WEAPONS){const melee=p.equipped==='fists'?WEAPONS.fists:MELEE_WEAPONS[p.equipped as MeleeId];if(d<=melee.range+4)this.meleePlayer(p);}else{const weapon=WEAPONS[weaponId]!;if(weapon.id==='bazooka'&&d<BAZOOKA_BALANCE.aiMinimumRange){intent.mode='retreat';p.aiState='BAZOOKA_SAFE_DISTANCE';}else if(this.getWeaponMagazine(p,weapon.id)>0){prepareAiBurst(memory,p.id,weapon.id,now);const attackBefore=p.attackSeq;this.firePlayer(p);if(p.attackSeq!==attackBefore)finishAiBurstShot(memory,p.id,weapon.id,now);}else if(this.getAmmo(p,weapon.ammoType)>0)this.beginReload(p,weapon.id);}}}}
+    if(loot&&distance(p.x,p.y,loot.x,loot.y)<72&&spaceInteractionAllowed(p,loot,this.map.portals)){
+        const combatShotBlocked=this.map.bulletObstacles.some((rect)=>this.segmentRect(p.x,p.y,target.x,target.y,rect));
+      const candidateSpace={x,y,buildingId:buildingIdAt(x,y,12,this.map.buildingVisibilityZones)};
+      for(const field of this.state.fireFields.values())if(fireFieldContains(field,candidateSpace,this.map.buildingVisibilityZones))firePenalty+=500;
+    const sourceSpace=spaceAt(startPoint.x,startPoint.y,this.map.buildingVisibilityZones,this.map.rooms,12);
+    const targetSpace=spaceAt(goalPoint.x,goalPoint.y,this.map.buildingVisibilityZones,this.map.rooms,12);
+    const relevant=this.map.buildings.filter((building)=>{
+    const relevantBuildingIds=new Set(relevant.map((building)=>this.map.buildingVisibilityZones[this.map.buildings.indexOf(building)]?.id).filter((id):id is string=>Boolean(id)));
+    for(const portal of this.map.portals){
+  private fallbackRoute(start:Point,goal:Point,buildings:Building[]):Point[]{
+    for(const building of buildings){
+    return this.map.collisionObstacles.some((rect)=>this.segmentRect(x1,y1,x2,y2,{
+  private buildingAt(x:number,y:number){return this.map.buildings.find((b)=>x>b.x+18&&x<b.x+b.w-18&&y>b.y+18&&y<b.y+b.h-18);}
+      const loot=new LootState();loot.id=`loot-${++this.lootSeq}`;loot.kind=kind;loot.x=pos.x;loot.y=pos.y;const lootSpace=spaceAt(loot.x,loot.y,this.map.buildingVisibilityZones,this.map.rooms,0);loot.buildingId=lootSpace.buildingId;loot.roomIndex=lootSpace.roomIndex;
+      const next=spaceAt(player.x,player.y,this.map.buildingVisibilityZones,this.map.rooms,12);
+    const roomTrace=traceSpaceVisibility(viewer,target,this.map.portals,this.map.visibilityObstacles,3);

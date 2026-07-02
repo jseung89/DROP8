@@ -1,0 +1,98 @@
+{
+  "patch": "Refactor 014 FIXED v1",
+  "marker": "DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP",
+  "createdAt": "2026-06-30T02:37:41.663Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "client/index.html",
+      "kind": "modify",
+      "beforeSha256": "19ec7dde0da5eefc13cc9667ce0eaa013ba3b520988fc5154ea1c2bbdc653ff4",
+      "afterSha256": "debb928c6bb8781d354d2d4d977160a7be4dad230ca7563a6b59bcef2ecdeb25"
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "kind": "modify",
+      "beforeSha256": "6e0f33e03068b46226fdbf620bddeeb2ee206532e5557cc0bb6fb14120c676d2",
+      "afterSha256": "2a108d6b28c95529b0cbcf961389f9b773045b7dd68928ae15fba66e3ab4e1dc"
+    },
+    {
+      "path": "client/src/audio/SoundRegistry.ts",
+      "kind": "modify",
+      "beforeSha256": "5a713a1d530e123d5f083cd84850f6eff3f31a767ea6eaac6430ed14507793ba",
+      "afterSha256": "75b76c859e2e98d553703450d902fb2d26deca4cbf7a3558980127de3a4e745b"
+    },
+    {
+      "path": "client/src/audio/audioTypes.ts",
+      "kind": "modify",
+      "beforeSha256": "8702ca4799afe54952b63b85f92c21482cc8a7939744dc21be6f017c93babec0",
+      "afterSha256": "98ad4dfe9d7e69c3bf99ff97954375f03cc5b15307ec3b23373ff4d87b05afe2"
+    },
+    {
+      "path": "client/src/audio/synthSounds.ts",
+      "kind": "modify",
+      "beforeSha256": "322c1088b712597917efe4c45c2ca8ec51c8291ad19cba1022c723466f7e71f4",
+      "afterSha256": "461ec14c2c0e915c0a2336abc03225e3ebbb2f202ca98c7728f2ca0c5a2b4002"
+    },
+    {
+      "path": "client/src/main.ts",
+      "kind": "modify",
+      "beforeSha256": "7b386bde53e29c5d35a2bdb3cd461b0e1eb3bed1386df20feb9d11f651962ae6",
+      "afterSha256": "e1e116c6fc28c55e700a19f343aeaff02b1ff8477fb945b50d5fcdc4a542ba66"
+    },
+    {
+      "path": "client/src/network.ts",
+      "kind": "modify",
+      "beforeSha256": "41abd10a5691c60baacd919062d678c1a2a2cf74f54c35e6f25a05dc736c3ce6",
+      "afterSha256": "d1fbf1f76e60d45fe161bf443e70adf5e8b5ce85d2897323a669b8220b6cb8c9"
+    },
+    {
+      "path": "client/src/style.css",
+      "kind": "modify",
+      "beforeSha256": "faa401a26412be2d6bde64e000a41bd103fcdc91acade285704449c869fb577d",
+      "afterSha256": "c1457beda12b705f684046d3c97e767f1a69d89371caabf11cdd279ece97f0de"
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "kind": "modify",
+      "beforeSha256": "02fb563b769e6e52eed544046095aee99729d58acd9163db620f6bdbeac26a97",
+      "afterSha256": "afadfccd086ba358e6a17499fd881d10c799ca6b11f1b447c2196152968df4ef"
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "kind": "modify",
+      "beforeSha256": "30d6f17c8606e3fefb774780c29a8eacab023e5e45ae5eccf4fc85aea3d577d5",
+      "afterSha256": "48cea974c63402aa2349498ba3709b151752163adf2aed7cdf4a7fef524034de"
+    },
+    {
+      "path": "server/src/rooms/schema.ts",
+      "kind": "modify",
+      "beforeSha256": "857c7ce7e5325d7f41e90a26f4309a2385bcb91c553af2d8d71ab9191dd95aeb",
+      "afterSha256": "6dd8c53c2b4c5ba68d26cce5773c2a97b9b9fe5931e5ab820e2904e2da23004f"
+    },
+    {
+      "path": "server/tests/refactor014-bazooka-slot-plane.test.ts",
+      "kind": "create",
+      "beforeSha256": "",
+      "afterSha256": "32ca74dcd35f6f2c386b80df189837fa25bf3a04bbed73d1ee10c6724b8a052b"
+    },
+    {
+      "path": "server/tests/room.test.ts",
+      "kind": "modify",
+      "beforeSha256": "880b9ecd04e2ba75f3411e7ad5d00398fa9ccd6f373d7d6e6bbcfb4bd82c9f84",
+      "afterSha256": "84e52250472506e1474a1fd57b8208c3efd62c33cb70479008470fd816b9c5df"
+    },
+    {
+      "path": "shared/src/index.ts",
+      "kind": "modify",
+      "beforeSha256": "23645a73bb24c174e34d6a269fd16ebe0b658abce3bc50914aad437047080824",
+      "afterSha256": "78f7666b04e8f2c301a8ae0bfd0463c640be5df55e9a476d6e4099571f80b71b"
+    },
+    {
+      "path": "shared/tests/rules.test.ts",
+      "kind": "modify",
+      "beforeSha256": "6834a8fcf2dac2c2361abb054ac5f0a0d7b9a197ead057b1fb8b2103e4eb7104",
+      "afterSha256": "5feb96a526638605ee6f32520c8a267878611307049722bc80daef5ec03fdbec"
+    }
+  ]
+}

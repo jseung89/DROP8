@@ -1,0 +1,184 @@
+
+### TypeScript typecheck
+> pnpm run typecheck
+exit=0
+
+$ pnpm --filter @drop8/shared typecheck && pnpm --filter @drop8/shared build && pnpm --filter @drop8/client typecheck && pnpm --filter @drop8/server typecheck
+$ tsc -p tsconfig.json --noEmit
+$ tsc -p tsconfig.json
+$ tsc --noEmit
+$ tsc -p tsconfig.json --noEmit
+
+
+### ESLint
+> pnpm run lint
+exit=0
+
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\client\src\GameScene.ts
+  1502:178  warning  'wolfAttackPulse' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\server\src\rooms\Drop8Room.ts
+    29:3   warning  'BUSH_HIDE_DISTANCE' is defined but never used                            @typescript-eslint/no-unused-vars
+   973:11  warning  'aliveAfterCycle' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+  2768:49  warning  'memory' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 4 problems (0 errors, 4 warnings)
+
+
+$ eslint --config eslint.config.ts shared/src shared/tests client/src server/src server/tests
+
+
+### Refactor 019 공용 집중 테스트
+> pnpm --filter @drop8/shared exec vitest run tests/refactor019-ai-humanization.test.ts --reporter=verbose
+exit=0
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/shared[39m
+
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts[2m > [22mRefactor 019 AI humanization rules[2m > [22mlimits calm vision and rear acquisition[32m 2[2mms[22m[39m
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts[2m > [22mRefactor 019 AI humanization rules[2m > [22madds reaction and movement aim penalties[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts[2m > [22mRefactor 019 AI humanization rules[2m > [22mdefines weapon bursts and dialogue ids[32m 0[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 10:36:29
+[2m   Duration [22m 469ms[2m (transform 182ms, setup 0ms, import 252ms, tests 5ms, environment 0ms)[22m
+
+
+
+
+### Refactor 019 서버 집중 테스트
+> pnpm --filter @drop8/server exec vitest run tests/refactor019-ai-humanization.test.ts --pool=threads --maxWorkers=1 --no-file-parallelism --testTimeout=30000 --hookTimeout=30000 --reporter=verbose
+exit=0
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/server[39m
+
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts[2m > [22mRefactor 019 server perception[2m > [22mdoes not acquire a target behind a calm AI[32m 4[2mms[22m[39m
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts[2m > [22mRefactor 019 server perception[2m > [22mstops long-range hidden-bush acquisition[32m 1[2mms[22m[39m
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts[2m > [22mRefactor 019 server perception[2m > [22mstores an estimated sound instead of exact coordinates[32m 1[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m3 passed[39m[22m[90m (3)[39m
+[2m   Start at [22m 10:36:31
+[2m   Duration [22m 658ms[2m (transform 300ms, setup 0ms, import 480ms, tests 7ms, environment 0ms)[22m
+
+
+
+
+### 채팅·Room·수풀·창문 회귀 테스트
+> pnpm --filter @drop8/server exec vitest run tests/chat-input.test.ts tests/room.test.ts tests/refactor013h1-nested-window-dock8-loot.test.ts tests/refactor018-werewolf-combat.test.ts --pool=threads --maxWorkers=1 --no-file-parallelism --testTimeout=30000 --hookTimeout=30000 --reporter=verbose
+exit=1
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/server[39m
+
+[90mstdout[2m | tests/room.test.ts
+[22m[39mℹ️  optional .env file not found: .env.test, .env
+
+[90mstdout[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration
+[22m[39m
+   ___      _                                    ___   _ _____
+  / __\___ | |_   _ ___  ___ _   _ ___   __   __/ _ \ / |___  |
+ / /  / _ \| | | | / __|/ _ \ | | / __|  \ \ / / | | || |  / /
+/ /__| (_) | | |_| \__ \  __/ |_| \__ \   \ V /| |_| || | / /
+\____/\___/|_|\__, |___/\___|\__,_|___/    \_/  \___(_)_|/_/
+              |___/
+
+             · Multiplayer Framework for Node.js ·
+
+💖 Consider becoming a Sponsor on GitHub → https://github.com/sponsors/endel
+🌟 Give us a star on GitHub → https://github.com/colyseus/colyseus
+☁️  Deploy and scale your project on Colyseus Cloud → https://cloud.colyseus.io
+
+
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mcreates a room and synchronizes two clients[32m 123[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mfills empty slots with AI after every human is ready[32m 250[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22maccepts eight human clients without adding AI[33m 433[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mmoves a client through server-authoritative input[33m 429[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mmoves landed AI continuously between decision ticks[33m 735[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mapplies hit state and knockback for a fist attack[33m 450[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mkeeps a healing item until completion and restores health[33m 2373[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mpreserves a separate magazine for each firearm[32m 243[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mlets AI choose a suitable loaded weapon for a distant target[33m 2944[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mroutes AI around building walls, through the door, and out of collision[33m 3031[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mkeeps a healthy AI route until measured stalling triggers replanning[32m 232[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mbuilds a window route and lets AI complete a server-authoritative vault[33m 597[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mallows a safe low-health AI to use a bandage[33m 5561[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mprioritizes a nearby weapon over chasing while an AI is unprepared[33m 373[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mreserves one loot target for only one AI at a time[33m 434[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mspawns separated loot away from doors and walls[32m 260[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mspreads death drops instead of stacking them at one point[32m 11[2mms[22m[39m
+ [31m×[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mconceals a bush player from distant AI until the player attacks[33m 403[2mms[22m[39m
+[31m   → expected undefined to be 'FeNG0KN36' // Object.is equality[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22msynchronizes reload progress and only fills the magazine after completion[33m 1767[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mcancels reload cleanly when switching weapons[33m 406[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mrecovers a human player placed inside a building wall[33m 365[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mvalidates and broadcasts chat with the authoritative player identity[32m 22[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mblocks human movement through a solid field prop and publishes server timing metrics[33m 808[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22msynchronizes a randomized plane route and activates a contained next zone after the free phase[32m 211[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mseparates indoor and outdoor visibility for AI targeting[32m 202[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mlets only the host kick another human player[32m 142[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mtransfers host authority when the host leaves[32m 124[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mauto-equips a newly picked up weapon and publishes pickup feedback[32m 140[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mlets only the host switch between small and large maps before a match[33m 416[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22muses three ammo types and makes the sniper consume standard ammo[32m 230[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22muses segment collision so a fast projectile cannot tunnel through a player[32m 1[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mtreats aiming input as scope state without firing or consuming ammunition[32m 271[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mspawns, mounts, drives, and safely dismounts a motorcycle[33m 746[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mapplies one speed-based motorcycle hit with knockback cooldown[33m 335[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mdrives a motorcycle in screen-space directions regardless of its current facing[33m 497[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mnormalizes diagonal motorcycle input and keeps movement independent from aim direction[33m 470[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mdrops the equipped firearm with its magazine when a full inventory swaps weapons[32m 181[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mkeeps reserve ammo and blocks the dropper from instantly re-picking a swapped gun[33m 1369[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mvaults through a nearby window with server-authoritative landing and building transition[33m 616[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mkeeps cross-window loot interaction disabled after visibility is granted[32m 284[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mpublishes a non-blocking notice when healing is unavailable[32m 179[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22minitializes motorcycle durability and lets bullets damage the vehicle first[32m 186[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mforce-dismounts a rider, explodes once, and damages nearby targets with a fuse[32m 233[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mleaves a full-health target near death at the motorcycle blast center[32m 232[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mbroadcasts one authoritative character death event without delaying server death state[32m 283[2mms[22m[39m
+ [32m✓[39m tests/refactor013h1-nested-window-dock8-loot.test.ts[2m > [22mRefactor 013H1 nested-room windows and Dock 8 loot authority[2m > [22mresolves every large-map vaultable window from both physical sides for 20 rounds[33m 370[2mms[22m[39m
+ [32m✓[39m tests/refactor013h1-nested-window-dock8-loot.test.ts[2m > [22mRefactor 013H1 nested-room windows and Dock 8 loot authority[2m > [22mcompletes 20 alternating server-authoritative vaults through one nested large-map window[32m 4[2mms[22m[39m
+ [32m✓[39m tests/refactor013h1-nested-window-dock8-loot.test.ts[2m > [22mRefactor 013H1 nested-room windows and Dock 8 loot authority[2m > [22mspawns 280 naturally scattered Dock 8 loot items without changing other map budgets[33m 13738[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-combat.test.ts[2m > [22mRefactor 018 werewolf combat and motorcycle hunt[2m > [22mkills a normal target in three authoritative claw hits[32m 11[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-combat.test.ts[2m > [22mRefactor 018 werewolf combat and motorcycle hunt[2m > [22mmarks a motorcycle first and force-dismounts on the second hit[32m 4[2mms[22m[39m
+ [32m✓[39m tests/chat-input.test.ts[2m > [22m004C chat input helpers[2m > [22mpreserves spaces inside Korean chat while trimming the edges[32m 1[2mms[22m[39m
+ [32m✓[39m tests/chat-input.test.ts[2m > [22m004C chat input helpers[2m > [22msubmits Enter exactly once outside IME composition[32m 0[2mms[22m[39m
+ [32m✓[39m tests/chat-input.test.ts[2m > [22mRefactor 010 non-blocking game notices[2m > [22mcontains no browser-blocking alert, confirm, or prompt calls in the game client[32m 1[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m3 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m52 passed[39m[22m[90m (53)[39m
+[2m   Start at [22m 10:36:32
+[2m   Duration [22m 45.86s[2m (transform 380ms, setup 0ms, import 1.29s, tests 43.75s, environment 0ms)[22m
+
+undefined
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\server:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run tests/chat-input.test.ts tests/room.test.ts tests/refactor013h1-nested-window-dock8-loot.test.ts tests/refactor018-werewolf-combat.test.ts "--pool=threads" "--maxWorkers=1" --no-file-parallelism "--testTimeout=30000" "--hookTimeout=30000" "--reporter=verbose"
+
+[90mstderr[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration[2m > [22m[2mpreserves a separate magazine for each firearm
+[22m[39m@colyseus/sdk: onMessage() not registered for type 'slotSwapResult'.
+
+[90mstderr[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration[2m > [22m[2mlets AI choose a suitable loaded weapon for a distant target
+[22m[39m@colyseus/sdk: onMessage() not registered for type 'aiDialogue'.
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mconceals a bush player from distant AI until the player attacks
+[31m[1mAssertionError[22m: expected undefined to be 'FeNG0KN36' // Object.is equality[39m
+
+[32m- Expected:[39m
+"FeNG0KN36"
+
+[31m+ Received:[39m
+undefined
+
+[36m [2m❯[22m tests/room.test.ts:[2m589:53[22m[39m
+    [90m587|[39m     [35mawait[39m [35mnew[39m [33mPromise[39m((resolve) [33m=>[39m [34msetTimeout[39m(resolve[33m,[39m [34m100[39m))[33m;[39m
+    [90m588|[39m     [34mexpect[39m(target[33m.[39mbushRevealed)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m589|[39m     [34mexpect[39m(internal[33m.[39m[34mfindVisibleTarget[39m(ai[33m,[39m [34m950[39m)[33m?.[39mid)[33m.[39m[34mtoBe[39m(target[33m.[39mid)[33m;[39m
+    [90m   |[39m                                                     [31m^[39m
+    [90m590|[39m   })[33m;[39m
+    [90m591|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+

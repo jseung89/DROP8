@@ -1,0 +1,10 @@
+[
+  "shared/src/vehicleEffects.ts",
+  "shared/src/stripTrap.ts",
+  "server/src/rooms/vehicleStatus.ts",
+  "shared/tests/refactor017-adhesive-status.test.ts",
+  "shared/tests/refactor017-strip-trap-geometry.test.ts",
+  "server/tests/refactor017-adhesive-strip-trap.test.ts",
+  "server/tests/refactor017-bazooka-water-collision.test.ts",
+  "server/tests/refactor017-lobby-room-list.integration.test.ts"
+]

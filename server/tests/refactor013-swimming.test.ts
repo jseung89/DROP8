@@ -16,7 +16,7 @@ describe('Refactor 013 swimming server authority', () => {
     for(const type of ['audioEvent','notice','chat','pickupResult'])client.onMessage(type,()=>undefined);
     room.state.phase='ACTIVE';
     const player=room.state.players.get(client.sessionId)!;
-    player.phase='landed';player.alive=true;player.x=3300;player.y=420;player.equipped='rifle';player.primary='rifle';player.rifleMagazine=30;
+    player.phase='landed';player.alive=true;player.x=3204;player.y=180;player.equipped='rifle';player.primary='rifle';player.rifleMagazine=30;
     return{room,client,player};
   }
 

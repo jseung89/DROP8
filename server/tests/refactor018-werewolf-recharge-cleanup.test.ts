@@ -1,0 +1,28 @@
+// DROP8_REFACTOR_018_WEREWOLF_SEASON
+import { describe, expect, it, vi } from 'vitest';
+import { Drop8Room } from '../src/rooms/Drop8Room.js';
+import { PlayerState } from '../src/rooms/schema.js';
+
+function makeRoom(clock:{value:number}){const room=new Drop8Room() as any;room.now=()=>clock.value;room.setMatchmaking=vi.fn().mockResolvedValue(undefined);room.registrySyncQueue=Promise.resolve();room.state.phase='ACTIVE';room.state.aliveCount=4;return room;}
+function addPlayer(room:any,id:string,x:number,y:number){const p=new PlayerState();p.id=id;p.name=id;p.alive=true;p.phase='landed';p.x=x;p.y=y;p.angle=0;room.state.players.set(id,p);room.tacticalInventory(id);return p;}
+
+import { WEREWOLF_BALANCE } from '@drop8/shared';
+
+describe('Refactor 018 recharge and cleanup',()=>{
+  it('recharges the altar after a completed cycle and replenishes limited counters',()=>{
+    const clock={value:5},room=makeRoom(clock),wolf=addPlayer(room,'wolf',1200,1200);
+    for(let i=0;i<3;i++)addPlayer(room,`other-${i}`,1600+i*30,1600);
+    const season=room.state.werewolfSeason;season.enabled=true;season.altarPhase='claimed';season.altarX=1000;season.altarY=1000;season.armoryX=1800;season.armoryY=1800;season.werewolfPlayerId=wolf.id;season.armoryOpened=true;
+    wolf.werewolf.transformed=true;wolf.werewolf.transformEndsAt=clock.value;
+    room.endWerewolfCycle(wolf,'expired');
+    expect(season.altarPhase).toBe('recharging');expect(season.altarReactivateAt).toBeCloseTo(clock.value+WEREWOLF_BALANCE.rechargeSeconds,5);
+    clock.value=15.1;room.updateWerewolfSeason(.1);
+    expect(season.altarPhase).toBe('active');expect([...room.state.loot.values()].some((loot:any)=>loot.kind==='silver_crossbow')).toBe(true);
+  });
+  it('stops reactivation in the final stage and clears all season ownership',()=>{
+    const clock={value:20},room=makeRoom(clock),wolf=addPlayer(room,'wolf',1200,1200);
+    const season=room.state.werewolfSeason;season.enabled=true;season.altarPhase='claimed';season.werewolfPlayerId=wolf.id;room.state.aliveCount=3;room.state.zoneState='FINAL';room.state.zoneStage=6;
+    wolf.werewolf.transformed=true;room.endWerewolfCycle(wolf,'death');
+    expect(season.altarPhase).toBe('disabled');expect(season.werewolfPlayerId).toBe('');
+  });
+});

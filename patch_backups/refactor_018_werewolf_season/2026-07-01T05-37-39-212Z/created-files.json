@@ -1,0 +1,10 @@
+[
+  "shared/src/werewolfSeason.ts",
+  "shared/tests/refactor018-werewolf-season.test.ts",
+  "shared/tests/refactor018-werewolf-map-candidates.test.ts",
+  "server/tests/refactor018-werewolf-ritual-transform.test.ts",
+  "server/tests/refactor018-werewolf-combat.test.ts",
+  "server/tests/refactor018-silver-crossbow.test.ts",
+  "server/tests/refactor018-werewolf-recharge-cleanup.test.ts",
+  "server/tests/refactor018-werewolf-schema-sync.test.ts"
+]

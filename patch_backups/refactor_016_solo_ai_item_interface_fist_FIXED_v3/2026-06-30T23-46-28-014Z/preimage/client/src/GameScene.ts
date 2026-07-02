@@ -1,0 +1,1821 @@
+// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
+// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
+// DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
+// DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
+// DROP8_REFACTOR_013G_DOCK8_RECOVERY
+// DROP8_REFACTOR_013H1_LARGE_NESTED_ROOM_WINDOW_DOCK8_TERRAIN_LOOT
+import Phaser from 'phaser';
+import {
+// DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
+  BUSH_HIDE_DISTANCE, LOOT_COLORS, LOOT_LABELS, MELEE_WEAPONS, THROWABLE_CONFIGS, THROWABLE_MAX_CHARGE_MS, MOTORCYCLE_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, MOTORCYCLE_DIRECT_ACCELERATION, MOTORCYCLE_DIRECT_DECELERATION, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_MOUNT_DISTANCE, MOTORCYCLE_RADIUS, MOTORCYCLE_ROTATION_RESPONSE, MOTORCYCLE_SCOPE_SPEED_RATIO, PLAYER_BODY_RADIUS, PLAYER_HIT_RADIUS, PLAYER_SEPARATION_RADIUS, PLAYER_SPEED, SNIPER_SCOPE_MOVE_MULTIPLIER,
+  REGION_THEMES, RENDER_DEPTH, WEAPONS, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_FEATHER, angleAwarePortalPolygon, buildingIdAt, buildingSpacesInteractable, buildingZoneById, buildingZonesAt, circleHitsRect, clamp, createThrowableMotion, crossSpaceOpening, distance, doorPortalOpening, findPortalVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, isThrowableType, motorcycleSpreadRadians, normalizeAimVector, predictThrowableTrajectory, normalizeMovementInput, pointInDirectionalScope, regionAt, segmentClearOfRects, selectActivePortal, smokeVisibilityBetween, spaceAt, spaceInteractionAllowed, traceSpaceVisibility, movementMultiplierAt, terrainAt, SWIM_SPEED, soundOcclusionBetween, targetVisibilitySamples, throwableEffectRadius,
+  type DecorKind, type EquippedId, type LootKind, type MapConfig, type MapId, type WeaponId, type MeleeId, type ThrowableType, type WindowOpening
+} from '@drop8/shared';
+import type { Network } from './network';
+import { pushPositionSnapshot, samplePosition, zoneDirection, type PositionSnapshot, type VisibilityResult } from './interpolation';
+import { audio, soundIdForWeapon, type AudioEventMessage, type SoundId } from './audio';
+
+type DisplayPoint={x:number;y:number};
+type TargetVisibilityResult=VisibilityResult&{nameplateVisible:boolean;vehicleVisible:boolean;portalKind:'same'|'door'|'window'|'none';portalOpeningId:string;portalViewMode:'front'|'side'|'peripheral'|'none';revealStrength:number};
+type CharacterDeathPayload={entityId?:string;entityType?:'player'|'ai';x?:number;y?:number;angle?:number;buildingId?:string;displayName?:string;ai?:boolean;equipped?:EquippedId;killerId?:string;cause?:string;hitDirectionX?:number;hitDirectionY?:number;inBush?:boolean;bushRevealed?:boolean;diedAt?:number};
+type DeathVisual={entityId:string;x:number;y:number;angle:number;buildingId:string;ai:boolean;equipped:EquippedId;cause:string;hitDirectionX:number;hitDirectionY:number;startedAt:number;duration:number;pushDistance:number;inBush:boolean;bushRevealed:boolean;local:boolean};
+type ChatPayload={playerId?:string;sender?:string;nickname?:string;text?:string;channel?:string;time?:number;sentAt?:number};
+type PlayerOverlay={
+  container:Phaser.GameObjects.Container;
+  name:Phaser.GameObjects.Text;
+  bubbleBg:Phaser.GameObjects.Graphics;
+  bubbleText:Phaser.GameObjects.Text;
+  bubbleExpiresAt:number;
+};
+
+export class GameScene extends Phaser.Scene {
+  private staticG!:Phaser.GameObjects.Graphics;
+  private dynamicG!:Phaser.GameObjects.Graphics;
+  private windowRevealG!:Phaser.GameObjects.Graphics;
+  private planeShadowG!:Phaser.GameObjects.Graphics;
+  private planeG!:Phaser.GameObjects.Graphics;
+  private debugG!:Phaser.GameObjects.Graphics;
+  private slowG!:Phaser.GameObjects.Graphics;
+  private hitG!:Phaser.GameObjects.Graphics;
+  private crosshairG!:Phaser.GameObjects.Graphics;
+  private throwGuideG!:Phaser.GameObjects.Graphics;
+  private foliageG!:Phaser.GameObjects.Graphics;
+  private mini!:Phaser.GameObjects.Graphics;
+  private indoorMaskG!:Phaser.GameObjects.Graphics;
+  private terrainDebugText?:Phaser.GameObjects.Text;
+  private terrainDebugEnabled=false;
+  private buildingRoofs=new Map<string,Phaser.GameObjects.Graphics>();
+  private mapLabels:Phaser.GameObjects.Text[]=[];
+  private mapConfig:MapConfig=getMapConfig('small');
+  private mapRevision=-1;
+  private pickupText!:Phaser.GameObjects.Text;
+  private fpsText!:Phaser.GameObjects.Text;
+  private perfText!:Phaser.GameObjects.Text;
+  private regionText!:Phaser.GameObjects.Text;
+  private keys!:Record<string,Phaser.Input.Keyboard.Key>;
+  private seq=0;
+  private lastInput=0;
+  private lastFire=0;
+  private lastMiniDraw=0;
+  private lastSlowDraw=0;
+  private lastFpsDraw=0;
+  private mapOpen=false;
+  private spectateIndex=0;
+  private displayPlayers=new Map<string,DisplayPoint>();
+  private remoteBuffers=new Map<string,PositionSnapshot[]>();
+  private lastVisibility=new Map<string,boolean>();
+  private revealStartedAt=new Map<string,number>();
+  private framePositions=new Map<string,{x:number;y:number;angle:number}>();
+  private frameVisibility=new Map<string,TargetVisibilityResult>();
+  private perfVisible=false;
+  private snapCorrections=0;
+  private bufferMisses=0;
+  private displayBullets=new Map<string,DisplayPoint>();
+  private displayMotorcycles=new Map<string,{x:number;y:number;rotation:number;speed:number;velocityX:number;velocityY:number}>();
+  private lastAttackSeq=new Map<string,number>();
+  private attackStartedAt=new Map<string,number>();
+  private lastHitSeq=new Map<string,number>();
+  private hitStartedAt=new Map<string,number>();
+  private predictedLocal:DisplayPoint|null=null;
+  private localAimAngle=0;
+  private localAimX=1;
+  private localAimY=0;
+  private scopeRequested=false;
+  private scopeBlend=0;
+  private scopeCanvas?:HTMLCanvasElement;
+  private scopeContext?:CanvasRenderingContext2D;
+  private windowVisionCanvas?:HTMLCanvasElement;
+  private windowVisionContext?:CanvasRenderingContext2D;
+  private pointerScreenX=0;
+  private pointerScreenY=0;
+  private crosshairKick=0;
+  private localVehicleHeldMs=0;
+  private localVehicleInputX=0;
+  private localVehicleInputY=0;
+  private localVehicleTurnPenaltyUntil=0;
+  private localHitUntil=0;
+  private localHitAngle=0;
+  private lastScopeNoticeAt=0;
+  private seenExplosionIds=new Set<string>();
+  // DROP8_REFACTOR_012A_SMOKE_MOTORCYCLE_AI_NAV
+  private localThrowStartedAt=0;
+  private localThrowPreparing=false;
+  private localThrowVehicleId='';
+  private deathVisuals:DeathVisual[]=[];
+  private localDeathPoint:DisplayPoint|null=null;
+  private localDeathCameraUntil=0;
+  private portalRevealKeys=new Set<string>();
+  private viewerPoint:DisplayPoint|null=null;
+  private viewerPlayer:any=null;
+  private activeBuildingId='';
+  private activePortalId='';
+  private activePortalBuildingId='';
+  private activePortalKind:''|'door'|'window'='';
+  private activePortalSelectedAt=0;
+  private currentRegionId='';
+  private chatBlocked=false;
+  private playerOverlays=new Map<string,PlayerOverlay>();
+  private movementAudio=new Map<string,{x:number;y:number;distance:number;lastStepAt:number;lastBushAt:number;vaulting:boolean}>();
+  private vehicleAudioLoops=new Map<string,string>();
+  private vehicleAudioState=new Map<string,{hp:number;critical:boolean;exploding:boolean;driverId:string}>();
+  private vehicleWarningAt=new Map<string,number>();
+  private lastLowHealthAt=0;
+  private lastZoneState='';
+  private zoneWarningStage='';
+  private lastPhase='';
+  private chatMessageHandler=(type:string,payload:any)=>{if(type==='chat')this.receiveChat(payload as ChatPayload);if(type==='positionRecovery')this.receivePositionRecovery(payload);if(type==='vehicleRecovery')this.receiveVehicleRecovery(payload);if(type==='characterDeath')this.receiveCharacterDeath(payload as CharacterDeathPayload);if(type==='audioEvent')this.receiveAudioEvent(payload as AudioEventMessage);};
+  private chatStateHandler=(event:Event)=>{
+    const open=Boolean((event as CustomEvent<{open?:boolean}>).detail?.open);
+    this.chatBlocked=open;
+    if(this.input.keyboard)this.input.keyboard.enabled=!open;
+    if(open){
+      for(const key of Object.values(this.keys??{}))key.reset();
+      this.scopeRequested=false;this.cancelLocalThrow();
+      this.net.send('input',{x:0,y:0,aimX:this.localAimX,aimY:this.localAimY,angle:this.localAimAngle,seq:++this.seq,aiming:false,accelerate:false,brake:false,turnLeft:false,turnRight:false});
+    }
+  };
+
+  constructor(private net:Network){super('game');}
+
+  create(){
+    this.mapConfig=getMapConfig((this.net.snapshot?.mapId??this.net.snapshot?.mapSizeMode) as MapId);
+    this.mapRevision=Number(this.net.snapshot?.mapRevision??0);
+    this.cameras.main.setBounds(0,0,this.mapConfig.width,this.mapConfig.height);
+    this.cameras.main.setBackgroundColor('#153424');
+    this.terrainDebugEnabled=new URLSearchParams(window.location.search).get('debugTerrain')==='1';
+    this.staticG=this.add.graphics().setDepth(RENDER_DEPTH.GROUND);
+    this.slowG=this.add.graphics().setDepth(RENDER_DEPTH.GROUND_ITEM);
+    this.dynamicG=this.add.graphics().setDepth(RENDER_DEPTH.PLAYER);
+    this.windowRevealG=this.add.graphics().setDepth(RENDER_DEPTH.BUILDING_ROOF+2);
+    this.foliageG=this.add.graphics().setDepth(RENDER_DEPTH.WORLD_PROP+8);
+    this.planeShadowG=this.add.graphics().setDepth(RENDER_DEPTH.PLANE_SHADOW);
+    this.planeG=this.add.graphics().setDepth(RENDER_DEPTH.TRANSPORT_PLANE);
+    this.debugG=this.add.graphics().setDepth(RENDER_DEPTH.PLANE_EFFECT);
+    this.hitG=this.add.graphics().setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+5);
+    this.crosshairG=this.add.graphics().setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+20);
+    this.throwGuideG=this.add.graphics().setDepth(RENDER_DEPTH.WORLD_EFFECT+2);
+    this.mini=this.add.graphics().setScrollFactor(0).setDepth(RENDER_DEPTH.HUD);
+    this.indoorMaskG=this.add.graphics().setScrollFactor(0).setDepth(RENDER_DEPTH.PLAYER-1);
+    this.scopeCanvas=document.getElementById('scopeOverlay') as HTMLCanvasElement|undefined;
+    this.scopeContext=this.scopeCanvas?.getContext('2d')??undefined;
+    this.windowVisionCanvas=document.getElementById('windowVisibilityOverlay') as HTMLCanvasElement|undefined;
+    this.windowVisionContext=this.windowVisionCanvas?.getContext('2d')??undefined;
+    this.resizeOverlayCanvases();
+    this.pickupText=this.add.text(this.scale.width/2,this.scale.height-118,'',{fontFamily:'sans-serif',fontSize:'18px',fontStyle:'bold',color:'#ffffff',backgroundColor:'#071018dd',padding:{x:12,y:8}}).setOrigin(.5).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+10).setVisible(false);
+    this.fpsText=this.add.text(12,12,'',{fontFamily:'monospace',fontSize:'12px',color:'#9fb2bf',backgroundColor:'#071018aa',padding:{x:6,y:4}}).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+10);
+    this.perfText=this.add.text(12,78,'',{fontFamily:'monospace',fontSize:'12px',color:'#d9edf8',backgroundColor:'#061018e8',padding:{x:8,y:7}}).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+12).setVisible(false);
+    this.regionText=this.add.text(12,46,'',{fontFamily:'sans-serif',fontSize:'13px',fontStyle:'bold',color:'#f4f7ef',backgroundColor:'#071018cc',padding:{x:9,y:6}}).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+10).setVisible(false);
+    this.keys=this.input.keyboard!.addKeys('W,A,S,D,E,Q,R,ONE,TWO,THREE,FOUR,M,F3,SPACE,ENTER,LEFT,RIGHT') as Record<string,Phaser.Input.Keyboard.Key>;
+    this.input.mouse?.disableContextMenu();
+    this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{void audio.unlock();const me=this.local();if(this.isTyping()||!me)return;if(pointer.rightButtonDown()&&this.localThrowPreparing){this.cancelLocalThrow();return;}if(pointer.leftButtonDown()&&me.alive&&me.phase==='landed'&&!me.isSwimming&&!me.isVaulting&&isThrowableType(me.equipped)&&me.throwableCount>0){this.localThrowPreparing=true;this.localThrowStartedAt=this.time.now;this.localThrowVehicleId=me.isDriving?String(me.vehicleId??''):'';this.net.send('throwPrepare');}});
+    this.input.on('pointerup',(pointer:Phaser.Input.Pointer)=>{const me=this.local();if(pointer.button!==0||!this.localThrowPreparing||!me)return;if(me.isSwimming){this.cancelLocalThrow();return;}this.net.send('throw',{aimX:this.localAimX,aimY:this.localAimY});this.localThrowPreparing=false;this.localThrowStartedAt=0;this.localThrowVehicleId='';});
+    this.keys.LEFT.on('down',()=>{this.spectateIndex=Math.max(0,this.spectateIndex-1);});
+    this.keys.RIGHT.on('down',()=>{this.spectateIndex++;});
+    this.keys.E.on('down',()=>{const me=this.local();if(!this.isTyping()&&!me?.isSwimming){this.cancelLocalThrow();this.net.send('interact');}});
+    this.keys.R.on('down',()=>{const me=this.local();if(!this.isTyping()&&!me?.isSwimming)this.net.send('reload');});
+    this.keys.ONE.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:1});}});
+    this.keys.TWO.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:2});}});
+    this.keys.THREE.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:3});}});
+    this.keys.FOUR.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:4});}});
+    this.keys.Q.on('down',()=>{const me=this.local();if(!this.isTyping()&&!me?.isSwimming){this.cancelLocalThrow();this.net.send('heal',{kind:'auto'});}});
+    this.keys.SPACE.on('down',()=>{if(this.isTyping())return;const me=this.local();if(me?.isSwimming)return;this.net.send(me?.phase==='landed'?'vaultWindow':'jump');});
+    this.keys.M.on('down',()=>{this.mapOpen=!this.mapOpen;this.lastMiniDraw=0;});
+    this.keys.F3.on('down',()=>{if(this.isTyping())return;this.perfVisible=!this.perfVisible;this.perfText.setVisible(this.perfVisible);});
+    this.scale.on('resize',(size:Phaser.Structs.Size)=>{
+      this.pickupText.setPosition(size.width/2,size.height-118);
+      this.resizeOverlayCanvases();
+      this.lastMiniDraw=0;
+    });
+    this.net.messages.add(this.chatMessageHandler);
+    window.addEventListener('drop8-chat-state',this.chatStateHandler as EventListener);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
+      this.net.messages.delete(this.chatMessageHandler);
+      window.removeEventListener('drop8-chat-state',this.chatStateHandler as EventListener);
+      for(const overlay of this.playerOverlays.values())overlay.container.destroy(true);
+      this.playerOverlays.clear();
+      this.crosshairG.clear();this.throwGuideG.clear();this.cancelLocalThrow();
+      if(this.scopeCanvas){this.scopeCanvas.classList.add('hidden');const context=this.scopeContext;context?.clearRect(0,0,this.scopeCanvas.width,this.scopeCanvas.height);}
+      if(this.windowVisionCanvas){this.windowVisionCanvas.classList.add('hidden');const context=this.windowVisionContext;context?.clearRect(0,0,this.windowVisionCanvas.width,this.windowVisionCanvas.height);}
+      this.deathVisuals=[];this.localDeathPoint=null;this.localDeathCameraUntil=0;
+      this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';this.activePortalSelectedAt=0;
+      this.remoteBuffers.clear();
+      this.displayMotorcycles.clear();
+      this.lastVisibility.clear();
+      this.frameVisibility.clear();
+      this.seenExplosionIds.clear();
+      for(const handle of this.vehicleAudioLoops.values())audio.stopLoop(handle,60);
+      this.vehicleAudioLoops.clear();this.vehicleAudioState.clear();this.vehicleWarningAt.clear();this.movementAudio.clear();
+      this.revealStartedAt.clear();
+      for(const label of this.mapLabels)label.destroy();
+      this.mapLabels=[];
+      for(const roof of this.buildingRoofs.values())roof.destroy();
+      this.buildingRoofs.clear();
+    });
+    this.drawStaticMap();
+    this.createBuildingRoofs();
+    this.drawFoliage();
+  }
+
+  update(time:number){
+    const s=this.net.snapshot;
+    if(!s)return;
+    this.ensureMapState(s);
+    const me=this.local();
+    const dt=Math.min(.04,Math.max(0,this.game.loop.delta/1000));
+    this.trackRemotePlayers(s);
+    this.trackMotorcycles(s);
+    if(me){
+      const typing=this.isTyping();
+      const currentThrowVehicleId=me.isDriving?String(me.vehicleId??''):'';
+      if(this.localThrowPreparing&&(typing||!me.alive||me.phase!=='landed'||me.isSwimming||me.isVaulting||!isThrowableType(me.equipped)||me.throwableCount<=0||currentThrowVehicleId!==this.localThrowVehicleId))this.cancelLocalThrow();
+      const rawX=typing||me.isVaulting?0:(this.keys.D.isDown?1:0)-(this.keys.A.isDown?1:0);
+      const rawY=typing||me.isVaulting?0:(this.keys.S.isDown?1:0)-(this.keys.W.isDown?1:0);
+      const normalizedInput=normalizeMovementInput(rawX,rawY);
+      const x=normalizedInput.x,y=normalizedInput.y;
+      const pointer=this.input.activePointer;
+      this.pointerScreenX=clamp(pointer.x,0,this.scale.width);
+      this.pointerScreenY=clamp(pointer.y,0,this.scale.height);
+      const localVehicle=me.vehicleId?s.motorcycles.find((motorcycle:any)=>motorcycle.id===me.vehicleId):undefined;
+      if(me.isDriving&&localVehicle)this.predictLocalMotorcycle(localVehicle.id,x,y,dt,time);
+      else{this.localVehicleHeldMs=0;this.localVehicleInputX=0;this.localVehicleInputY=0;}
+      if(me.isVaulting)this.predictedLocal={x:me.x,y:me.y};
+      else if(me.alive&&me.phase==='landed')this.updateLocalPrediction(me,x,y,dt);
+      else this.predictedLocal={x:me.x,y:me.y};
+
+      const alive=s.players.filter(p=>p.alive);
+      const holdingDeathCamera=!me.alive&&Boolean(this.localDeathPoint)&&time<this.localDeathCameraUntil;
+      const target=me.alive||holdingDeathCamera?me:(alive.length?alive[this.spectateIndex%alive.length]:me);
+      const shown=holdingDeathCamera&&this.localDeathPoint?this.localDeathPoint:target.id===me.id&&this.predictedLocal?this.predictedLocal:this.remotePosition(target,time);
+      const vehicleDisplay=localVehicle?this.displayMotorcycles.get(localVehicle.id):undefined;
+      const vehicleSpeedRatio=localVehicle?Math.abs(Number(vehicleDisplay?.speed??localVehicle.speed??0))/MOTORCYCLE_MAX_SPEED:0;
+      const canScope=Boolean(!typing&&!me.isSwimming&&!me.isVaulting&&me.alive&&me.phase==='landed'&&me.equipped==='sniper'&&!me.reloading&&!me.healingKind&&(!me.isDriving||(vehicleSpeedRatio<=MOTORCYCLE_SCOPE_SPEED_RATIO&&rawX===0&&rawY===0)));
+      if(!canScope&&pointer.rightButtonDown()&&me.equipped==='sniper'&&me.isDriving&&time-this.lastScopeNoticeAt>900){this.lastScopeNoticeAt=time;this.dispatchNotice('속도를 줄이고 이동키를 놓아야 스코프를 사용할 수 있습니다.','warning');}
+      this.scopeRequested=canScope&&pointer.rightButtonDown();
+
+      // Camera settles first; the screen pointer is then converted through that exact camera state.
+      this.updateCameraForWeapon(me,shown,this.scopeRequested,dt);
+      const aimBase=vehicleDisplay??this.predictedLocal??{x:me.x,y:me.y};
+      const worldAim=this.cameras.main.getWorldPoint(this.pointerScreenX,this.pointerScreenY);
+      const aim=normalizeAimVector(worldAim.x-aimBase.x,worldAim.y-aimBase.y);
+      if(aim){this.localAimX=aim.x;this.localAimY=aim.y;this.localAimAngle=Math.atan2(aim.y,aim.x);}
+
+      this.viewerPoint={x:shown.x,y:shown.y};
+      this.viewerPlayer=target;
+      this.updateActivePortal(target,shown,time);
+      this.updateBuildingPresentation(target);
+      this.updateRegionLabel(shown.x,shown.y);
+      this.updateTerrainDebug(shown.x,shown.y,Boolean(target?.isSwimming));
+      if(time-this.lastInput>=50){
+        this.net.send('input',{x,y,aimX:this.localAimX,aimY:this.localAimY,angle:this.localAimAngle,seq:++this.seq,aiming:this.scopeRequested,accelerate:false,brake:false,turnLeft:false,turnRight:false});
+        this.lastInput=time;
+      }
+      if(!typing&&!me.isSwimming&&!me.isVaulting&&!isThrowableType(me.equipped)&&pointer.leftButtonDown()&&time-this.lastFire>=55){
+        this.net.send(me.equipped==='fists'||me.equipped in MELEE_WEAPONS?'melee':'fire');
+        if(me.equipped in WEAPONS&&me.equipped!=='fists')this.crosshairKick=Math.min(18,this.crosshairKick+(me.equipped==='shotgun'?9:me.equipped==='sniper'?5:3));
+        this.lastFire=time;
+      }
+      this.updateCombatHud(me,vehicleDisplay??localVehicle,typing,dt);
+    }else{
+      this.scopeRequested=false;
+      this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';this.activePortalSelectedAt=0;
+      this.crosshairG.clear();
+      this.updateScopeOverlay(undefined,dt);
+    }
+    this.updateHitState(s,time);
+    if(time-this.lastSlowDraw>=100){this.drawSlowLayers(s);this.lastSlowDraw=time;}
+    this.drawDynamic(time);
+    this.drawThrowableGuide(time,me);
+    this.updateAudioState(s,time);
+    this.drawDebug(s);
+    this.drawHitEffects(time);
+    this.updatePickupPrompt();
+    if(time-this.lastFpsDraw>=500){
+      this.fpsText.setText(`FPS ${Math.round(this.game.loop.actualFps)}`);
+      if(this.perfVisible)this.updatePerfText(s);
+      this.lastFpsDraw=time;
+    }
+  }
+
+  private cancelLocalThrow(){if(this.localThrowPreparing)this.net.send('throwCancel');this.localThrowPreparing=false;this.localThrowStartedAt=0;this.localThrowVehicleId='';this.throwGuideG?.clear();}
+
+  private drawThrowableGuide(time:number,me:any){
+    const g=this.throwGuideG;g.clear();
+    if(!me||!me.alive||me.phase!=='landed'||me.isSwimming||this.isTyping()||!this.localThrowPreparing||!isThrowableType(me.equipped))return;
+    const heldMs=clamp(time-this.localThrowStartedAt,0,THROWABLE_MAX_CHARGE_MS);
+    let origin:any=this.predictedLocal??{x:me.x,y:me.y};
+    if(me.isDriving&&me.vehicleId)origin=this.displayMotorcycles.get(String(me.vehicleId))??this.net.snapshot?.motorcycles.find((motorcycle:any)=>motorcycle.id===me.vehicleId)??origin;
+    const start=createThrowableMotion(Number(origin.x)+this.localAimX*(PLAYER_BODY_RADIUS+8),Number(origin.y)+this.localAimY*(PLAYER_BODY_RADIUS+8),this.localAimX,this.localAimY,heldMs);
+    const type=me.equipped as ThrowableType,trajectory=predictThrowableTrajectory(start,this.mapConfig,THROWABLE_CONFIGS[type]);
+    const color=trajectory.blockedImmediately?0xff5564:trajectory.firstCollision==='none'?0x68f09a:0xffd45c;
+    const charge=heldMs/THROWABLE_MAX_CHARGE_MS;
+    const barX=start.x-38,barY=start.y+34;g.fillStyle(0x071018,.72).fillRoundedRect(barX,barY,76,8,3);g.fillStyle(color,.92).fillRoundedRect(barX+1,barY+1,74*charge,6,2);
+    for(let index=1;index<trajectory.points.length;index++){
+      const a=trajectory.points[index-1]!,b=trajectory.points[index]!;if(index%2===0)continue;
+      g.lineStyle(index<10?3:2,color,index<10?.9:.55).lineBetween(a.x,a.y-a.z*.25,b.x,b.y-b.z*.25);
+    }
+    for(const point of trajectory.points.filter((item)=>item.collision!=='none'))g.fillStyle(color,.92).fillCircle(point.x,point.y-point.z*.25,5);
+    const radius=throwableEffectRadius(type,this.mapConfig.bushes),landing=trajectory.landing;
+    g.fillStyle(color,.16).fillCircle(landing.x,landing.y,radius);g.lineStyle(3,color,.84).strokeCircle(landing.x,landing.y,radius);g.fillStyle(color,.95).fillCircle(landing.x,landing.y,6);
+  }
+
+  private local(){return this.net.snapshot?.players.find(p=>p.id===this.net.sessionId);}
+
+  private isTyping(){
+    const active=document.activeElement;
+    return this.chatBlocked||active instanceof HTMLInputElement||active instanceof HTMLTextAreaElement;
+  }
+
+  private ensureMapState(snapshot:any){
+    const mode=(snapshot?.mapId??snapshot?.mapSizeMode??'small') as MapId;
+    const revision=Number(snapshot?.mapRevision??0);
+    if(this.mapConfig.id===mode&&this.mapRevision===revision)return;
+    this.mapConfig=getMapConfig(mode);
+    this.mapRevision=revision;
+    this.cameras.main.setBounds(0,0,this.mapConfig.width,this.mapConfig.height);
+    this.predictedLocal=null;
+    this.displayPlayers.clear();
+    this.displayBullets.clear();
+    this.remoteBuffers.clear();
+    this.displayMotorcycles.clear();
+    this.localVehicleHeldMs=0;this.localVehicleInputX=0;this.localVehicleInputY=0;
+    this.lastVisibility.clear();
+    this.revealStartedAt.clear();
+    this.currentRegionId='';
+    this.activeBuildingId='';
+    this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';this.activePortalSelectedAt=0;
+    this.deathVisuals=[];this.cancelLocalThrow();this.throwGuideG.clear();
+    this.localDeathPoint=null;
+    this.localDeathCameraUntil=0;
+    this.portalRevealKeys.clear();
+    if(this.windowVisionCanvas){this.windowVisionCanvas.classList.add('hidden');this.windowVisionContext?.clearRect(0,0,this.windowVisionCanvas.width,this.windowVisionCanvas.height);}
+    this.drawStaticMap();
+    this.createBuildingRoofs();
+    this.drawFoliage();
+    this.lastMiniDraw=0;
+    this.lastSlowDraw=0;
+  }
+
+  private updateCameraForWeapon(me:any,shown:DisplayPoint,aiming:boolean,dt:number){
+    const sniper=Boolean(me?.alive&&me?.equipped==='sniper');
+    const targetZoom=aiming?.82:sniper?.92:1;
+    const camera=this.cameras.main;
+    const zoomAlpha=1-Math.exp(-(aiming?8:10)*dt);
+    camera.setZoom(Phaser.Math.Linear(camera.zoom,targetZoom,zoomAlpha));
+    const pointerDistance=Math.hypot(this.pointerScreenX-this.scale.width/2,this.pointerScreenY-this.scale.height/2)/Math.max(.1,camera.zoom);
+    const lead=aiming?Math.min(220,pointerDistance*.45):0;
+    const halfW=this.scale.width/(2*Math.max(.1,camera.zoom)),halfH=this.scale.height/(2*Math.max(.1,camera.zoom));
+    const targetX=clamp(shown.x+this.localAimX*lead,halfW,Math.max(halfW,this.mapConfig.width-halfW));
+    const targetY=clamp(shown.y+this.localAimY*lead,halfH,Math.max(halfH,this.mapConfig.height-halfH));
+    const center=camera.midPoint;
+    const cameraAlpha=1-Math.exp(-(aiming?7:11)*dt);
+    camera.centerOn(Phaser.Math.Linear(center.x,targetX,cameraAlpha),Phaser.Math.Linear(center.y,targetY,cameraAlpha));
+  }
+
+  private resizeOverlayCanvases(){
+    const dpr=Math.max(1,window.devicePixelRatio||1);
+    const width=Math.max(1,Math.round(this.scale.width*dpr));
+    const height=Math.max(1,Math.round(this.scale.height*dpr));
+    for(const canvas of [this.scopeCanvas,this.windowVisionCanvas]){
+      if(!canvas)continue;
+      if(canvas.width!==width)canvas.width=width;
+      if(canvas.height!==height)canvas.height=height;
+      canvas.style.width=`${this.scale.width}px`;
+      canvas.style.height=`${this.scale.height}px`;
+    }
+  }
+
+  private updateCombatHud(me:any,motorcycle:any,typing:boolean,dt:number){
+    this.crosshairKick=Math.max(0,this.crosshairKick-dt*24);
+    this.updateScopeOverlay(me,dt);
+    const g=this.crosshairG;g.clear();
+    if(typing||!me?.alive||me.phase!=='landed'||me.isSwimming||this.scopeBlend>.05)return;
+    const id=me.equipped as WeaponId;
+    const weapon=WEAPONS[id];
+    if(!weapon||id==='fists')return;
+    const moving=Boolean(this.keys.W.isDown||this.keys.A.isDown||this.keys.S.isDown||this.keys.D.isDown);
+    const speedRatio=motorcycle?clamp(Math.abs(Number(motorcycle.speed||0))/MOTORCYCLE_MAX_SPEED,0,1):0;
+    const spread=motorcycle?motorcycleSpreadRadians(id,weapon.spread,speedRatio,this.time.now<this.localVehicleTurnPenaltyUntil?1:0):weapon.spread;
+    const gap=clamp(5+spread*105+this.crosshairKick+(moving&&!motorcycle?3:0),5,46);
+    const x=this.pointerScreenX,y=this.pointerScreenY;
+    g.lineStyle(id==='sniper'?1.5:2,0xf4fbff,.94);
+    if(id==='shotgun'){
+      g.strokeCircle(x,y,gap+10);
+      g.fillStyle(0xf4fbff,.92).fillCircle(x,y,2);
+      return;
+    }
+    const arm=id==='pistol'||id==='sniper'?6:8;
+    g.lineBetween(x-gap-arm,y,x-gap,y).lineBetween(x+gap,y,x+gap+arm,y).lineBetween(x,y-gap-arm,x,y-gap).lineBetween(x,y+gap,x,y+gap+arm);
+    if(id==='sniper')g.fillStyle(0xf4fbff,.9).fillCircle(x,y,1.5);
+    else g.lineStyle(1,0x071018,.7).strokeCircle(x,y,2.5);
+  }
+
+  private updateScopeOverlay(me:any,dt:number){
+    const target=this.scopeRequested&&Boolean(me?.alive)&&me?.equipped==='sniper'?1:0;
+    const duration=target>.5?.23:.19;
+    const step=duration>0?dt/duration:1;
+    this.scopeBlend=target>this.scopeBlend?Math.min(target,this.scopeBlend+step):Math.max(target,this.scopeBlend-step);
+    const canvas=this.scopeCanvas,context=this.scopeContext;
+    if(!canvas||!context)return;
+    if(this.scopeBlend<=.001){context.setTransform(1,0,0,1,0,0);context.clearRect(0,0,canvas.width,canvas.height);canvas.classList.add('hidden');return;}
+    canvas.classList.remove('hidden');
+    this.resizeOverlayCanvases();
+    const dpr=Math.max(1,window.devicePixelRatio||1),width=this.scale.width,height=this.scale.height;
+    context.setTransform(dpr,0,0,dpr,0,0);
+    context.clearRect(0,0,width,height);
+    const lensWidth=clamp(width*.27,300,430),lensHeight=clamp(height*.32,230,320);
+    const lensX=clamp(this.pointerScreenX,lensWidth*.5+8,width-lensWidth*.5-8);
+    const lensY=clamp(this.pointerScreenY,lensHeight*.5+8,height-lensHeight*.5-8);
+    const localPoint=this.predictedLocal??(me?{x:me.x,y:me.y}:undefined);
+    const playerScreen=localPoint?this.worldToScreen(localPoint.x,localPoint.y):{x:width/2,y:height/2};
+    const angle=Math.atan2(lensY-playerScreen.y,lensX-playerScreen.x);
+    const normalX=-Math.sin(angle),normalY=Math.cos(angle);
+    const startHalf=16,endHalf=lensHeight*.33;
+
+    context.fillStyle=`rgba(1,7,12,${.86*this.scopeBlend})`;
+    context.fillRect(0,0,width,height);
+    context.save();
+    context.globalCompositeOperation='destination-out';
+    context.fillStyle=`rgba(0,0,0,${.96*this.scopeBlend})`;
+    context.beginPath();
+    context.moveTo(playerScreen.x+normalX*startHalf,playerScreen.y+normalY*startHalf);
+    context.lineTo(lensX+normalX*endHalf,lensY+normalY*endHalf);
+    context.lineTo(lensX-normalX*endHalf,lensY-normalY*endHalf);
+    context.lineTo(playerScreen.x-normalX*startHalf,playerScreen.y-normalY*startHalf);
+    context.closePath();
+    context.fill();
+    context.beginPath();
+    context.ellipse(lensX,lensY,lensWidth*.5,lensHeight*.5,0,0,Math.PI*2);
+    context.fill();
+    context.restore();
+
+    context.globalAlpha=this.scopeBlend;
+    context.strokeStyle='rgba(225,242,246,.82)';
+    context.lineWidth=2;
+    context.beginPath();context.ellipse(lensX,lensY,lensWidth*.5,lensHeight*.5,0,0,Math.PI*2);context.stroke();
+    context.strokeStyle='rgba(238,250,252,.92)';context.lineWidth=1;
+    context.beginPath();context.moveTo(lensX-28,lensY);context.lineTo(lensX-5,lensY);context.moveTo(lensX+5,lensY);context.lineTo(lensX+28,lensY);context.moveTo(lensX,lensY-28);context.lineTo(lensX,lensY-5);context.moveTo(lensX,lensY+5);context.lineTo(lensX,lensY+28);context.stroke();
+    context.fillStyle='rgba(238,250,252,.95)';context.beginPath();context.arc(lensX,lensY,2,0,Math.PI*2);context.fill();
+    context.font='800 12px sans-serif';context.textAlign='center';context.fillStyle='rgba(225,240,244,.9)';context.fillText('좌클릭 발사 · 우클릭 해제',width/2,height-104);
+    context.globalAlpha=1;
+  }
+
+  private worldToScreen(x:number,y:number){
+    const camera=this.cameras.main;
+    return{x:(x-camera.worldView.x)*camera.zoom,y:(y-camera.worldView.y)*camera.zoom};
+  }
+
+  private pointInsideScopeView(x:number,y:number){
+    if(!this.scopeRequested)return true;
+    const viewer=this.viewerPoint??this.local();
+    if(!viewer)return false;
+    const directional=pointInDirectionalScope(viewer.x,viewer.y,this.localAimX,this.localAimY,x,y,WEAPONS.sniper.range,Math.PI/13.5);
+    const screen=this.worldToScreen(x,y);
+    const lensWidth=clamp(this.scale.width*.27,300,430),lensHeight=clamp(this.scale.height*.32,230,320);
+    const lensX=clamp(this.pointerScreenX,lensWidth*.5+8,this.scale.width-lensWidth*.5-8);
+    const lensY=clamp(this.pointerScreenY,lensHeight*.5+8,this.scale.height-lensHeight*.5-8);
+    const ellipse=((screen.x-lensX)/(lensWidth*.5))**2+((screen.y-lensY)/(lensHeight*.5))**2<=1;
+    return directional||ellipse;
+  }
+
+  private receiveVehicleRecovery(payload:any){
+    const x=Number(payload?.x),y=Number(payload?.y);
+    if(!Number.isFinite(x)||!Number.isFinite(y))return;
+    this.predictedLocal={x,y};
+    this.cameras.main.fadeOut(55,4,8,12);
+    this.time.delayedCall(60,()=>this.cameras.main.fadeIn(90,4,8,12));
+  }
+
+  private receivePositionRecovery(payload:any){
+    const x=Number(payload?.x),y=Number(payload?.y);
+    if(!Number.isFinite(x)||!Number.isFinite(y))return;
+    this.predictedLocal={x,y};
+    this.cameras.main.fadeOut(70,4,8,12);
+    this.time.delayedCall(75,()=>this.cameras.main.fadeIn(110,4,8,12));
+  }
+
+  private receiveCharacterDeath(payload:CharacterDeathPayload){
+    const entityId=String(payload.entityId??''),x=Number(payload.x),y=Number(payload.y);
+    if(!entityId||!Number.isFinite(x)||!Number.isFinite(y))return;
+    const local=entityId===this.net.sessionId;
+    const wasVisible=local||Boolean(this.frameVisibility.get(entityId)?.visibleInWorld??this.lastVisibility.get(entityId));
+    if(local)audio.playLocal('player_death',1,`death:${entityId}:${payload.diedAt??0}`);
+    else if(wasVisible)this.playWorldAudio('player_death',{id:`death:${entityId}:${payload.diedAt??0}`,x,y,buildingId:String(payload.buildingId??''),sourceId:entityId},760);
+    if(!wasVisible)return;
+    const rawX=Number(payload.hitDirectionX),rawY=Number(payload.hitDirectionY),length=Math.hypot(rawX,rawY);
+    const hitDirectionX=length>.001?rawX/length:Math.cos(Number(payload.angle)||0);
+    const hitDirectionY=length>.001?rawY/length:Math.sin(Number(payload.angle)||0);
+    const cause=String(payload.cause??'other');
+    const pushDistance=cause==='frag_grenade'?28:cause==='incendiary'?18:cause==='motorcycle_explosion'?30:cause==='motorcycle_collision'?26:cause==='sniper'?20:cause==='shotgun'?16:cause==='zone'?2:12;
+    const duration=cause==='zone'?1150:1000;
+    const visual:DeathVisual={
+      entityId,x,y,angle:Number(payload.angle)||0,buildingId:String(payload.buildingId??''),ai:Boolean(payload.ai),
+      equipped:(payload.equipped??'fists') as EquippedId,cause,hitDirectionX,hitDirectionY,startedAt:this.time.now,duration,pushDistance:this.safeDeathPushDistance(x,y,hitDirectionX,hitDirectionY,pushDistance),
+      inBush:Boolean(payload.inBush),bushRevealed:Boolean(payload.bushRevealed),local,
+    };
+    this.deathVisuals=this.deathVisuals.filter((item)=>item.entityId!==entityId);
+    this.deathVisuals.push(visual);
+    if(local){
+      this.localDeathPoint={x,y};
+      this.localDeathCameraUntil=this.time.now+700;
+      this.scopeRequested=false;
+      this.dispatchNotice('탈락했습니다.','warning',1600);
+    }
+  }
+
+  private safeDeathPushDistance(x:number,y:number,dx:number,dy:number,requested:number){
+    let safe=0;
+    for(let step=1;step<=8;step++){
+      const distanceOut=requested*step/8,px=x+dx*distanceOut,py=y+dy*distanceOut;
+      if(px<PLAYER_BODY_RADIUS||py<PLAYER_BODY_RADIUS||px>this.mapConfig.width-PLAYER_BODY_RADIUS||py>this.mapConfig.height-PLAYER_BODY_RADIUS)break;
+      if(this.mapConfig.collisionObstacles.some((rect)=>circleHitsRect(px,py,PLAYER_BODY_RADIUS*.72,rect)))break;
+      safe=distanceOut;
+    }
+    return safe;
+  }
+
+  private drawDebug(snapshot:any){
+    const g=this.debugG;g.clear();
+    if(!this.perfVisible)return;
+    const view=this.cameras.main.worldView;
+    const inView=(x:number,y:number,m=80)=>x>=view.x-m&&x<=view.right+m&&y>=view.y-m&&y<=view.bottom+m;
+    for(const player of snapshot.players??[]){
+      if(!player.alive)continue;
+      const point=this.framePositions.get(player.id)??{x:player.x,y:player.y};
+      if(!inView(point.x,point.y))continue;
+      g.lineStyle(1,0x55d6ff,.72).strokeCircle(point.x,point.y,PLAYER_BODY_RADIUS);
+      g.lineStyle(1,0xff595f,.75).strokeCircle(point.x,point.y,PLAYER_HIT_RADIUS);
+      g.lineStyle(1,0xffd64f,.45).strokeCircle(point.x,point.y,PLAYER_SEPARATION_RADIUS);
+    }
+    const local=this.predictedLocal??this.local();
+    if(local){const length=WEAPONS.sniper.range;g.lineStyle(1,0xff5bc8,.7).lineBetween(local.x,local.y,local.x+this.localAimX*length,local.y+this.localAimY*length);}
+    for(const zone of this.mapConfig.buildingVisibilityZones)for(const window of zone.windows){
+      if(!inView(window.x+window.width/2,window.y+window.height/2,80))continue;
+      g.lineStyle(2,0x63e6ff,.82).strokeRect(window.x,window.y,window.width,window.height);
+      g.fillStyle(0x63e6ff,.9).fillCircle(window.x+window.width/2,window.y+window.height/2,3);
+    }
+    for(const bullet of snapshot.bullets??[]){
+      if(!inView(bullet.x,bullet.y,120))continue;
+      const px=Number.isFinite(bullet.prevX)?bullet.prevX:bullet.x-Number(bullet.vx||0)*.033;
+      const py=Number.isFinite(bullet.prevY)?bullet.prevY:bullet.y-Number(bullet.vy||0)*.033;
+      g.lineStyle(1,bullet.weaponId==='sniper'?0xff4f5f:0xffffff,.75).lineBetween(px,py,bullet.x,bullet.y);
+      g.fillStyle(0xffffff,.8).fillCircle(bullet.x,bullet.y,2);
+    }
+  }
+
+  private drawStaticMap(){
+    const g=this.staticG;
+    g.clear();
+    for(const label of this.mapLabels)label.destroy();
+    this.mapLabels=[];
+    g.fillStyle(0x153424).fillRect(0,0,this.mapConfig.width,this.mapConfig.height);
+    for(const r of this.mapConfig.regions){
+      const theme=REGION_THEMES[r.id];
+      g.fillStyle(theme.ground,.7).fillRoundedRect(r.x,r.y,r.w,r.h,28);
+      g.lineStyle(4,theme.groundAccent,.32).strokeRoundedRect(r.x,r.y,r.w,r.h,28);
+      for(let stripe=0;stripe<5;stripe++){
+        const sy=r.y+90+stripe*Math.max(90,(r.h-180)/5);
+        g.lineStyle(2,theme.groundAccent,.08).lineBetween(r.x+30,sy,r.x+r.w-30,sy);
+      }
+      this.mapLabels.push(this.add.text(r.x+20,r.y+18,r.name,{fontFamily:'sans-serif',fontSize:'30px',fontStyle:'bold',color:'#ffffff88'}).setDepth(RENDER_DEPTH.FLOOR_DECORATION));
+    }
+    for(const river of this.mapConfig.rivers){
+      const segmentWidth=(index:number)=>{
+        const a=river.widths[index]??river.widths.at(-1)??760;
+        const b=river.widths[index+1]??a;
+        return(a+b)/2;
+      };
+      if(this.mapConfig.id==='dock8'){
+        const drawJoinedLayer=(extra:number,color:number,alpha:number)=>{
+          for(let index=0;index<river.points.length-1;index++){
+            const a=river.points[index]!,b=river.points[index+1]!,width=segmentWidth(index)+extra;
+            g.lineStyle(width,color,alpha).lineBetween(a.x,a.y,b.x,b.y);
+            g.fillStyle(color,alpha).fillCircle(a.x,a.y,width/2).fillCircle(b.x,b.y,width/2);
+          }
+        };
+        drawJoinedLayer(160,0x9f9278,.72);
+        drawJoinedLayer(96,0x5aa5b1,.84);
+        drawJoinedLayer(0,0x1f668c,.97);
+      }else{
+        for(let index=0;index<river.points.length-1;index++){
+          const a=river.points[index]!,b=river.points[index+1]!,width=segmentWidth(index);
+          g.lineStyle(width+160,0x9f9278,.72).lineBetween(a.x,a.y,b.x,b.y);
+          g.lineStyle(width+96,0x5aa5b1,.84).lineBetween(a.x,a.y,b.x,b.y);
+          g.lineStyle(width,0x1f668c,.97).lineBetween(a.x,a.y,b.x,b.y);
+        }
+      }
+      for(let index=0;index<river.points.length-1;index++){
+        const a=river.points[index]!,b=river.points[index+1]!,width=segmentWidth(index);
+        g.lineStyle(Math.max(16,width*.055),0x78c3d7,.2).lineBetween(a.x,a.y,b.x,b.y);
+        const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy)||1,nx=-dy/length,ny=dx/length;
+        for(let step=45;step<length;step+=90){
+          const t=step/length,cx=a.x+dx*t,cy=a.y+dy*t,half=width/2;
+          g.fillStyle(0xd6f5f4,.48).fillCircle(cx+nx*half,cy+ny*half,4).fillCircle(cx-nx*half,cy-ny*half,4);
+        }
+      }
+    }
+    for(const zone of this.mapConfig.shallowWaterZones){
+      g.fillStyle(0x4a9bb2,.72).fillRect(zone.x,zone.y,zone.w,zone.h);
+      g.lineStyle(2,0xa6dce8,.3).strokeRect(zone.x,zone.y,zone.w,zone.h);
+    }
+    for(const crossing of this.mapConfig.landCrossings){
+      const color=crossing.kind==='ford'?0x91a77d:crossing.kind==='foot_bridge'?0x8b765c:0x555c61;
+      g.fillStyle(color,.98).fillRect(crossing.rect.x,crossing.rect.y,crossing.rect.w,crossing.rect.h);
+      g.lineStyle(3,crossing.kind==='ford'?0xd8e5bc:0xd5d2c4,.48).strokeRect(crossing.rect.x,crossing.rect.y,crossing.rect.w,crossing.rect.h);
+      if(crossing.kind==='ford')for(let x=crossing.rect.x+40;x<crossing.rect.x+crossing.rect.w;x+=80)g.fillStyle(0xd5c89f,.42).fillCircle(x,crossing.rect.y+crossing.rect.h/2+(x%160?22:-22),9);
+    }
+    for(const exit of this.mapConfig.shoreExits){
+      g.fillStyle(0xc7d59a,.45).fillCircle(exit.landingPoint.x,exit.landingPoint.y,18);
+      g.lineStyle(3,0xeaf1ca,.35).strokeCircle(exit.landingPoint.x,exit.landingPoint.y,24);
+    }
+    for(const b of this.mapConfig.buildings){
+      const theme=REGION_THEMES[b.regionId];
+      g.fillStyle(theme.groundAccent,.28).fillRect(b.x+18,b.y+18,Math.max(1,b.w-36),Math.max(1,b.h-36));
+      g.lineStyle(2,theme.accent,.14).strokeRect(b.x+18,b.y+18,Math.max(1,b.w-36),Math.max(1,b.h-36));
+      for(let lineY=b.y+42;lineY<b.y+b.h-24;lineY+=42)g.lineStyle(1,0xffffff,.045).lineBetween(b.x+24,lineY,b.x+b.w-24,lineY);
+    }
+    for(const decoration of this.mapConfig.decorations)this.drawDecoration(g,decoration.kind,decoration.x,decoration.y,decoration.w,decoration.h,decoration.rotation??0);
+    for(const bush of this.mapConfig.bushes)this.drawBushBase(g,bush.x,bush.y,bush.radius,bush.density);
+    for(const wall of this.mapConfig.obstacles){
+      const building=this.mapConfig.buildings.find((item)=>wall.x>=item.x-1&&wall.x<=item.x+item.w+1&&wall.y>=item.y-1&&wall.y<=item.y+item.h+1);
+      const theme=building?REGION_THEMES[building.regionId]:REGION_THEMES.residential;
+      g.fillStyle(theme.wall).fillRect(wall.x,wall.y,wall.w,wall.h);
+      g.lineStyle(2,0x10181d,.82).strokeRect(wall.x,wall.y,wall.w,wall.h);
+    }
+    for(const zone of this.mapConfig.buildingVisibilityZones)for(const window of zone.windows){
+      g.fillStyle(0x07131b,.96).fillRect(window.x,window.y,window.width,window.height);
+      g.lineStyle(3,0x8ac9d9,.74).strokeRect(window.x,window.y,window.width,window.height);
+      if(window.side==='north'||window.side==='south')g.lineStyle(2,0xd4f4ff,.45).lineBetween(window.x+8,window.y+window.height/2,window.x+window.width-8,window.y+window.height/2);
+      else g.lineStyle(2,0xd4f4ff,.45).lineBetween(window.x+window.width/2,window.y+8,window.x+window.width/2,window.y+window.height-8);
+    }
+  }
+
+  private createBuildingRoofs(){
+    for(const roof of this.buildingRoofs.values())roof.destroy();
+    this.buildingRoofs.clear();
+    const seen=new Set<string>();
+    for(const zone of this.mapConfig.buildingVisibilityZones){
+      if(seen.has(zone.id))throw new Error(`Duplicate roof for building: ${zone.id}`);
+      seen.add(zone.id);
+      const building=this.mapConfig.buildings[zone.buildingIndex]!;
+      const theme=REGION_THEMES[building.regionId];
+      const roof=this.add.graphics().setDepth(RENDER_DEPTH.BUILDING_ROOF);
+      roof.fillStyle(theme.roof,.97).fillRect(zone.roof.x,zone.roof.y,zone.roof.w,zone.roof.h);
+      roof.lineStyle(3,theme.accent,.34).strokeRect(zone.roof.x,zone.roof.y,zone.roof.w,zone.roof.h);
+      if(building.regionId==='hospital'){
+        const cx=building.x+building.w/2,cy=building.y+building.h/2;
+        roof.fillStyle(0xffffff,.82).fillRect(cx-22,cy-7,44,14).fillRect(cx-7,cy-22,14,44);
+      }else if(building.regionId==='military'){
+        roof.lineStyle(2,theme.accent,.28).strokeRect(building.x+30,building.y+30,Math.max(1,building.w-60),Math.max(1,building.h-60));
+      }
+      this.buildingRoofs.set(zone.id,roof);
+    }
+  }
+
+  private updateActivePortal(viewer:any,point:DisplayPoint,time:number){
+    const selected=selectActivePortal(
+      {x:point.x,y:point.y,buildingId:String(viewer?.buildingId??'')},
+      this.localAimX,this.localAimY,this.activePortalId,this.scopeRequested,this.mapConfig.buildingVisibilityZones,
+    );
+    if(selected){
+      this.activePortalId=selected.openingId;
+      this.activePortalBuildingId=selected.buildingId;
+      this.activePortalKind=selected.kind;
+      this.activePortalSelectedAt=time;
+      return;
+    }
+    if(this.activePortalId&&time-this.activePortalSelectedAt<=PORTAL_SELECTION_BALANCE.passageHoldMs)return;
+    this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';this.activePortalSelectedAt=0;
+  }
+
+  private resolvedViewerSpace(viewer:any){
+    const x=Number(viewer?.x??0),y=Number(viewer?.y??0);
+    if(viewer?.phase!=='landed')return{buildingId:'',roomIndex:0,outdoors:true};
+    const inferred=spaceAt(x,y,this.mapConfig.buildingVisibilityZones,this.mapConfig.rooms,0);
+    const networkBuildingId=String(viewer?.buildingId??'');
+    const networkRoomIndex=Number(viewer?.roomIndex??0);
+    if(inferred.buildingId){
+      const roomIndex=inferred.roomIndex||(networkBuildingId===inferred.buildingId?networkRoomIndex:0);
+      return{buildingId:inferred.buildingId,roomIndex,outdoors:false};
+    }
+    if(Boolean(viewer?.isVaulting)&&networkBuildingId)return{buildingId:networkBuildingId,roomIndex:networkRoomIndex,outdoors:false};
+    return inferred;
+  }
+
+  private updateBuildingPresentation(viewer:any){
+    if(!viewer?.alive||viewer?.phase!=='landed'){this.activeBuildingId='';this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';for(const roof of this.buildingRoofs.values())roof.setAlpha(1);this.indoorMaskG.clear();const canvas=this.windowVisionCanvas,context=this.windowVisionContext;if(canvas&&context){context.clearRect(0,0,canvas.width,canvas.height);canvas.classList.add('hidden');}return;}
+    const resolved=this.resolvedViewerSpace(viewer);
+    const roomIndex=resolved.roomIndex;
+    const currentRoom=this.mapConfig.rooms.find((candidate)=>candidate.index===roomIndex);
+    const buildingId=currentRoom?.buildingId||resolved.buildingId;
+    this.activeBuildingId=buildingId;
+    const containingIds=new Set(buildingZonesAt(Number(viewer?.x??0),Number(viewer?.y??0),this.mapConfig.buildingVisibilityZones,0).map((zone)=>zone.id));
+    if(buildingId)containingIds.add(buildingId);
+    for(const [id,roof] of this.buildingRoofs)roof.setAlpha(containingIds.has(id)?0:1);
+    this.indoorMaskG.clear();
+    this.updateWindowVisionOverlay({...viewer,buildingId,roomIndex});
+  }
+
+  private fillCanvasPolygon(context:CanvasRenderingContext2D,points:Array<{x:number;y:number}>,alpha=1){
+    if(points.length<3)return;
+    context.globalAlpha=alpha;
+    context.beginPath();
+    context.moveTo(points[0]!.x,points[0]!.y);
+    for(let index=1;index<points.length;index++)context.lineTo(points[index]!.x,points[index]!.y);
+    context.closePath();
+    context.fill();
+  }
+
+  private clippedRoomRect(room:{rect:{x:number;y:number;w:number;h:number}},zone:{interior:{x:number;y:number;w:number;h:number}}){
+    const x=Math.max(room.rect.x,zone.interior.x),y=Math.max(room.rect.y,zone.interior.y);
+    const right=Math.min(room.rect.x+room.rect.w,zone.interior.x+zone.interior.w);
+    const bottom=Math.min(room.rect.y+room.rect.h,zone.interior.y+zone.interior.h);
+    if(right<=x||bottom<=y)return zone.interior;
+    return{x,y,w:right-x,h:bottom-y};
+  }
+
+  private cutRectFromVisionOverlay(context:CanvasRenderingContext2D,rect:{x:number;y:number;w:number;h:number},alpha=1){
+    const topLeft=this.worldToScreen(rect.x-3,rect.y-3);
+    const bottomRight=this.worldToScreen(rect.x+rect.w+3,rect.y+rect.h+3);
+    context.globalAlpha=alpha;
+    context.fillRect(topLeft.x,topLeft.y,bottomRight.x-topLeft.x,bottomRight.y-topLeft.y);
+  }
+
+  private cutViewerFromVisionOverlay(context:CanvasRenderingContext2D,viewer:{x:number;y:number}){
+    const point=this.worldToScreen(viewer.x,viewer.y);
+    context.globalAlpha=1;
+    context.beginPath();
+    context.arc(point.x,point.y,PLAYER_BODY_RADIUS+10,0,Math.PI*2);
+    context.fill();
+  }
+
+  private updateWindowVisionOverlay(viewer:any){
+    const canvas=this.windowVisionCanvas,context=this.windowVisionContext;
+    if(!canvas||!context)return;
+    this.resizeOverlayCanvases();
+    const dpr=Math.max(1,window.devicePixelRatio||1),width=this.scale.width,height=this.scale.height;
+    context.setTransform(dpr,0,0,dpr,0,0);
+    context.clearRect(0,0,width,height);
+    const resolved=this.resolvedViewerSpace(viewer);
+    const roomIndex=resolved.roomIndex;
+    const room=this.mapConfig.rooms.find((candidate)=>candidate.index===roomIndex);
+    const buildingId=room?.buildingId||resolved.buildingId;
+    const zone=buildingId?buildingZoneById(buildingId,this.mapConfig.buildingVisibilityZones):undefined;
+    if(!buildingId||!zone){canvas.classList.add('hidden');return;}
+    canvas.classList.remove('hidden');
+    context.globalCompositeOperation='source-over';
+    context.globalAlpha=1;
+    context.fillStyle='rgba(2,7,11,.80)';
+    context.fillRect(0,0,width,height);
+    context.globalCompositeOperation='destination-out';
+    context.fillStyle='rgba(0,0,0,1)';
+    this.cutRectFromVisionOverlay(context,room?this.clippedRoomRect(room,zone):zone.interior,1);
+    this.cutViewerFromVisionOverlay(context,{x:Number(viewer?.x??0),y:Number(viewer?.y??0)});
+
+    if(room){
+      const adjacentRooms=new Set<number>();
+      for(const portal of this.mapConfig.portals){
+        if(!portal.allowsVision||portal.buildingId!==buildingId)continue;
+        if(portal.sideARoomIndex===roomIndex&&portal.sideBRoomIndex>0)adjacentRooms.add(portal.sideBRoomIndex);
+        else if(portal.sideBRoomIndex===roomIndex&&portal.sideARoomIndex>0)adjacentRooms.add(portal.sideARoomIndex);
+      }
+      for(const adjacentIndex of adjacentRooms){
+        const adjacent=this.mapConfig.rooms.find((candidate)=>candidate.index===adjacentIndex&&candidate.buildingId===buildingId);
+        if(adjacent)this.cutRectFromVisionOverlay(context,this.clippedRoomRect(adjacent,zone),.24);
+      }
+    }
+
+    const selected=this.openingById(this.activePortalBuildingId,this.activePortalId);
+    const viewerPoint=this.viewerPoint??this.local();
+    if(viewerPoint&&selected.zone?.id===zone.id&&selected.opening&&selected.kind){
+      const featherView=angleAwarePortalPolygon(selected.opening,selected.kind,viewerPoint,'outside',this.scopeRequested,this.localAimX,this.localAimY,WINDOW_PORTAL_FEATHER);
+      const innerView=angleAwarePortalPolygon(selected.opening,selected.kind,viewerPoint,'outside',this.scopeRequested,this.localAimX,this.localAimY,-WINDOW_PORTAL_FEATHER);
+      this.fillCanvasPolygon(context,featherView.polygon.map((point)=>this.worldToScreen(point.x,point.y)),.10*featherView.revealStrength);
+      this.fillCanvasPolygon(context,innerView.polygon.map((point)=>this.worldToScreen(point.x,point.y)),.62*innerView.revealStrength);
+    }
+    context.globalAlpha=1;
+    context.globalCompositeOperation='source-over';
+  }
+
+  private viewerEntity(){return this.viewerPlayer??this.local();}
+
+  private dispatchNotice(message:string,type:'info'|'warning'|'error'='warning',duration?:number){window.dispatchEvent(new CustomEvent('drop8-game-notice',{detail:{message,type,duration}}));}
+
+  private worldEntityVisible(x:number,y:number,targetBuildingId?:string,targetRoomIndex?:number){
+    const viewer=this.viewerPoint??this.viewerEntity();
+    const viewerEntity=this.viewerEntity();
+    if(!viewer||!viewerEntity)return false;
+    const viewerResolved=this.resolvedViewerSpace({...viewerEntity,x:viewer.x,y:viewer.y});
+    const viewerBuildingId=viewerResolved.buildingId;
+    const viewerRoomIndex=viewerResolved.roomIndex;
+    const targetSpace=targetRoomIndex===undefined?spaceAt(x,y,this.mapConfig.buildingVisibilityZones,this.mapConfig.rooms,0):{buildingId:targetBuildingId??'',roomIndex:targetRoomIndex,outdoors:!targetBuildingId};
+    if(viewerBuildingId!==targetSpace.buildingId){
+      const opening=crossSpaceOpening(
+        {x:viewer.x,y:viewer.y,buildingId:viewerBuildingId},
+        {x,y,buildingId:targetSpace.buildingId},
+        this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId,{x:this.localAimX,y:this.localAimY},
+      );
+      if(!opening)return false;
+    }
+    const trace=traceSpaceVisibility(
+      {x:viewer.x,y:viewer.y,roomIndex:viewerRoomIndex},
+      {x,y,roomIndex:targetSpace.roomIndex},
+      this.mapConfig.portals,this.mapConfig.visibilityObstacles,3,
+    );
+    return trace.visible&&this.pointInsideScopeView(x,y);
+  }
+
+  private spaceVisible(entity:any){return this.worldEntityVisible(Number(entity?.x)||0,Number(entity?.y)||0,String(entity?.buildingId??''),Number(entity?.roomIndex??spaceAt(Number(entity?.x)||0,Number(entity?.y)||0,this.mapConfig.buildingVisibilityZones,this.mapConfig.rooms,0).roomIndex));}
+
+  private drawDecoration(g:Phaser.GameObjects.Graphics,kind:DecorKind,x:number,y:number,w:number,h:number,rotation:number){
+    const cx=x+w/2,cy=y+h/2;
+    if(kind==='machine'||kind==='tank'){
+      g.fillStyle(kind==='tank'?0x69777d:0x303a40,.92).fillRoundedRect(x,y,w,h,8);
+      g.lineStyle(3,0xb7c2c7,.35).strokeRoundedRect(x,y,w,h,8);
+      for(let i=1;i<4;i++)g.fillStyle(0xf1a64b,.8).fillCircle(x+w*i/4,y+h/2,4);
+    }else if(kind==='container'){
+      g.fillStyle(0x9a583f,.9).fillRoundedRect(x,y,w,h,5);
+      for(let px=x+15;px<x+w;px+=24)g.lineStyle(2,0x4d2b24,.45).lineBetween(px,y+4,px,y+h-4);
+    }else if(kind==='yard'){
+      g.fillStyle(0x64804d,.55).fillRect(x,y,w,h);g.lineStyle(2,0xe5d0aa,.35).strokeRect(x,y,w,h);
+    }else if(kind==='fence'){
+      g.lineStyle(5,0xc2b08b,.7).lineBetween(x,y+h/2,x+w,y+h/2);
+      for(let px=x;px<=x+w;px+=24)g.lineStyle(3,0xe0cfaa,.65).lineBetween(px,y,px,y+h);
+    }else if(kind==='medicalCross'){
+      g.fillStyle(0xffffff,.85).fillRoundedRect(x,y,w,h,8);g.fillStyle(0xff4f5e,.95).fillRect(cx-w*.32,cy-h*.1,w*.64,h*.2).fillRect(cx-w*.1,cy-h*.32,w*.2,h*.64);
+    }else if(kind==='bed'){
+      g.fillStyle(0xddeeed,.9).fillRoundedRect(x,y,w,h,6);g.fillStyle(0x68a7aa,.9).fillRect(x,y+h-7,w,7);g.fillStyle(0xffffff,.85).fillCircle(x+14,cy,9);
+    }else if(kind==='ambulance'){
+      g.fillStyle(0xe9f3f2,.92).fillRoundedRect(x,y,w,h,10);g.fillStyle(0xff5360,.9).fillRect(x+10,cy-4,w-20,8);g.fillStyle(0x25343a).fillCircle(x+24,y+h,10).fillCircle(x+w-24,y+h,10);
+    }else if(kind==='crate'){
+      g.fillStyle(0x8b603c,.9).fillRect(x,y,w,h);g.lineStyle(3,0xd0a16b,.5).strokeRect(x,y,w,h).lineBetween(x,y,x+w,y+h).lineBetween(x+w,y,x,y+h);
+    }else if(kind==='forklift'){
+      g.fillStyle(0xe8a638,.9).fillRoundedRect(x,y,w*.65,h,7);g.lineStyle(5,0x2e3438,1).lineBetween(x+w*.68,y,x+w*.68,y+h).lineBetween(x+w*.68,y+h,x+w,y+h);g.fillStyle(0x263139).fillCircle(x+20,y+h,10).fillCircle(x+w*.55,y+h,10);
+    }else if(kind==='sandbag'){
+      for(let px=x;px<x+w;px+=26)g.fillStyle(0xb1a074,.88).fillEllipse(px+13,cy,30,h*.78);
+    }else if(kind==='helipad'){
+      g.lineStyle(5,0xd7d17a,.62).strokeCircle(cx,cy,Math.min(w,h)/2);g.lineStyle(8,0xe9e39a,.7).lineBetween(cx-w*.18,cy-h*.28,cx-w*.18,cy+h*.28).lineBetween(cx+w*.18,cy-h*.28,cx+w*.18,cy+h*.28).lineBetween(cx-w*.18,cy,cx+w*.18,cy);
+    }else if(kind==='tent'){
+      g.fillStyle(0x87704a,.92).fillTriangle(x, y+h, cx, y, x+w, y+h);g.lineStyle(3,0xd6bf82,.6).lineBetween(cx,y,cx,y+h);
+    }else if(kind==='campfire'){
+      g.lineStyle(6,0x6e4930,.9).lineBetween(x+8,y+h-8,x+w-8,y+8).lineBetween(x+w-8,y+h-8,x+8,y+8);g.fillStyle(0xff8738,.85).fillTriangle(cx,y,cx-13,y+h-10,cx+13,y+h-10);g.fillStyle(0xffd052,.9).fillTriangle(cx,y+10,cx-7,y+h-10,cx+7,y+h-10);
+    }else if(kind==='log'){
+      const dx=Math.cos(rotation)*w/2,dy=Math.sin(rotation)*w/2;g.lineStyle(h,0x755033,.9).lineBetween(cx-dx,cy-dy,cx+dx,cy+dy);g.fillStyle(0xb48757).fillCircle(cx-dx,cy-dy,h/2).fillCircle(cx+dx,cy+dy,h/2);
+    }else if(kind==='tree'){
+      g.fillStyle(0x6f4b31,.95).fillCircle(cx,cy,9);g.fillStyle(0x2b673d,.92).fillCircle(cx-12,cy-8,w*.34).fillCircle(cx+12,cy-7,w*.34).fillCircle(cx,cy-18,w*.36);
+    }
+  }
+
+  private drawBushBase(g:Phaser.GameObjects.Graphics,x:number,y:number,radius:number,density:number){
+    g.fillStyle(0x1f542f,.6*density).fillCircle(x,y,radius*.8);
+    for(let i=0;i<7;i++){
+      const angle=i/7*Math.PI*2,r=radius*(.34+(i%3)*.1);
+      g.fillStyle(i%2?0x377c45:0x2d6b3b,.72*density).fillCircle(x+Math.cos(angle)*r,y+Math.sin(angle)*r,radius*.37);
+    }
+  }
+
+  private drawFoliage(){
+    const g=this.foliageG;g.clear();
+    for(const bush of this.mapConfig.bushes){
+      for(let i=0;i<9;i++){
+        const angle=(i*.78+bush.x*.001)%(Math.PI*2),r=bush.radius*(.18+(i%4)*.13);
+        g.fillStyle(i%3===0?0x4b9655:0x367a44,.32+bush.density*.28).fillCircle(bush.x+Math.cos(angle)*r,bush.y+Math.sin(angle)*r,bush.radius*(.25+(i%2)*.07));
+      }
+      g.lineStyle(2,0x8fc36e,.12).strokeCircle(bush.x,bush.y,bush.radius*.9);
+    }
+  }
+
+  private drawDynamic(time:number){
+    const s=this.net.snapshot;
+    if(!s)return;
+    const g=this.dynamicG;
+    g.clear();
+    this.windowRevealG.clear();
+    this.portalRevealKeys.clear();
+    this.planeShadowG.clear();
+    this.planeG.clear();
+    const view=this.cameras.main.worldView;
+    const visible=(x:number,y:number,m=120)=>x>=view.x-m&&x<=view.right+m&&y>=view.y-m&&y<=view.bottom+m;
+
+    for(const rocket of s.rockets??[]){
+      if(!this.spaceVisible(rocket)||!visible(rocket.x,rocket.y,80))continue;
+      const angle=Math.atan2(Number(rocket.vy||0),Number(rocket.vx||0));
+      const cos=Math.cos(angle),sin=Math.sin(angle),sideX=-sin,sideY=cos;
+      const noseX=rocket.x+cos*13,noseY=rocket.y+sin*13;
+      const tailX=rocket.x-cos*10,tailY=rocket.y-sin*10;
+      const flameX=rocket.x-cos*27,flameY=rocket.y-sin*27;
+      g.fillStyle(0xff7a2f,.45).fillTriangle(tailX+sideX*5,tailY+sideY*5,tailX-sideX*5,tailY-sideY*5,flameX,flameY);
+      g.fillStyle(0xffe083,.95).fillTriangle(tailX+sideX*2.5,tailY+sideY*2.5,tailX-sideX*2.5,tailY-sideY*2.5,rocket.x-cos*22,rocket.y-sin*22);
+      g.lineStyle(10,0x4d6651,1).lineBetween(tailX,tailY,rocket.x+cos*7,rocket.y+sin*7);
+      g.fillStyle(0xc7d3c4,1).fillTriangle(noseX,noseY,rocket.x+cos*4+sideX*5,rocket.y+sin*4+sideY*5,rocket.x+cos*4-sideX*5,rocket.y+sin*4-sideY*5);
+      g.fillStyle(0x29353a,1).fillTriangle(tailX+sideX*3,tailY+sideY*3,tailX-cos*7+sideX*9,tailY-sin*7+sideY*9,tailX-cos*4+sideX*2,tailY-sin*4+sideY*2);
+      g.fillStyle(0x29353a,1).fillTriangle(tailX-sideX*3,tailY-sideY*3,tailX-cos*7-sideX*9,tailY-sin*7-sideY*9,tailX-cos*4-sideX*2,tailY-sin*4-sideY*2);
+    }
+
+
+    for(const drop of s.supplyDrops??[]){
+      if(!visible(drop.x,drop.y,180))continue;const altitude=Number(drop.altitude||0),shadowScale=1+altitude/900;
+      g.fillStyle(0x000000,.22).fillEllipse(drop.x,drop.y,54*shadowScale,22*shadowScale);
+      const drawY=drop.y-altitude*.18;
+      if(!drop.landed){g.lineStyle(3,0xe9edf0,.8).lineBetween(drop.x-24,drawY-26,drop.x-11,drawY-4).lineBetween(drop.x+24,drawY-26,drop.x+11,drawY-4);g.fillStyle(0xe8ecef,.85).fillEllipse(drop.x,drawY-28,60,26);}
+      g.fillStyle(drop.opened?0x704a2d:0xb34a32,.96).fillRoundedRect(drop.x-22,drawY-14,44,28,5);g.lineStyle(3,0xf0d08d,.8).strokeRoundedRect(drop.x-22,drawY-14,44,28,5);g.lineStyle(3,0xf0d08d,.7).lineBetween(drop.x,drawY-14,drop.x,drawY+14);
+      if(drop.landed&&!drop.opened){const pulse=.45+.25*Math.sin(time*.006);g.lineStyle(4,0xff5b3d,pulse).lineBetween(drop.x,drop.y-18,drop.x,drop.y-180);g.fillStyle(0xff7048,.15).fillCircle(drop.x,drop.y,48);}
+    }
+    for(const jet of s.flameJets??[]){
+      if(!this.worldEntityVisible(jet.x,jet.y,String(jet.buildingId??''))||!visible(jet.x,jet.y,Number(jet.range||320)+80))continue;const age=Math.max(0,Number(s.serverTime||0)-Number(jet.startedAt||0)),life=Math.max(.01,Number(jet.expiresAt||0)-Number(jet.startedAt||0)),alpha=clamp(1-age/life,0,1),a=Number(jet.angle||0),range=Number(jet.range||320),half=Number(jet.halfAngle||.28),leftX=jet.x+Math.cos(a-half)*range,leftY=jet.y+Math.sin(a-half)*range,rightX=jet.x+Math.cos(a+half)*range,rightY=jet.y+Math.sin(a+half)*range;
+      g.fillStyle(0xff3d1f,.18*alpha).fillTriangle(jet.x,jet.y,leftX,leftY,rightX,rightY);g.fillStyle(0xff8b2d,.30*alpha).fillTriangle(jet.x,jet.y,jet.x+Math.cos(a-half*.62)*range*.78,jet.y+Math.sin(a-half*.62)*range*.78,jet.x+Math.cos(a+half*.62)*range*.78,jet.y+Math.sin(a+half*.62)*range*.78);g.fillStyle(0xffe36a,.72*alpha).fillTriangle(jet.x,jet.y,jet.x+Math.cos(a-half*.28)*range*.52,jet.y+Math.sin(a-half*.28)*range*.52,jet.x+Math.cos(a+half*.28)*range*.52,jet.y+Math.sin(a+half*.28)*range*.52);
+      for(let i=0;i<8;i++){const t=(i+1)/9,r=range*t,side=Math.sin(time*.02+i*2.3)*r*Math.tan(half)*.45;g.fillStyle(i%2?0xffd34f:0xff6a24,.55*alpha).fillCircle(jet.x+Math.cos(a)*r-Math.sin(a)*side,jet.y+Math.sin(a)*r+Math.cos(a)*side,4+(i%3)*2);}
+    }
+
+    const activeBulletIds=new Set<string>();
+    for(const b of s.bullets){
+      activeBulletIds.add(b.id);
+      if(!this.spaceVisible(b)||!visible(b.x,b.y,40))continue;
+      const d=this.getDisplayBullet(b.id,b.x,b.y);
+      g.lineStyle(3,0xffef9a,.9).lineBetween(d.x-b.vx*.012,d.y-b.vy*.012,d.x,d.y);
+      g.fillStyle(0xfff6bd).fillCircle(d.x,d.y,3);
+    }
+    for(const id of this.displayBullets.keys())if(!activeBulletIds.has(id))this.displayBullets.delete(id);
+
+    if(['PLANE','DROP'].includes(s.phase)){
+      g.lineStyle(4,0xffffff,.16).lineBetween(s.planeStartX,s.planeStartY,s.planeEndX,s.planeEndY);
+      this.drawTransportPlane(this.planeShadowG,s.planeX,s.planeY,s.planeAngle,1,'shadow');
+      this.drawTransportPlane(this.planeG,s.planeX,s.planeY,s.planeAngle,1,'body');
+    }
+
+    this.framePositions.clear();
+    this.frameVisibility.clear();
+    const existingIds=new Set<string>();
+    for(const p of s.players){
+      existingIds.add(p.id);
+      if(!p.alive)continue;
+      const local=p.id===this.net.sessionId;
+      const pos=local&&this.predictedLocal?{...this.predictedLocal,angle:this.localAimAngle}:this.remotePosition(p,time);
+      this.framePositions.set(p.id,pos);
+    }
+    for(const p of s.players)if(p.alive)this.getPlayerVisibility(p);
+
+    for(const field of s.fireFields??[]){
+      if(!this.worldEntityVisible(field.x,field.y,String(field.buildingId??''))||!visible(field.x,field.y,field.radius+50))continue;
+      const pulse=.82+Math.sin(time*.018+field.x*.01)*.12;g.fillStyle(0xff4d24,.22).fillCircle(field.x,field.y,field.radius);g.lineStyle(3,0xffa23d,.5).strokeCircle(field.x,field.y,field.radius);
+      for(let index=0;index<12;index++){const angle=index/12*Math.PI*2+time*.0015,indexRadius=field.radius*(.2+(index%4)*.18);g.fillStyle(index%2?0xffd34f:0xff6a24,.62).fillCircle(field.x+Math.cos(angle)*indexRadius,field.y+Math.sin(angle)*indexRadius,8*pulse);}
+    }
+    for(const field of s.smokeFields??[]){
+      if(!this.worldEntityVisible(field.x,field.y,String(field.buildingId??''))||!visible(field.x,field.y,field.radius+60))continue;
+      const radius=Number(field.radius||0);if(radius<=1)continue;g.fillStyle(0x9aa4aa,.42).fillCircle(field.x,field.y,radius);
+      for(let index=0;index<11;index++){const angle=index/11*Math.PI*2+time*.00018,indexRadius=radius*(.18+(index%4)*.18);g.fillStyle(index%2?0xc2c8cc:0x7f8a91,.25).fillCircle(field.x+Math.cos(angle)*indexRadius,field.y+Math.sin(angle)*indexRadius,radius*(.22+(index%3)*.04));}
+    }
+    for(const object of s.thrownObjects??[]){
+      if(!this.worldEntityVisible(object.x,object.y,String(object.buildingId??''))||!visible(object.x,object.y,60))continue;const type=object.kind as ThrowableType;if(!isThrowableType(type))continue;
+      const z=Number(object.z||0),color=THROWABLE_CONFIGS[type].color;g.fillStyle(0x000000,.22).fillEllipse(object.x,object.y+4,18,7);g.fillStyle(color,1).fillCircle(object.x,object.y-z*.25,7);g.lineStyle(2,0xffffff,.5).strokeCircle(object.x,object.y-z*.25,7);
+    }
+
+    for(const explosion of s.explosions??[]){
+      const canSee=this.worldEntityVisible(explosion.x,explosion.y);
+      if(canSee&&visible(explosion.x,explosion.y,Number(explosion.radius||150)+80))this.drawExplosion(g,explosion,s.serverTime);
+      if(!this.seenExplosionIds.has(explosion.id)){
+        this.seenExplosionIds.add(explosion.id);
+        const viewer=this.viewerPoint??this.local();
+        if(viewer){const d=distance(viewer.x,viewer.y,explosion.x,explosion.y);this.playWorldAudio(explosion.kind==='fragGrenade'?'frag_explosion':explosion.kind==='bazooka'?'bazooka_explosion':'motorcycle_explosion',{id:`explosion:${explosion.id}`,x:explosion.x,y:explosion.y,buildingId:buildingIdAt(explosion.x,explosion.y,0,this.mapConfig.buildingVisibilityZones)},1600);if(d<230)audio.applyTemporaryMuffle(320);}
+        if(viewer&&distance(viewer.x,viewer.y,explosion.x,explosion.y)<430)this.cameras.main.shake(130,.0045);
+      }
+    }
+
+    for(const motorcycle of s.motorcycles??[]){
+      const point=this.displayMotorcycles.get(motorcycle.id)??motorcycle;
+      if(!visible(point.x,point.y,120))continue;
+      let motorcycleVisible=false;
+      if(motorcycle.driverId){
+        const driver=s.players.find((player:any)=>player.id===motorcycle.driverId);
+        motorcycleVisible=driver?Boolean(this.getPlayerVisibility(driver).vehicleVisible):false;
+      }else motorcycleVisible=this.worldEntityVisible(point.x,point.y,String(motorcycle.buildingId??''));
+      if(!motorcycleVisible)continue;
+      this.drawMotorcycle(g,motorcycle,point,time,Number(s.serverTime||0));
+    }
+
+    this.drawDeathVisuals(time);
+
+    const visibleIds=new Set<string>();
+    for(const p of s.players){
+      if(!p.alive)continue;
+      const local=p.id===this.net.sessionId;
+      const pos=this.framePositions.get(p.id)??p;
+      const visibility=this.getPlayerVisibility(p);
+      const inView=visible(pos.x,pos.y,100);
+      const previouslyVisible=this.lastVisibility.get(p.id)??visibility.visibleInWorld;
+      if(visibility.visibleInWorld&&!previouslyVisible)this.revealStartedAt.set(p.id,time);
+      this.lastVisibility.set(p.id,visibility.visibleInWorld);
+      if(!visibility.visibleInWorld||!inView)continue;
+      if(visibility.nameplateVisible)visibleIds.add(p.id);
+      const fadeStart=this.revealStartedAt.get(p.id)??time-200;
+      const alpha=local?1:clamp((time-fadeStart)/160,0,1)*clamp(visibility.revealStrength,.22,1);
+      const shown=local?{...p,angle:this.localAimAngle}:p;
+      const vaultLift=shown.isVaulting?Math.sin(clamp(Number(shown.vaultProgress)||0,0,1)*Math.PI)*14:0;
+      const viewerBuildingId=String(this.viewerEntity()?.buildingId??'');
+      const throughOpening=(visibility.portalKind==='window'||visibility.portalKind==='door')&&!viewerBuildingId&&Boolean(p.buildingId);
+      if(throughOpening)this.drawWindowInteriorReveal(String(p.buildingId),visibility.portalOpeningId);
+      this.drawPlayer(throughOpening?this.windowRevealG:g,shown,pos.x,pos.y-vaultLift,time,alpha);
+      this.updatePlayerOverlay(shown,pos.x,pos.y-vaultLift,time,visibility.nameplateVisible,alpha,throughOpening);
+    }
+    for(const [id,overlay] of this.playerOverlays){
+      if(!existingIds.has(id)||!s.players.find(p=>p.id===id)?.alive){overlay.container.destroy(true);this.playerOverlays.delete(id);continue;}
+      if(!visibleIds.has(id))overlay.container.setVisible(false);
+    }
+    for(const id of this.displayPlayers.keys())if(!existingIds.has(id))this.displayPlayers.delete(id);
+    for(const id of this.remoteBuffers.keys())if(!existingIds.has(id)){this.remoteBuffers.delete(id);this.lastVisibility.delete(id);this.revealStartedAt.delete(id);}
+
+    if(time-this.lastMiniDraw>=100){
+      this.drawMini(s);
+      this.lastMiniDraw=time;
+    }
+  }
+
+  private getPlayerVisibility(player:any):TargetVisibilityResult{
+    const cached=this.frameVisibility.get(player.id);if(cached)return cached;
+    const viewer=this.viewerPoint??this.local();
+    const viewerEntity=this.viewerEntity()??viewer;
+    const isViewer=player.id===this.net.sessionId||player.id===this.viewerPlayer?.id;
+    if(isViewer){const own={visibleInWorld:true,visibleOnMinimap:true,revealedByShot:false,revealedByHit:false,nameplateVisible:true,vehicleVisible:true,portalKind:'same' as const,portalOpeningId:'',portalViewMode:'front' as const,revealStrength:1};this.frameVisibility.set(player.id,own);return own;}
+    const hidden={visibleInWorld:false,visibleOnMinimap:false,revealedByShot:false,revealedByHit:false,nameplateVisible:false,vehicleVisible:false,portalKind:'none' as const,portalOpeningId:'',portalViewMode:'none' as const,revealStrength:0};
+    if(!viewer||!viewerEntity){this.frameVisibility.set(player.id,hidden);return hidden;}
+    const target=this.framePositions.get(player.id)??player;
+    const resolvedViewerSpace=this.resolvedViewerSpace({...viewerEntity,x:viewer.x,y:viewer.y});
+    const viewerSpace={x:viewer.x,y:viewer.y,buildingId:resolvedViewerSpace.buildingId,roomIndex:resolvedViewerSpace.roomIndex};
+    const targetSpace={x:target.x,y:target.y,buildingId:String(player.buildingId??''),roomIndex:Number(player.roomIndex??0)};
+    const smokeVisibility=smokeVisibilityBetween(viewerSpace,targetSpace,this.net.snapshot?.smokeFields??[],Number(this.net.snapshot?.serverTime??0));
+    if(smokeVisibility==='hidden'){this.frameVisibility.set(player.id,hidden);return hidden;}
+    let visibleCount=0,centerVisible=false,portalKind:'same'|'door'|'window'|'none'='none',portalOpeningId='';
+    for(const sample of targetVisibilitySamples(viewer.x,viewer.y,target.x,target.y,PLAYER_HIT_RADIUS)){
+      let boundaryOpening:ReturnType<typeof crossSpaceOpening>|null=null;
+      if(viewerSpace.buildingId!==targetSpace.buildingId){
+        boundaryOpening=crossSpaceOpening(
+          viewerSpace,
+          {...targetSpace,x:sample.x,y:sample.y},
+          this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId,{x:this.localAimX,y:this.localAimY},
+        );
+        if(!boundaryOpening)continue;
+      }
+      const trace=traceSpaceVisibility(viewerSpace,{...targetSpace,x:sample.x,y:sample.y},this.mapConfig.portals,this.mapConfig.visibilityObstacles,3);
+      if(!trace.visible||!this.pointInsideScopeView(sample.x,sample.y))continue;
+      visibleCount++;
+      if(sample.kind==='center')centerVisible=true;
+      if(boundaryOpening){
+        portalKind=boundaryOpening.kind;
+        portalOpeningId=boundaryOpening.openingId;
+      }else{
+        const lastPortalId=trace.crossedPortalIds.at(-1)??'';
+        const portal=this.mapConfig.portals.find((candidate)=>candidate.id===lastPortalId);
+        portalKind=portal?.kind??'same';
+        portalOpeningId=lastPortalId;
+      }
+    }
+    const nearby=distance(viewer.x,viewer.y,target.x,target.y)<=BUSH_HIDE_DISTANCE;
+    const concealed=Boolean(player.inBush&&!player.bushRevealed&&!nearby);
+    const characterVisible=visibleCount>0&&!concealed;
+    const fullInformation=centerVisible||visibleCount>=2;
+    const revealStrength=smokeVisibility==='near'?.38:characterVisible?1:0;
+    const nameplateVisible=smokeVisibility!=='near'&&fullInformation&&!concealed;
+    const result={visibleInWorld:characterVisible,visibleOnMinimap:characterVisible,revealedByShot:Boolean(player.bushRevealed),revealedByHit:Boolean(player.bushRevealed),nameplateVisible,vehicleVisible:characterVisible,portalKind:characterVisible?portalKind:'none' as const,portalOpeningId:characterVisible?portalOpeningId:'',portalViewMode:characterVisible?'front' as const:'none' as const,revealStrength};
+    this.frameVisibility.set(player.id,result);
+    return result;
+  }
+
+  private openingById(buildingId:string,openingId:string){
+    const zone=buildingZoneById(buildingId,this.mapConfig.buildingVisibilityZones);
+    if(!zone)return{zone,opening:undefined as WindowOpening|undefined,kind:'' as const};
+    const window=zone.windows.find((opening)=>opening.id===openingId);
+    if(window)return{zone,opening:window,kind:'window' as const};
+    const door=zone.doors.find((opening)=>opening.id===openingId);
+    return{zone,opening:door?doorPortalOpening(zone,door):undefined,kind:door?'door' as const:'' as const};
+  }
+
+  private drawWindowInteriorReveal(buildingId:string,openingId:string){
+    const key=`${buildingId}:${openingId}:${this.scopeRequested?'scope':'normal'}`;
+    if(this.portalRevealKeys.has(key))return;
+    const {zone,opening,kind}=this.openingById(buildingId,openingId);
+    if(!zone||!opening||!kind)return;
+    this.portalRevealKeys.add(key);
+    const theme=REGION_THEMES[zone.regionId];
+    const viewer=this.viewerPoint??this.local();
+    if(!viewer)return;
+    const clampToInterior=(point:{x:number;y:number})=>({x:clamp(point.x,zone.interior.x,zone.interior.x+zone.interior.w),y:clamp(point.y,zone.interior.y,zone.interior.y+zone.interior.h)});
+    const outerView=angleAwarePortalPolygon(opening,kind,viewer,'inside',this.scopeRequested,this.localAimX,this.localAimY,WINDOW_PORTAL_FEATHER);
+    const innerView=angleAwarePortalPolygon(opening,kind,viewer,'inside',this.scopeRequested,this.localAimX,this.localAimY,-WINDOW_PORTAL_FEATHER);
+    if(outerView.polygon.length<3||innerView.polygon.length<3)return;
+    const outer=outerView.polygon.map(clampToInterior);
+    const inner=innerView.polygon.map(clampToInterior);
+    const vectors=(points:Array<{x:number;y:number}>)=>points.map((point)=>new Phaser.Math.Vector2(point.x,point.y));
+    this.windowRevealG.fillStyle(theme.roof,.30*outerView.revealStrength).fillPoints(vectors(outer),true);
+    this.windowRevealG.fillStyle(theme.ground,.76*innerView.revealStrength).fillPoints(vectors(inner),true);
+    this.windowRevealG.fillStyle(0x07131b,.92).fillRect(opening.x,opening.y,opening.width,opening.height);
+    this.windowRevealG.lineStyle(2,0x8ac9d9,.78).strokeRect(opening.x,opening.y,opening.width,opening.height);
+  }
+
+  private deathVisibility(visual:DeathVisual){
+    if(visual.local)return{visible:true,portalKind:'same' as const,portalOpeningId:'',revealStrength:1};
+    const viewer=this.viewerPoint??this.local(),viewerEntity=this.viewerEntity();
+    if(!viewer||!viewerEntity)return{visible:false,portalKind:'none' as const,portalOpeningId:'',revealStrength:0};
+    const nearby=distance(viewer.x,viewer.y,visual.x,visual.y)<=BUSH_HIDE_DISTANCE;
+    if(visual.inBush&&!visual.bushRevealed&&!nearby)return{visible:false,portalKind:'none' as const,portalOpeningId:'',revealStrength:0};
+    let portalKind:'same'|'door'|'window'|'none'='none',portalOpeningId='';
+    for(const sample of targetVisibilitySamples(viewer.x,viewer.y,visual.x,visual.y,PLAYER_HIT_RADIUS)){
+      const opening=crossSpaceOpening({x:viewer.x,y:viewer.y,buildingId:String(viewerEntity.buildingId??'')},{x:sample.x,y:sample.y,buildingId:visual.buildingId},this.scopeRequested,this.mapConfig.buildingVisibilityZones,this.activePortalId,{x:this.localAimX,y:this.localAimY});
+      if(!opening)continue;
+      if(!segmentClearOfRects(viewer.x,viewer.y,sample.x,sample.y,this.mapConfig.visibilityObstacles))continue;
+      if(!this.pointInsideScopeView(sample.x,sample.y))continue;
+      portalKind=opening.kind;portalOpeningId=opening.openingId;
+      return{visible:opening.revealStrength>.08,portalKind,portalOpeningId,revealStrength:opening.revealStrength};
+    }
+    return{visible:false,portalKind:'none' as const,portalOpeningId:'',revealStrength:0};
+  }
+
+  private drawDeathVisuals(time:number){
+    const next:DeathVisual[]=[];
+    const viewerBuildingId=String(this.viewerEntity()?.buildingId??'');
+    for(const visual of this.deathVisuals){
+      const progress=clamp((time-visual.startedAt)/visual.duration,0,1);
+      if(progress>=1)continue;
+      next.push(visual);
+      const visibility=this.deathVisibility(visual);
+      if(!visibility.visible)continue;
+      const throughOpening=(visibility.portalKind==='window'||visibility.portalKind==='door')&&!viewerBuildingId&&Boolean(visual.buildingId);
+      if(throughOpening)this.drawWindowInteriorReveal(visual.buildingId,visibility.portalOpeningId);
+      this.drawDeathVisual(throughOpening?this.windowRevealG:this.dynamicG,visual,progress,visibility.revealStrength);
+    }
+    this.deathVisuals=next;
+    if(this.localDeathPoint&&time>=this.localDeathCameraUntil)this.localDeathPoint=null;
+  }
+
+  private drawDeathVisual(g:Phaser.GameObjects.Graphics,visual:DeathVisual,progress:number,visibilityAlpha=1){
+    const ease=1-(1-progress)*(1-progress);
+    const x=visual.x+visual.hitDirectionX*visual.pushDistance*ease;
+    const y=visual.y+visual.hitDirectionY*visual.pushDistance*ease;
+    const fade=(progress<.55?1:clamp(1-(progress-.55)/.45,0,1))*clamp(visibilityAlpha,.22,1);
+    const flash=progress<.10&&Math.floor(progress*100)%2===0;
+    const flatten=Phaser.Math.Linear(1,.55,clamp((progress-.12)/.55,0,1));
+    const widen=Phaser.Math.Linear(1,1.14,clamp((progress-.12)/.55,0,1));
+    const color=visual.local?0x45d7ff:visual.ai?0xff8b5f:0xf06dba;
+    g.fillStyle(0x000000,.24*fade).fillEllipse(x,y+17,46*widen,15+7*(1-flatten));
+    g.fillStyle(flash?0xffffff:color,fade).fillEllipse(x,y,40*widen,40*flatten);
+    g.lineStyle(3,0xffffff,.34*fade).strokeEllipse(x,y,40*widen,40*flatten);
+    const fallAngle=visual.angle+(visual.hitDirectionY>=0?1:-1)*progress*.48;
+    const armLength=18+progress*7;
+    for(const side of [-1,1]){
+      const angle=fallAngle+side*(1.15+progress*.35);
+      g.lineStyle(5,0xf0b28d,.9*fade).lineBetween(x+Math.cos(angle)*8,y+Math.sin(angle)*8,x+Math.cos(angle)*armLength,y+Math.sin(angle)*armLength);
+    }
+    if(visual.cause==='motorcycle_explosion'){
+      g.fillStyle(0x4d5559,.30*fade).fillCircle(x-8,y-18,6+progress*5).fillCircle(x+5,y-25,8+progress*6);
+      g.fillStyle(0xff8b45,.32*fade).fillCircle(x+visual.hitDirectionX*10,y+visual.hitDirectionY*10,5);
+    }else if(visual.cause==='sniper'&&progress<.22){
+      g.lineStyle(3,0xffe9a6,(1-progress/.22)*.75).lineBetween(x-visual.hitDirectionX*26,y-visual.hitDirectionY*26,x,y);
+    }
+  }
+
+  private segmentOccluded(x1:number,y1:number,x2:number,y2:number){return !segmentClearOfRects(x1,y1,x2,y2,this.mapConfig.visibilityObstacles);}
+
+  private trackRemotePlayers(s:any){
+    const receivedAt=Number(s.receivedAt)||performance.now();
+    for(const player of s.players){
+      if(player.id===this.net.sessionId)continue;
+      const buffer=this.remoteBuffers.get(player.id)??[];
+      pushPositionSnapshot(buffer,{x:player.x,y:player.y,angle:player.angle,receivedAt});
+      this.remoteBuffers.set(player.id,buffer);
+    }
+  }
+
+  private trackMotorcycles(s:any){
+    const active=new Set<string>();
+    for(const motorcycle of s.motorcycles??[]){
+      active.add(motorcycle.id);
+      const current=this.displayMotorcycles.get(motorcycle.id)??{x:motorcycle.x,y:motorcycle.y,rotation:motorcycle.rotation,speed:motorcycle.speed,velocityX:Number(motorcycle.velocityX||0),velocityY:Number(motorcycle.velocityY||0)};
+      const distanceToServer=Math.hypot(current.x-motorcycle.x,current.y-motorcycle.y);
+      const alpha=distanceToServer>240?1:.28;
+      current.x=Phaser.Math.Linear(current.x,motorcycle.x,alpha);
+      current.y=Phaser.Math.Linear(current.y,motorcycle.y,alpha);
+      const delta=Math.atan2(Math.sin(motorcycle.rotation-current.rotation),Math.cos(motorcycle.rotation-current.rotation));
+      current.rotation+=delta*.32;
+      current.velocityX=Phaser.Math.Linear(current.velocityX,Number(motorcycle.velocityX||0),.32);
+      current.velocityY=Phaser.Math.Linear(current.velocityY,Number(motorcycle.velocityY||0),.32);
+      current.speed=Phaser.Math.Linear(current.speed,Number(motorcycle.speed||0),.3);
+      this.displayMotorcycles.set(motorcycle.id,current);
+    }
+    for(const id of this.displayMotorcycles.keys())if(!active.has(id))this.displayMotorcycles.delete(id);
+  }
+
+  private predictLocalMotorcycle(id:string,inputX:number,inputY:number,dt:number,time:number){
+    const motorcycle=this.displayMotorcycles.get(id);
+    if(!motorcycle)return;
+    const frameDt=Math.min(.04,Math.max(0,dt));
+    const length=Math.hypot(inputX,inputY);
+    const moveX=length>.001?inputX/length:0;
+    const moveY=length>.001?inputY/length:0;
+    if(length>.001){
+      const previousLength=Math.hypot(this.localVehicleInputX,this.localVehicleInputY);
+      if(previousLength>.001){
+        const previousAngle=Math.atan2(this.localVehicleInputY,this.localVehicleInputX);
+        const nextAngle=Math.atan2(moveY,moveX);
+        const change=Math.abs(Math.atan2(Math.sin(nextAngle-previousAngle),Math.cos(nextAngle-previousAngle)));
+        const retained=motorcycleDirectionRetention(change);
+        if(retained<1){
+          motorcycle.velocityX*=retained;motorcycle.velocityY*=retained;
+          this.localVehicleHeldMs*=retained<=.5?.2:retained<=.72?.48:.76;
+          this.localVehicleTurnPenaltyUntil=time+MOTORCYCLE_BALANCE.directionChangePenaltyMs;
+        }
+      }
+      this.localVehicleHeldMs=Math.min(MOTORCYCLE_BALANCE.timeToMaxSpeedMs,this.localVehicleHeldMs+frameDt*1000);
+      this.localVehicleInputX=moveX;this.localVehicleInputY=moveY;
+    }else{
+      this.localVehicleHeldMs=0;this.localVehicleInputX=0;this.localVehicleInputY=0;
+    }
+    const targetSpeed=length>.001?Math.max(MOTORCYCLE_LAUNCH_SPEED,PLAYER_SPEED*motorcycleSpeedMultiplier(this.localVehicleHeldMs)):0;
+    const maxDelta=(length>.001?MOTORCYCLE_DIRECT_ACCELERATION:MOTORCYCLE_DIRECT_DECELERATION)*frameDt;
+    const approach=(value:number,target:number)=>value<target?Math.min(target,value+maxDelta):Math.max(target,value-maxDelta);
+    motorcycle.velocityX=approach(motorcycle.velocityX,moveX*targetSpeed);
+    motorcycle.velocityY=approach(motorcycle.velocityY,moveY*targetSpeed);
+    const blocked=(x:number,y:number)=>this.mapConfig.collisionObstacles.some((rect)=>circleHitsRect(x,y,MOTORCYCLE_RADIUS,rect))||this.mapConfig.buildingVisibilityZones.some((zone)=>circleHitsRect(x,y,MOTORCYCLE_RADIUS+3,zone.roof));
+    let xBlocked=false,yBlocked=false;
+    const nextX=clamp(motorcycle.x+motorcycle.velocityX*frameDt,MOTORCYCLE_RADIUS,this.mapConfig.width-MOTORCYCLE_RADIUS);
+    if(!blocked(nextX,motorcycle.y))motorcycle.x=nextX;else{xBlocked=true;motorcycle.velocityX=0;motorcycle.velocityY*=.74;}
+    const nextY=clamp(motorcycle.y+motorcycle.velocityY*frameDt,MOTORCYCLE_RADIUS,this.mapConfig.height-MOTORCYCLE_RADIUS);
+    if(!blocked(motorcycle.x,nextY))motorcycle.y=nextY;else{yBlocked=true;motorcycle.velocityY=0;motorcycle.velocityX*=.74;}
+    if(xBlocked||yBlocked){this.localVehicleHeldMs*=xBlocked&&yBlocked?.25:.58;this.localVehicleTurnPenaltyUntil=time+MOTORCYCLE_BALANCE.directionChangePenaltyMs;}
+    const speed=Math.hypot(motorcycle.velocityX,motorcycle.velocityY);
+    motorcycle.speed=speed;
+    if(speed>8){
+      const targetRotation=Math.atan2(motorcycle.velocityY,motorcycle.velocityX);
+      const rotationDelta=Math.atan2(Math.sin(targetRotation-motorcycle.rotation),Math.cos(targetRotation-motorcycle.rotation));
+      motorcycle.rotation+=rotationDelta*(1-Math.exp(-MOTORCYCLE_ROTATION_RESPONSE*frameDt));
+    }
+  }
+
+  private remotePosition(player:any,_time:number){
+    if(player.id===this.net.sessionId)return{x:player.x,y:player.y,angle:player.angle};
+    const sampled=samplePosition(this.remoteBuffers.get(player.id)??[],performance.now()-100);
+    if(!sampled){this.bufferMisses++;return{x:player.x,y:player.y,angle:player.angle};}
+    if(Math.hypot(sampled.x-player.x,sampled.y-player.y)>260)this.snapCorrections++;
+    return{x:sampled.x,y:sampled.y,angle:sampled.angle};
+  }
+
+
+  private receiveChat(payload:ChatPayload){
+    if(!payload?.playerId||!payload.text||payload.channel==='system'||payload.channel==='lobby')return;
+    const player=this.net.snapshot?.players.find((item)=>item.id===payload.playerId);
+    if(!player)return;
+    const overlay=this.getOrCreatePlayerOverlay(player);
+    overlay.bubbleText.setText(String(payload.text).slice(0,80));
+    const width=Math.min(196,Math.max(72,overlay.bubbleText.width+22));
+    const height=Math.min(58,Math.max(34,overlay.bubbleText.height+16));
+    overlay.bubbleBg.clear().fillStyle(0x071018,.94).fillRoundedRect(-width/2,-height/2,width,height,9);
+    overlay.bubbleBg.lineStyle(2,player.id===this.net.sessionId?0x54dcff:0xffffff,.42).strokeRoundedRect(-width/2,-height/2,width,height,9);
+    overlay.bubbleExpiresAt=this.time.now+4000;
+  }
+
+  private getOrCreatePlayerOverlay(player:any){
+    const existing=this.playerOverlays.get(player.id);
+    if(existing)return existing;
+    const bubbleBg=this.add.graphics();
+    const bubbleText=this.add.text(0,-82,'',{fontFamily:'sans-serif',fontSize:'13px',fontStyle:'bold',color:'#ffffff',align:'center',wordWrap:{width:174,useAdvancedWrap:true}}).setOrigin(.5);
+    bubbleBg.setPosition(0,-82);
+    const name=this.add.text(0,-50,'',{fontFamily:'sans-serif',fontSize:'13px',fontStyle:'bold',color:'#ffffff',stroke:'#071018',strokeThickness:4}).setOrigin(.5);
+    const container=this.add.container(player.x,player.y,[bubbleBg,bubbleText,name]).setDepth(RENDER_DEPTH.PLAYER_OVERLAY);
+    bubbleBg.setVisible(false);bubbleText.setVisible(false);
+    const overlay={container,name,bubbleBg,bubbleText,bubbleExpiresAt:0};
+    this.playerOverlays.set(player.id,overlay);
+    return overlay;
+  }
+
+  private displayPlayerName(player:any){
+    const raw=String(player.name??'').slice(0,16)||'이름 없음';
+    const base=player.ai?(raw.startsWith('AI-')?raw.replace(/^AI-/,'AI · '):`AI · ${raw}`):raw;
+    return player.id===this.net.sessionId?`${base} (나)`:base;
+  }
+
+  private updatePlayerOverlay(player:any,x:number,y:number,time:number,visible:boolean,alpha=1,aboveRoof=false){
+    const overlay=this.getOrCreatePlayerOverlay(player);
+    overlay.container.setDepth(aboveRoof?RENDER_DEPTH.BUILDING_ROOF+3:RENDER_DEPTH.PLAYER_OVERLAY).setPosition(x,y).setVisible(visible).setAlpha(alpha);
+    overlay.name.setText(this.displayPlayerName(player));
+    const remaining=overlay.bubbleExpiresAt-time;
+    const showBubble=visible&&remaining>0;
+    overlay.bubbleBg.setVisible(showBubble);
+    overlay.bubbleText.setVisible(showBubble);
+    if(showBubble){
+      const alpha=remaining<1000?clamp(remaining/1000,0,1):1;
+      overlay.bubbleBg.setAlpha(alpha);
+      overlay.bubbleText.setAlpha(alpha);
+    }
+  }
+
+  private updateRegionLabel(x:number,y:number){
+    const region=regionAt(x,y,this.mapConfig.regions);
+    const id=region?.id??'';
+    if(id===this.currentRegionId)return;
+    this.currentRegionId=id;
+    if(!region){this.regionText.setVisible(false);return;}
+    const theme=REGION_THEMES[region.id];
+    this.regionText.setText(`${region.name} · ${theme.trait}`).setVisible(true);
+  }
+
+  private updateTerrainDebug(x:number,y:number,isSwimming:boolean){
+    if(!this.terrainDebugEnabled){
+      this.terrainDebugText?.setVisible(false);
+      return;
+    }
+    const kind=terrainAt(x,y,{
+      buildings:this.mapConfig.buildings,
+      rooms:this.mapConfig.rooms,
+      rivers:this.mapConfig.rivers,
+      shallowWaterZones:this.mapConfig.shallowWaterZones,
+      crossings:this.mapConfig.landCrossings,
+      shoreExits:this.mapConfig.shoreExits,
+    });
+    if(!this.terrainDebugText)this.terrainDebugText=this.add.text(12,118,'',{fontFamily:'monospace',fontSize:'13px',color:'#dffcff',backgroundColor:'#061018dd',padding:{x:8,y:6}}).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+5);
+    this.terrainDebugText.setText(`terrain=${kind}\nswimming=${isSwimming?'true':'false'}\nx=${Math.round(x)} y=${Math.round(y)}`).setVisible(true);
+  }
+
+  private drawSlowLayers(s:any){
+    const g=this.slowG;
+    g.clear();
+    const view=this.cameras.main.worldView;
+    const visible=(x:number,y:number,m=120)=>x>=view.x-m&&x<=view.right+m&&y>=view.y-m&&y<=view.bottom+m;
+    if(s.zoneActive)g.lineStyle(6,0x4db5ff,.72).strokeCircle(s.zoneX,s.zoneY,s.zoneRadius);
+    if(s.zoneActive||s.zoneState==='ANNOUNCING')g.lineStyle(3,0xffffff,.36).strokeCircle(s.nextZoneX,s.nextZoneY,s.nextZoneRadius);
+    for(const drop of s.supplyDrops??[])if(drop.landed&&visible(drop.x,drop.y,100))g.lineStyle(3,drop.opened?0x8c755f:0xff6b4a,.9).strokeRect(drop.x-25,drop.y-17,50,34);
+    const viewer=this.viewerEntity();if(viewer?.alive&&viewer?.phase==='landed')for(const l of s.loot){if(this.spaceVisible(l)&&visible(l.x,l.y,80)&&this.pointInsideScopeView(l.x,l.y))this.drawLootIcon(g,l.kind as LootKind,l.x,l.y,1);}
+  }
+
+  private updateLocalPrediction(me:any,x:number,y:number,dt:number){
+    if(me.isDriving&&me.vehicleId){
+      const motorcycle=this.displayMotorcycles.get(me.vehicleId)??this.net.snapshot?.motorcycles.find((item:any)=>item.id===me.vehicleId);
+      this.predictedLocal=motorcycle?{x:motorcycle.x,y:motorcycle.y}:{x:me.x,y:me.y};
+      return;
+    }
+    if(!this.predictedLocal)this.predictedLocal={x:me.x,y:me.y};
+    const error=Math.hypot(this.predictedLocal.x-me.x,this.predictedLocal.y-me.y);
+    if(error>130){this.predictedLocal.x=me.x;this.predictedLocal.y=me.y;}
+    else if(error>16){this.predictedLocal.x=Phaser.Math.Linear(this.predictedLocal.x,me.x,.085);this.predictedLocal.y=Phaser.Math.Linear(this.predictedLocal.y,me.y,.085);}
+    const ranged=WEAPONS[(me.equipped||'fists') as WeaponId];
+    const melee=MELEE_WEAPONS[me.equipped as MeleeId];
+    const aimingPenalty=this.scopeRequested?SNIPER_SCOPE_MOVE_MULTIPLIER:1;
+    const multiplier=me.isSwimming?1:(ranged?.moveMultiplier??melee?.moveMultiplier??1)*aimingPenalty;
+    const terrain=movementMultiplierAt(this.predictedLocal.x,this.predictedLocal.y,this.mapConfig.shallowWaterZones,this.mapConfig.landCrossings);
+    const step=Math.min(.04,Math.max(0,dt))*(me.isSwimming?SWIM_SPEED:PLAYER_SPEED)*multiplier*terrain;
+    this.movePredicted(x*step,y*step);
+  }
+
+  private movePredicted(dx:number,dy:number){
+    if(!this.predictedLocal)return;
+    const blocked=(x:number,y:number)=>this.mapConfig.collisionObstacles.some(r=>circleHitsRect(x,y,PLAYER_BODY_RADIUS,r));
+    const me=this.local();
+    if(blocked(this.predictedLocal.x,this.predictedLocal.y)&&me&&!blocked(me.x,me.y))this.predictedLocal={x:me.x,y:me.y};
+    const total=Math.hypot(dx,dy),steps=Math.max(1,Math.ceil(total/6)),sx=dx/steps,sy=dy/steps;
+    for(let i=0;i<steps;i++){
+      const nx=clamp(this.predictedLocal.x+sx,PLAYER_BODY_RADIUS,this.mapConfig.width-PLAYER_BODY_RADIUS);
+      const ny=clamp(this.predictedLocal.y+sy,PLAYER_BODY_RADIUS,this.mapConfig.height-PLAYER_BODY_RADIUS);
+      if(!blocked(nx,ny)){this.predictedLocal.x=nx;this.predictedLocal.y=ny;continue;}
+      if(!blocked(nx,this.predictedLocal.y)){this.predictedLocal.x=nx;continue;}
+      if(!blocked(this.predictedLocal.x,ny)){this.predictedLocal.y=ny;continue;}
+      break;
+    }
+  }
+
+  private updateHitState(s:any,time:number){
+    const active=new Set<string>();
+    for(const p of s.players){
+      active.add(p.id);
+      const seq=Number(p.hitSeq??0),prev=this.lastHitSeq.get(p.id);
+      if(prev===undefined)this.lastHitSeq.set(p.id,seq);
+      else if(prev!==seq){
+        this.lastHitSeq.set(p.id,seq);this.hitStartedAt.set(p.id,time);
+        if(p.id===this.net.sessionId){this.localHitUntil=time+220;this.localHitAngle=Number(p.lastHitAngle??0);this.cameras.main.shake(95,Math.min(.012,.003+Number(p.lastHitDamage??0)/6000));audio.playLocal(Boolean(s.zoneActive)&&distance(Number(p.x),Number(p.y),Number(s.zoneX),Number(s.zoneY))>Number(s.zoneRadius)?'zone_damage':'local_damage',1,`damage:${p.id}:${seq}`);}
+      }
+    }
+    for(const id of this.lastHitSeq.keys())if(!active.has(id)){this.lastHitSeq.delete(id);this.hitStartedAt.delete(id);}
+  }
+
+  private drawHitEffects(time:number){
+    const g=this.hitG;g.clear();
+    if(time>=this.localHitUntil)return;
+    const pulse=(this.localHitUntil-time)/220,w=this.scale.width,h=this.scale.height;
+    g.fillStyle(0xff2538,.06+.11*pulse).fillRect(0,0,w,h);
+    g.lineStyle(8,0xff3348,.2+.45*pulse).strokeRect(4,4,w-8,h-8);
+    const cx=w/2,cy=h/2,r=72;
+    const ax=cx+Math.cos(this.localHitAngle)*r,ay=cy+Math.sin(this.localHitAngle)*r;
+    g.lineStyle(6,0xff5968,.85*pulse).lineBetween(cx,cy,ax,ay);
+    g.fillStyle(0xff5968,.9*pulse).fillCircle(ax,ay,7);
+  }
+
+  private drawPlayer(g:Phaser.GameObjects.Graphics,p:any,x:number,y:number,time:number,alpha=1){
+    const color=p.id===this.net.sessionId?0x45d7ff:p.ai?0xff8b5f:0xf06dba;
+    const hitAt=this.hitStartedAt.get(p.id)??-999;
+    const hitPulse=Math.max(0,1-(time-hitAt)/180);
+    const bodyColor=hitPulse>0&&Math.floor((time-hitAt)/45)%2===0?0xffffff:color;
+    const scale=p.phase==='falling'?1.7:p.phase==='parachute'?1.35:1;
+    const altitudeOffset=20+Math.min(50,p.altitude/15);
+    g.fillStyle(0x000000,.22*alpha).fillEllipse(x,y+altitudeOffset,40,18);
+    if(p.isSwimming){
+      const wave=2+Math.sin(time*.012+p.x*.01)*2;
+      g.lineStyle(3,0xa8e7f2,.55*alpha).strokeEllipse(x,y+8,48+wave,20+wave*.5);
+      g.fillStyle(bodyColor,.92*alpha).fillEllipse(x,y-2,34,25);
+      g.lineStyle(3,0xffffff,(p.id===this.net.sessionId?1:.42)*alpha).strokeEllipse(x,y-2,34,25);
+      if(hitPulse>0)g.lineStyle(4,0xff4c57,hitPulse*alpha).strokeCircle(x,y,27+8*(1-hitPulse));
+      g.fillStyle(p.hp>40?0x55dd8c:0xff5f67,alpha).fillRect(x-25,y-37,50*Math.max(0,p.hp)/100,5);
+      return;
+    }
+    const concealAlpha=p.inBush&&!p.bushRevealed&&p.id!==this.net.sessionId ? .72 : 1;
+    g.fillStyle(bodyColor,concealAlpha*alpha).fillCircle(x,y,20*scale);
+    if(p.inBush)g.lineStyle(3,p.bushRevealed?0xffd45a:0x7ddf7f,(p.id===this.net.sessionId ? .88 : .45)*alpha).strokeCircle(x,y,25*scale);
+    if(hitPulse>0)g.lineStyle(4,0xff4c57,hitPulse*alpha).strokeCircle(x,y,27+8*(1-hitPulse));
+    g.lineStyle(4,0xffffff,(p.id===this.net.sessionId?1:.38)*alpha).strokeCircle(x,y,20*scale);
+
+    const attackSeq=Number(p.attackSeq??0);
+    const previous=this.lastAttackSeq.get(p.id);
+    if(previous===undefined)this.lastAttackSeq.set(p.id,attackSeq);
+    else if(previous!==attackSeq){this.lastAttackSeq.set(p.id,attackSeq);this.attackStartedAt.set(p.id,time);}
+    const started=this.attackStartedAt.get(p.id)??-999;
+    const attackProgress=Math.max(0,Math.min(1,(time-started)/170));
+    const attackPulse=attackProgress<1?Math.sin(attackProgress*Math.PI):0;
+    const reloadProgress=clamp(Number(p.reloadProgress??0),0,1);
+    const heldAngle=p.reloading?p.angle+Math.sin(reloadProgress*Math.PI)*.5:p.angle;
+    this.drawHeldItem(g,p.equipped as EquippedId,x,y,heldAngle,attackPulse,attackSeq,alpha);
+    if(p.reloading){
+      g.lineStyle(4,0x24323b,.95*alpha).strokeCircle(x,y-52,12);
+      g.lineStyle(4,0xffd34f,alpha).beginPath().arc(x,y-52,12,-Math.PI/2,-Math.PI/2+Math.PI*2*reloadProgress,false).strokePath();
+      g.fillStyle(0xffd34f,.95*alpha).fillTriangle(x-4,y-55,x+5,y-55,x,y-47);
+    }
+
+    g.fillStyle(p.hp>40?0x55dd8c:0xff5f67,alpha).fillRect(x-25,y-37,50*Math.max(0,p.hp)/100,5);
+  }
+
+  private drawHeldItem(g:Phaser.GameObjects.Graphics,id:EquippedId,x:number,y:number,a:number,pulse:number,seq:number,alpha=1){
+    const pt=(forward:number,side:number)=>({x:x+Math.cos(a)*forward-Math.sin(a)*side,y:y+Math.sin(a)*forward+Math.cos(a)*side});
+    if(id==='fists'){
+      const side=seq%2===0?1:-1;
+      for(const hand of [-1,1]){
+        const extend=hand===side?22*pulse:0;
+        const elbow=pt(14+extend*.35,hand*12);
+        const fist=pt(24+extend,hand*12);
+        g.lineStyle(6,0xf0b28d,alpha).lineBetween(elbow.x,elbow.y,fist.x,fist.y);
+        g.fillStyle(0xffc39d,alpha).fillCircle(fist.x,fist.y,6);
+      }
+      return;
+    }
+
+    if(id in MELEE_WEAPONS){
+      const swing=a-.7+1.4*pulse;
+      const hand=pt(15,0);
+      const length=id==='knife'?34:id==='pan'?45:54;
+      const end={x:hand.x+Math.cos(swing)*length,y:hand.y+Math.sin(swing)*length};
+      g.lineStyle(id==='bat'?9:id==='pipe'?7:5,id==='bat'?0xc98b55:id==='pipe'?0x9eb1bb:0xd9e4ea,alpha).lineBetween(hand.x,hand.y,end.x,end.y);
+      if(id==='pan')g.fillStyle(0x9aaab4,alpha).fillCircle(end.x,end.y,13);
+      if(id==='knife')g.fillStyle(0xe9f1f5,alpha).fillTriangle(end.x,end.y,end.x-Math.cos(swing-.55)*15,end.y-Math.sin(swing-.55)*15,end.x-Math.cos(swing+.55)*15,end.y-Math.sin(swing+.55)*15);
+      return;
+    }
+
+    if(isThrowableType(id)){
+      const hand=pt(22,0),color=THROWABLE_CONFIGS[id].color;g.fillStyle(color,alpha).fillCircle(hand.x,hand.y,8);g.lineStyle(2,0xffffff,.55*alpha).strokeCircle(hand.x,hand.y,8);return;
+    }
+
+    const recoil=4*pulse;
+    const hand=pt(15-recoil,0);
+    if(id==='pistol'){
+      const muzzle=pt(40-recoil,0),grip=pt(23-recoil,9);
+      g.lineStyle(7,0x222a31,alpha).lineBetween(hand.x,hand.y,muzzle.x,muzzle.y);
+      g.lineStyle(6,0x39454d,alpha).lineBetween(pt(23-recoil,1).x,pt(23-recoil,1).y,grip.x,grip.y);
+      g.fillStyle(0xffd451,alpha).fillCircle(muzzle.x,muzzle.y,3);
+    }else if(id==='smg'){
+      const end=pt(46-recoil,0),stock=pt(7-recoil,0),mag=pt(29-recoil,11);
+      g.lineStyle(10,0x303a42,alpha).lineBetween(stock.x,stock.y,end.x,end.y);
+      g.lineStyle(7,0x1e252b,alpha).lineBetween(pt(28-recoil,2).x,pt(28-recoil,2).y,mag.x,mag.y);
+      g.fillStyle(0xffb84d,alpha).fillCircle(end.x,end.y,3);
+    }else if(id==='rifle'){
+      const end=pt(58-recoil,0),stockTop=pt(4-recoil,-7),stockBottom=pt(4-recoil,7),stockBack=pt(-5-recoil,0),mag=pt(32-recoil,12);
+      g.lineStyle(7,0x303940,alpha).lineBetween(hand.x,hand.y,end.x,end.y);
+      g.lineStyle(5,0x4a3427,alpha).lineBetween(stockTop.x,stockTop.y,stockBack.x,stockBack.y).lineBetween(stockBack.x,stockBack.y,stockBottom.x,stockBottom.y);
+      g.lineStyle(6,0x1c2429,alpha).lineBetween(pt(31-recoil,2).x,pt(31-recoil,2).y,mag.x,mag.y);
+      g.fillStyle(0xff8f4d,alpha).fillCircle(end.x,end.y,3);
+    }else if(id==='sniper'){
+      const end=pt(72-recoil,0),stock=pt(-7-recoil,0),scopeA=pt(22-recoil,-5),scopeB=pt(38-recoil,-5);
+      g.lineStyle(6,0x34434c,alpha).lineBetween(stock.x,stock.y,end.x,end.y);
+      g.lineStyle(5,0x7a5b3f,alpha).lineBetween(pt(4-recoil,0).x,pt(4-recoil,0).y,pt(24-recoil,0).x,pt(24-recoil,0).y);
+      g.lineStyle(5,0x111920,alpha).lineBetween(scopeA.x,scopeA.y,scopeB.x,scopeB.y);
+      g.fillStyle(0xff4858,alpha).fillCircle(end.x,end.y,3.5);
+    }else if(id==='bazooka'){
+      const rear=pt(-12-recoil,0),end=pt(66-recoil,0),grip=pt(22-recoil,12);g.lineStyle(12,0x4d6651,alpha).lineBetween(rear.x,rear.y,end.x,end.y);g.lineStyle(5,0x20282b,alpha).lineBetween(pt(20-recoil,3).x,pt(20-recoil,3).y,grip.x,grip.y);g.fillStyle(0x9de27d,alpha).fillCircle(end.x,end.y,5);g.fillStyle(0x2d3438,alpha).fillCircle(rear.x,rear.y,7);
+    }else if(id==='flamethrower'){
+      const flameBody=pt(8-recoil,0),flameBarrel=pt(46-recoil,0),flameNozzle=pt(61-recoil,0),flameTank=pt(2-recoil,14),flameGrip=pt(24-recoil,13),hoseA=pt(9-recoil,8),hoseB=pt(34-recoil,5);
+      g.lineStyle(12,0x39454a,alpha).lineBetween(flameBody.x,flameBody.y,flameBarrel.x,flameBarrel.y);
+      g.lineStyle(7,0xb9c3c9,alpha).lineBetween(flameBarrel.x,flameBarrel.y,flameNozzle.x,flameNozzle.y);
+      g.fillStyle(0xb43e25,alpha).fillCircle(flameTank.x,flameTank.y,11);
+      g.lineStyle(3,0x252d31,alpha).strokeCircle(flameTank.x,flameTank.y,11);
+      g.lineStyle(4,0x252d31,alpha).lineBetween(hoseA.x,hoseA.y,hoseB.x,hoseB.y);
+      g.lineStyle(5,0x20282b,alpha).lineBetween(pt(24-recoil,3).x,pt(24-recoil,3).y,flameGrip.x,flameGrip.y);
+      g.fillStyle(0xffa13a,alpha).fillTriangle(pt(62-recoil,-5).x,pt(62-recoil,-5).y,pt(70-recoil,0).x,pt(70-recoil,0).y,pt(62-recoil,5).x,pt(62-recoil,5).y);
+    }else if(id==='shotgun'){
+      const endA=pt(58-recoil,-3),endB=pt(58-recoil,3),pump=pt(36-recoil,0);
+      g.lineStyle(5,0x30383e,alpha).lineBetween(hand.x,hand.y,endA.x,endA.y).lineBetween(hand.x,hand.y,endB.x,endB.y);
+      g.fillStyle(0x8b5b38,alpha).fillCircle(pump.x,pump.y,6);
+      g.fillStyle(0xff6b55,alpha).fillCircle(endA.x,endA.y,3).fillCircle(endB.x,endB.y,3);
+    }
+  }
+
+  private drawLootIcon(g:Phaser.GameObjects.Graphics,kind:LootKind,x:number,y:number,scale:number){
+    const c=LOOT_COLORS[kind]??0xffffff;
+    g.fillStyle(0x061018,.72).fillCircle(x,y,16*scale);
+    g.lineStyle(2,c,1);
+    const line=(x1:number,y1:number,x2:number,y2:number,w=3)=>{g.lineStyle(w,c,1).lineBetween(x+x1*scale,y+y1*scale,x+x2*scale,y+y2*scale);};
+    if(kind==='pistol'){line(-8,-2,8,-2,4);line(1,0,1,8,4);g.fillStyle(c).fillCircle(x+9*scale,y-2*scale,2.5*scale);}
+    else if(kind==='smg'){line(-10,0,10,0,6);line(1,2,1,10,4);line(-10,0,-14,5,3);g.fillStyle(c).fillCircle(x+11*scale,y,2.5*scale);}
+    else if(kind==='rifle'){line(-13,0,13,0,4);line(-13,0,-18,-6,3);line(2,1,2,10,4);g.fillStyle(c).fillCircle(x+14*scale,y,2.5*scale);}
+    else if(kind==='shotgun'){line(-14,-3,14,-3,3);line(-14,3,14,3,3);g.fillStyle(c).fillCircle(x+15*scale,y-3*scale,2).fillCircle(x+15*scale,y+3*scale,2);}
+    else if(kind==='sniper'){line(-15,0,15,0,3);line(-5,-5,5,-5,3);line(-12,0,-16,6,3);g.fillStyle(c).fillCircle(x+16*scale,y,2.5*scale);}
+    else if(kind==='bazooka'){line(-16,0,15,0,8);g.fillStyle(c).fillCircle(x+15*scale,y,5*scale);line(-3,2,-3,10,4); }
+    else if(kind==='flamethrower'){line(-14,2,9,-4,7);g.fillStyle(0xb43e25).fillRoundedRect(x-13*scale,y-2*scale,13*scale,15*scale,3*scale);g.fillStyle(0xff9a39,.9).fillTriangle(x+12*scale,y-8*scale,x+23*scale,y-3*scale,x+12*scale,y+2*scale);}
+    else if(isThrowableType(kind)){g.fillStyle(c).fillCircle(x,y,8*scale);g.lineStyle(2,0xffffff,.65).strokeCircle(x,y,8*scale);if(kind==='incendiaryGrenade')line(-3,-10,3,-15,2);else line(0,-8,5,-13,2);}
+    else if(kind==='pistol_ammo'||kind==='standard_ammo'||kind==='shotgun_ammo'||kind==='rocket_ammo'){for(const dx of [-6,0,6]){line(dx,-7,dx,6,3);g.fillStyle(c).fillCircle(x+dx*scale,y-7*scale,2*scale);}}
+    else if(kind==='fuel_ammo'){g.fillStyle(c).fillRoundedRect(x-9*scale,y-12*scale,18*scale,24*scale,3*scale);g.lineStyle(2*scale,0xffd27d,.8).strokeRoundedRect(x-9*scale,y-12*scale,18*scale,24*scale,3*scale);}
+    else if(kind==='vest'){g.fillStyle(c).fillTriangle(x-10*scale,y-9*scale,x+10*scale,y-9*scale,x,y+12*scale);g.fillStyle(0x061018).fillCircle(x,y-2*scale,4*scale);}
+    else if(kind==='bandage'){g.fillStyle(c).fillRoundedRect(x-11*scale,y-5*scale,22*scale,10*scale,4*scale);g.fillStyle(0xffffff).fillCircle(x,y,3*scale);}
+    else if(kind==='medkit'){g.fillStyle(c).fillRoundedRect(x-11*scale,y-11*scale,22*scale,22*scale,4*scale);g.lineStyle(4,0xffffff,1).lineBetween(x-6*scale,y,x+6*scale,y).lineBetween(x,y-6*scale,x,y+6*scale);}
+    else if(kind==='bat'){line(-11,8,11,-9,7);}
+    else if(kind==='pipe'){line(-11,8,11,-9,5);g.fillStyle(c).fillCircle(x+11*scale,y-9*scale,3*scale);}
+    else if(kind==='knife'){line(-10,8,2,-3,4);g.fillStyle(c).fillTriangle(x+2*scale,y-3*scale,x+13*scale,y-10*scale,x+7*scale,y+2*scale);}
+    else if(kind==='pan'){line(-11,10,3,-4,4);g.fillStyle(c).fillCircle(x+8*scale,y-9*scale,8*scale);}
+  }
+
+  private updatePickupPrompt(){
+    const s=this.net.snapshot,me=this.local();
+    if(!s||!me||!me.alive||me.phase!=='landed'){this.pickupText.setVisible(false);return;}
+    if(me.isSwimming){this.pickupText.setText('수영 중 · 공격과 상호작용 불가').setVisible(true);return;}
+    if(me.isVaulting){this.pickupText.setText('창문 넘는 중').setVisible(true);return;}
+    if(me.isDriving){this.pickupText.setText('E  오토바이 내리기').setVisible(true);return;}
+    const vault=findPortalVaultCandidate(me.x,me.y,String(me.buildingId??''),Number(me.roomIndex??0),this.mapConfig.portals);
+    if(vault){this.pickupText.setText('Space  창문 넘기').setVisible(true);return;}
+    let nearestSupply:any;let supplyDistance=88*88;for(const drop of s.supplyDrops??[]){if(!drop.landed||drop.opened)continue;const dx=drop.x-me.x,dy=drop.y-me.y,d=dx*dx+dy*dy;if(d<supplyDistance){supplyDistance=d;nearestSupply=drop;}}if(nearestSupply){this.pickupText.setText('E  보급 상자 열기').setVisible(true);return;}
+    let nearestMotorcycle:any;let motorcycleDistance=MOTORCYCLE_MOUNT_DISTANCE*MOTORCYCLE_MOUNT_DISTANCE;
+    for(const motorcycle of s.motorcycles??[]){if(motorcycle.driverId||!buildingSpacesInteractable(me,motorcycle))continue;const dx=motorcycle.x-me.x,dy=motorcycle.y-me.y,d=dx*dx+dy*dy;if(d<motorcycleDistance){motorcycleDistance=d;nearestMotorcycle=motorcycle;}}
+    if(nearestMotorcycle){this.pickupText.setText('E  오토바이 탑승').setVisible(true);return;}
+    let nearest:any;let best=105*105;
+    for(const l of s.loot){if(l.pickupLockedForPlayerId===me.id&&Number(s.serverTime||0)<Number(l.pickupLockedUntil||0))continue;if(!spaceInteractionAllowed(me,l,this.mapConfig.portals))continue;const dx=l.x-me.x,dy=l.y-me.y,d=dx*dx+dy*dy;if(d<best){best=d;nearest=l;}}
+    if(!nearest){this.pickupText.setVisible(false);return;}
+    const kind=nearest.kind as LootKind;
+    const label=LOOT_LABELS[kind]??kind;
+    const magazine=kind in WEAPONS&&kind!=='fists'&&Number(nearest.weaponMagazine)>=0?` · 탄창 ${Number(nearest.weaponMagazine)}`:'';
+    const lines=[`E  획득 · ${label}${magazine}`,...this.itemComparison(me,kind)];
+    this.pickupText.setText(lines.join('\n')).setVisible(true);
+  }
+
+  private itemComparison(me:any,kind:LootKind){
+    if(isThrowableType(kind)){const current=isThrowableType(me.throwableType)?LOOT_LABELS[me.throwableType as LootKind]:'없음';return[me.throwableType===kind?`같은 종류 · ${Math.min(3,Number(me.throwableCount||0)+1)}/3`:`현재 투척물: ${current} · 교체`];}
+    if(kind in WEAPONS&&kind!=='fists'){
+      const incoming=WEAPONS[kind as WeaponId]!;
+      const currentId=!me.primary?'':!me.secondary?'':me.equipped===me.primary?me.primary:me.equipped===me.secondary?me.secondary:incoming.slot==='primary'?me.primary:me.secondary;
+      if(!currentId)return['추천 · 빈 슬롯'];
+      if(currentId===kind)return['보유 중'];
+      const current=WEAPONS[currentId as WeaponId];
+      if(!current)return['추천'];
+      const arrows=(a:number,b:number,reverse=false)=>{
+        const better=reverse?a<b:a>b;const equal=Math.abs(a-b)<.001;return equal?'＝':better?'↑':'↓';
+      };
+      const power=`화력 ${arrows(incoming.damage*incoming.pellets,current.damage*current.pellets)}`;
+      const range=`사거리 ${arrows(incoming.range,current.range)}`;
+      const fire=`연사력 ${arrows(incoming.fireInterval,current.fireInterval,true)}`;
+      const score=incoming.damage*incoming.pellets+incoming.range*.025+1/incoming.fireInterval*3;
+      const oldScore=current.damage*current.pellets+current.range*.025+1/current.fireInterval*3;
+      return[`${score>oldScore*1.08?'추천 · ':''}현재: ${current.name}`,`${power}  ${range}  ${fire}`];
+    }
+    if(kind in MELEE_WEAPONS){
+      const current=me.melee&&me.melee!=='fists'?MELEE_WEAPONS[me.melee as MeleeId]:undefined;
+      if(!current)return['추천 · 현재: 주먹'];
+      if(me.melee===kind)return['보유 중'];
+      const incoming=MELEE_WEAPONS[kind as MeleeId]!;
+      return[`현재: ${current.name}`,`화력 ${incoming.damage>current.damage?'↑':'↓'}  사거리 ${incoming.range>current.range?'↑':'↓'}  속도 ${incoming.fireInterval<current.fireInterval?'↑':'↓'}`];
+    }
+    if(kind==='vest')return[me.armor>0?`현재 조끼 ${Math.ceil(me.armor)}%`:'추천 · 조끼 없음'];
+    if(kind==='bandage')return[`현재 보유 ${me.bandages??0}개`];
+    if(kind==='medkit')return[`현재 보유 ${me.medkits??0}개`];
+    if(kind==='pistol_ammo')return[`권총탄 보유 ${me.pistolAmmo??0}발`];
+    if(kind==='standard_ammo')return[`일반 총알 보유 ${me.standardAmmo??0}발`];
+    if(kind==='shotgun_ammo')return[`샷건탄 보유 ${me.shotgunAmmo??0}발`];
+    if(kind==='rocket_ammo')return[`로켓탄 보유 ${me.rocketAmmo??0}발`];
+    return[];
+  }
+
+  private drawMotorcycle(g:Phaser.GameObjects.Graphics,motorcycle:any,point:{x:number;y:number;rotation:number},time:number,serverTime:number){
+    const x=point.x,y=point.y,rotation=point.rotation,occupied=Boolean(motorcycle.driverId);
+    const pointAt=(forward:number,side:number)=>({x:x+Math.cos(rotation)*forward-Math.sin(rotation)*side,y:y+Math.sin(rotation)*forward+Math.cos(rotation)*side});
+    const flash=motorcycle.exploding&&Math.floor(time/110)%2===0;
+    const alpha=motorcycle.destroyed?clamp(1-(serverTime-Number(motorcycle.destroyedAt||serverTime))/(MOTORCYCLE_DESTRUCTION_BALANCE.destroyedFadeMs/1000),0,1):1;
+    const rear=pointAt(-19,0),front=pointAt(22,0),bodyA=pointAt(-10,-7),bodyB=pointAt(13,7),handleA=pointAt(13,-13),handleB=pointAt(13,13);
+    g.lineStyle(8,0x171b20,alpha).lineBetween(rear.x,rear.y,front.x,front.y);
+    g.fillStyle(0x0d1115,alpha).fillCircle(rear.x,rear.y,10).fillCircle(front.x,front.y,10);
+    g.lineStyle(4,0x8897a2,alpha).lineBetween(bodyA.x,bodyA.y,bodyB.x,bodyB.y);
+    g.lineStyle(3,0xbcc8ce,alpha).lineBetween(handleA.x,handleA.y,handleB.x,handleB.y);
+    const center=pointAt(0,0);g.fillStyle(flash?0xfff1a6:occupied?0xffc247:0xe34b4f,alpha).fillRoundedRect(center.x-15,center.y-8,30,16,5);
+    const light=pointAt(29,0);g.fillStyle(0xfff0a6,.95*alpha).fillCircle(light.x,light.y,4);
+    const hp=Math.max(0,Number(motorcycle.hp??0)),maxHp=Math.max(1,Number(motorcycle.maxHp??180)),ratio=clamp(hp/maxHp,0,1);
+    const recentlyDamaged=serverTime-Number(motorcycle.lastDamagedAt||-99)<1.8;
+    if(recentlyDamaged||motorcycle.critical||motorcycle.exploding){
+      g.fillStyle(0x071018,.88*alpha).fillRoundedRect(x-27,y-38,54,7,3);
+      g.fillStyle(ratio<=.3?0xff6f77:ratio<=.6?0xffc247:0x5fe29a,.95*alpha).fillRoundedRect(x-25,y-36,50*ratio,3,2);
+    }
+    if(motorcycle.exploding){
+      const remaining=Math.max(0,Number(motorcycle.explosionAt||serverTime)-serverTime);
+      const urgency=clamp(1-remaining/(MOTORCYCLE_DESTRUCTION_BALANCE.explosionFuseMs/1000),0,1);
+      g.lineStyle(2,0xff6f55,(.10+urgency*.24)*alpha).strokeCircle(x,y,MOTORCYCLE_DESTRUCTION_BALANCE.explosionRadius);
+    }
+    if(motorcycle.critical||motorcycle.exploding){
+      const pulse=.35+.25*Math.sin(time*.012);
+      g.fillStyle(0x4d5559,pulse*alpha).fillCircle(x-8,y-22,7).fillCircle(x+2,y-29,9).fillCircle(x+9,y-38,6);
+    }
+  }
+
+  private drawExplosion(g:Phaser.GameObjects.Graphics,explosion:any,serverTime:number){
+    const duration=Math.max(.1,Number(explosion.duration||.8)),progress=clamp((serverTime-Number(explosion.startedAt||serverTime))/duration,0,1),radius=Number(explosion.radius||150);
+    const wave=radius*(.18+.82*progress),alpha=1-progress;
+    g.fillStyle(0xffa338,.34*alpha).fillCircle(explosion.x,explosion.y,wave*.7);
+    g.lineStyle(7,0xffe28a,.85*alpha).strokeCircle(explosion.x,explosion.y,wave);
+    g.lineStyle(3,0xff7048,.55*alpha).strokeCircle(explosion.x,explosion.y,wave*.72);
+    for(let index=0;index<6;index++){const angle=index/6*Math.PI*2+progress;const distanceOut=wave*(.35+(index%3)*.14);g.fillStyle(index%2?0xffd066:0xff6c3d,.72*alpha).fillCircle(explosion.x+Math.cos(angle)*distanceOut,explosion.y+Math.sin(angle)*distanceOut,8+index%3*3);}
+  }
+
+  private receiveAudioEvent(payload:AudioEventMessage){
+    const type=String(payload?.type??''),local=payload.sourceId===this.net.sessionId,eventId=String(payload.id??'');
+    const localMap:Record<string,SoundId>={weapon_dry_fire:'weapon_dry_fire',reload_start:'reload_start',reload_complete:'reload_complete',heal_start:'heal_start',heal_complete:'heal_complete',hit_confirm:'hit_confirm',kill_confirm:'kill_confirm',throwable_select:'throwable_select',throwable_prepare:'throwable_prepare',throwable_pickup:'throwable_pickup',throwable_swap:'throwable_swap'};
+    if(type==='weapon_fire'){
+      const sound=soundIdForWeapon(String(payload.variant??''));if(!sound)return;
+      if(local)audio.playLocal(sound,1,eventId);else this.playWorldAudio(sound,payload,undefined,eventId);return;
+    }
+    const localSound=localMap[type];if(localSound&&local){audio.playLocal(localSound,1,eventId);return;}
+    const worldMap:Record<string,SoundId>={reload_start:'reload_start',reload_complete:'reload_complete',heal_start:'heal_start',heal_complete:'heal_complete',impact_wall:'impact_wall',impact_ground:'impact_ground',impact_frame:'impact_frame',impact_vehicle:'impact_vehicle',impact_player:'impact_player',motorcycle_collision:'motorcycle_collision',motorcycle_hit:'motorcycle_hit',motorcycle_critical:'motorcycle_critical',throwable_throw:'throwable_throw',throwable_bounce:'throwable_bounce',frag_explosion:'frag_explosion',bazooka_explosion:'bazooka_explosion',smoke_deploy:'smoke_deploy',fire_ignite:'fire_ignite',water_enter:'water_enter',water_exit:'water_exit',water_steam:'water_steam',water_extinguish:'water_extinguish',supply_incoming:'supply_incoming',supply_land:'supply_land',supply_open:'supply_open'};
+    const worldSound=worldMap[type];if(worldSound)this.playWorldAudio(worldSound,payload,undefined,eventId);
+  }
+
+  private playWorldAudio(soundId:SoundId,payload:{x?:number;y?:number;buildingId?:string;sourceId?:string;id?:string},maxDistance?:number,eventId=''){
+    const x=Number(payload.x),y=Number(payload.y),viewer=this.viewerPlayer;
+    if(!Number.isFinite(x)||!Number.isFinite(y)||!viewer)return;
+    const sourceBuilding=String(payload.buildingId??buildingIdAt(x,y,0,this.mapConfig.buildingVisibilityZones));
+    const occlusion=soundOcclusionBetween({x,y,buildingId:sourceBuilding},{x:viewer.x,y:viewer.y,buildingId:viewer.buildingId},this.mapConfig.visibilityObstacles,this.mapConfig.buildingVisibilityZones,1);
+    audio.playWorld(soundId,{x,y,maxDistance,sourceId:payload.sourceId,eventId:eventId||String(payload.id??''),occlusion});
+  }
+
+  private updateAudioState(s:any,time:number){
+    const viewer=this.viewerPlayer;if(viewer)audio.setListenerPosition(Number(viewer.x),Number(viewer.y));
+    if(s.phase!==this.lastPhase){if(this.lastPhase&&s.phase==='PLANE')audio.playLocal('match_start');this.lastPhase=s.phase;}
+    this.updateMovementAudio(s,time);this.updateVehicleAudio(s,time);this.updateZoneAudio(s,time);
+  }
+
+  private updateMovementAudio(s:any,time:number){
+    const active=new Set<string>();
+    for(const p of s.players){
+      active.add(p.id);const position=this.framePositions.get(p.id)??{x:Number(p.x),y:Number(p.y),angle:Number(p.angle)};
+      const state=this.movementAudio.get(p.id)??{x:position.x,y:position.y,distance:0,lastStepAt:0,lastBushAt:0,vaulting:Boolean(p.isVaulting)};
+      const moved=Math.hypot(position.x-state.x,position.y-state.y);state.x=position.x;state.y=position.y;
+      if(p.alive&&p.phase==='landed'&&!p.isDriving&&!p.isVaulting&&moved<80)state.distance+=moved;else if(!p.isVaulting)state.distance=0;
+      if(Boolean(p.isVaulting)!==state.vaulting){
+        const vaulting=Boolean(p.isVaulting);
+        if(vaulting){if(p.id===this.net.sessionId)audio.playLocal('window_vault_start');else this.playWorldAudio('window_vault_start',{x:position.x,y:position.y,buildingId:p.buildingId,sourceId:p.id});}
+        else if(state.vaulting){if(p.id===this.net.sessionId)audio.playLocal('window_vault_land');else this.playWorldAudio('window_vault_land',{x:position.x,y:position.y,buildingId:p.buildingId,sourceId:p.id});}
+        state.vaulting=Boolean(p.isVaulting);
+      }
+      const threshold=64;if(state.distance>=threshold&&time-state.lastStepAt>180){
+        state.distance=0;state.lastStepAt=time;const foot=String(p.buildingId??'')?'footstep_indoor':'footstep_outdoor';
+        if(p.id===this.net.sessionId)audio.playLocal(foot,.70);else this.playWorldAudio(foot,{x:position.x,y:position.y,buildingId:p.buildingId,sourceId:p.id});
+        if(p.inBush&&time-state.lastBushAt>220){state.lastBushAt=time;if(p.id===this.net.sessionId)audio.playLocal('bush_move',.72);else this.playWorldAudio('bush_move',{x:position.x,y:position.y,buildingId:p.buildingId,sourceId:p.id});}
+      }
+      this.movementAudio.set(p.id,state);
+    }
+    for(const id of this.movementAudio.keys())if(!active.has(id))this.movementAudio.delete(id);
+  }
+
+  private updateVehicleAudio(s:any,time:number){
+    const active=new Set<string>();
+    for(const motorcycle of s.motorcycles??[]){
+      if(motorcycle.destroyed)continue;active.add(motorcycle.id);
+      const shown=this.displayMotorcycles.get(motorcycle.id)??motorcycle;
+      const speedRatio=clamp(Math.abs(Number(shown.speed??motorcycle.speed??0))/MOTORCYCLE_MAX_SPEED,0,1);
+      const source={x:Number(shown.x),y:Number(shown.y),buildingId:String(motorcycle.buildingId??''),sourceId:String(motorcycle.id)};
+      let handle=this.vehicleAudioLoops.get(motorcycle.id);
+      if(!handle&&audio.isUnlocked()){handle=audio.startLoop(speedRatio<.03?'motorcycle_idle':'motorcycle_engine',{...source,pitch:.72+speedRatio*.76,volume:.22+speedRatio*.66,maxDistance:1100,occlusion:this.audioOcclusion(source)});if(handle)this.vehicleAudioLoops.set(motorcycle.id,handle);}
+      if(handle)audio.updateLoop(handle,{...source,pitch:.72+speedRatio*.76,volume:.22+speedRatio*.66,maxDistance:1100,occlusion:this.audioOcclusion(source)});
+      const previous=this.vehicleAudioState.get(motorcycle.id);
+      if(previous&&previous.driverId!==motorcycle.driverId&&motorcycle.driverId===this.net.sessionId)audio.playLocal('motorcycle_mount');
+      if(motorcycle.exploding&&time-(this.vehicleWarningAt.get(motorcycle.id)??0)>(Number(motorcycle.explosionAt??0)-Number(s.serverTime??0)<.3?105:210)){this.vehicleWarningAt.set(motorcycle.id,time);this.playWorldAudio('motorcycle_warning',source,1000);}
+      this.vehicleAudioState.set(motorcycle.id,{hp:Number(motorcycle.hp),critical:Boolean(motorcycle.critical),exploding:Boolean(motorcycle.exploding),driverId:String(motorcycle.driverId??'')});
+    }
+    for(const [id,handle] of this.vehicleAudioLoops)if(!active.has(id)){audio.stopLoop(handle,120);this.vehicleAudioLoops.delete(id);this.vehicleAudioState.delete(id);this.vehicleWarningAt.delete(id);}
+  }
+
+  private audioOcclusion(source:{x:number;y:number;buildingId?:string}){
+    const viewer=this.viewerPlayer;if(!viewer)return'direct' as const;
+    return soundOcclusionBetween(source,{x:viewer.x,y:viewer.y,buildingId:viewer.buildingId},this.mapConfig.visibilityObstacles,this.mapConfig.buildingVisibilityZones,1);
+  }
+
+  private updateZoneAudio(s:any,time:number){
+    const me=this.local();if(!me)return;
+    const zoneState=String(s.zoneState??'');if(zoneState!==this.lastZoneState){if(this.lastZoneState&&zoneState==='SHRINKING')audio.playLocal('zone_start');if(zoneState==='ANNOUNCING')audio.playLocal('zone_warning');if(zoneState==='FINAL')audio.playLocal('zone_final');this.lastZoneState=zoneState;this.zoneWarningStage='';}
+    if(zoneState==='WAITING'||zoneState==='ANNOUNCING'){
+      const timer=Math.ceil(Number(s.zoneTimer??0)),stage=timer<=3?'3':timer<=10?'10':'';
+      if(stage&&stage!==this.zoneWarningStage){this.zoneWarningStage=stage;audio.playLocal('zone_warning');}
+    }
+    const hp=Number(me.hp??0);if(hp<=25&&hp>0&&time-this.lastLowHealthAt>1400){this.lastLowHealthAt=time;audio.playLocal('low_health');}
+  }
+
+  private drawTransportPlane(g:Phaser.GameObjects.Graphics,x:number,y:number,angle:number,scale:number,layer:'shadow'|'body'='body'){
+    const point=(forward:number,side:number,offsetX=0,offsetY=0)=>({x:x+offsetX+Math.cos(angle)*forward*scale-Math.sin(angle)*side*scale,y:y+offsetY+Math.sin(angle)*forward*scale+Math.cos(angle)*side*scale});
+    const polygon=(points:Array<[number,number]>,color:number,alpha=1,ox=0,oy=0)=>g.fillStyle(color,alpha).fillPoints(points.map(([f,s])=>{const p=point(f,s,ox,oy);return new Phaser.Math.Vector2(p.x,p.y);}),true);
+    if(layer==='shadow'){
+      polygon([[128,0],[72,-24],[20,-30],[-48,-28],[-118,-12],[-132,0],[-118,12],[-48,28],[20,30],[72,24]],0x000000,.24,12,14);
+      return;
+    }
+    polygon([[132,0],[76,-18],[30,-22],[-82,-19],[-126,-8],[-138,0],[-126,8],[-82,19],[30,22],[76,18]],0xc6d0d5,1);
+    polygon([[38,-18],[-22,-92],[-62,-92],[-40,-17],[-40,17],[-62,92],[-22,92],[38,18]],0xaebac1,1);
+    polygon([[-76,-17],[-112,-50],[-132,-48],[-119,-10],[-119,10],[-132,48],[-112,50],[-76,17]],0x8f9da5,1);
+    const nose=point(118,0);g.fillStyle(0xe5edf0).fillCircle(nose.x,nose.y,16*scale);
+    for(const side of [-52,52]){const engine=point(2,side);g.fillStyle(0x4a5962).fillEllipse(engine.x,engine.y,34*scale,17*scale);}
+    const left=point(-24,-88),right=point(-24,88);g.fillStyle(0xff4d55,.72+.28*Math.sin(this.time.now*.012)).fillCircle(left.x,left.y,5*scale);g.fillStyle(0x5bff91,.72+.28*Math.sin(this.time.now*.012+Math.PI)).fillCircle(right.x,right.y,5*scale);
+  }
+
+  private updatePerfText(s:any){
+    const players=s.players.length,ai=s.players.filter((p:any)=>p.ai).length;
+    this.perfText.setText([
+      `F3 성능  FPS ${Math.round(this.game.loop.actualFps)}  RTT ${Math.round(this.net.rtt)}ms`,
+      `패치 ${this.net.patchInterval.toFixed(1)}ms  수신 ${(this.net.incomingBytesPerSecond/1024).toFixed(1)}KB/s`,
+      `서버 tick 평균 ${Number(s.serverTickAvg||0).toFixed(1)}  p95 ${Number(s.serverTickP95||0).toFixed(1)}  max ${Number(s.serverTickMax||0).toFixed(1)}ms`,
+      `AI ${Number(s.serverAiMs||0).toFixed(1)}  충돌 ${Number(s.serverCollisionMs||0).toFixed(1)}  차량 ${Number(s.serverVehicleMs||0).toFixed(1)}  자기장 ${Number(s.serverZoneMs||0).toFixed(1)}ms`,
+      `맵 ${this.mapConfig.displayName} ${this.mapConfig.width}×${this.mapConfig.height}`,
+      `플레이어 ${players} / AI ${ai} / 오토바이 ${(s.motorcycles??[]).length} / 총알 ${s.bullets.length}/${Number(s.activeBulletLimit||0)} · 로켓 ${(s.rockets??[]).length} / 아이템 ${s.loot.length}`,
+      `차량 복구 ${Number(s.vehicleRecoveryCount||0)} / 플레이어 복구 ${Number(s.recoveryCount||0)}`, 
+      `보간 버퍼 ${this.remoteBuffers.size} / 스냅 ${this.snapCorrections} / 누락 ${this.bufferMisses}`,
+    ].join('\n'));
+  }
+
+  private getDisplayPlayer(id:string,x:number,y:number,alpha:number){
+    const current=this.displayPlayers.get(id)??{x,y};
+    current.x=Phaser.Math.Linear(current.x,x,alpha);
+    current.y=Phaser.Math.Linear(current.y,y,alpha);
+    this.displayPlayers.set(id,current);
+    return current;
+  }
+
+  private getDisplayBullet(id:string,x:number,y:number){
+    const current=this.displayBullets.get(id)??{x,y};
+    current.x=Phaser.Math.Linear(current.x,x,.55);
+    current.y=Phaser.Math.Linear(current.y,y,.55);
+    this.displayBullets.set(id,current);
+    return current;
+  }
+
+  private drawMini(s:any){
+    const g=this.mini;
+    g.clear();
+    if(this.scopeRequested){this.miniLabel?.setVisible(false);return;}
+    const w=this.mapOpen?420:160,h=this.mapOpen?420:160,x=this.scale.width-w-14,y=this.mapOpen?70:82,sc=w/this.mapConfig.width;
+    g.fillStyle(0x061018,.92).fillRoundedRect(x,y,w,h,12);
+    g.lineStyle(2,0xffffff,.18).strokeRoundedRect(x,y,w,h,12);
+    for(const r of this.mapConfig.regions)g.fillStyle(REGION_THEMES[r.id].ground,.62).fillRect(x+r.x*sc,y+r.y*sc,r.w*sc,r.h*sc);
+    for(const river of this.mapConfig.rivers)for(let index=0;index<river.points.length-1;index++){
+      const a=river.points[index]!,b=river.points[index+1]!,width=((river.widths[index]??760)+(river.widths[index+1]??river.widths[index]??760))/2;
+      const stroke=Math.max(2,width*sc);
+      g.lineStyle(stroke,0x2b82a8,.82).lineBetween(x+a.x*sc,y+a.y*sc,x+b.x*sc,y+b.y*sc);
+      if(this.mapConfig.id==='dock8')g.fillStyle(0x2b82a8,.82).fillCircle(x+a.x*sc,y+a.y*sc,stroke/2).fillCircle(x+b.x*sc,y+b.y*sc,stroke/2);
+    }
+    for(const crossing of this.mapConfig.landCrossings)g.fillStyle(crossing.kind==='ford'?0x7c9276:0x77736d,.95).fillRect(x+crossing.rect.x*sc,y+crossing.rect.y*sc,Math.max(1,crossing.rect.w*sc),Math.max(1,crossing.rect.h*sc));
+    for(const exit of this.mapConfig.shoreExits)g.fillStyle(0xcfe4a8,.7).fillCircle(x+exit.landingPoint.x*sc,y+exit.landingPoint.y*sc,Math.max(1.2,4*sc));
+    for(const b of this.mapConfig.buildings)g.fillStyle(REGION_THEMES[b.regionId].roof,.68).fillRect(x+b.x*sc,y+b.y*sc,Math.max(1,b.w*sc),Math.max(1,b.h*sc));
+    for(const bush of this.mapConfig.bushes)g.fillStyle(0x3f8c4c,.42).fillCircle(x+bush.x*sc,y+bush.y*sc,Math.max(1.5,bush.radius*sc));
+    if(s.zoneActive)g.lineStyle(2,0x4db5ff,.95).strokeCircle(x+s.zoneX*sc,y+s.zoneY*sc,s.zoneRadius*sc);
+    if(s.zoneActive||s.zoneState==='ANNOUNCING')g.lineStyle(2,0xffffff,.72).strokeCircle(x+s.nextZoneX*sc,y+s.nextZoneY*sc,s.nextZoneRadius*sc);
+    if(['PLANE','DROP'].includes(s.phase)){
+      g.lineStyle(2,0xffffff,.35).lineBetween(x+s.planeStartX*sc,y+s.planeStartY*sc,x+s.planeEndX*sc,y+s.planeEndY*sc);
+      const px=x+s.planeX*sc,py=y+s.planeY*sc,a=s.planeAngle;
+      const f=(forward:number,side:number)=>({x:px+Math.cos(a)*forward-Math.sin(a)*side,y:py+Math.sin(a)*forward+Math.cos(a)*side});
+      const nose=f(9,0),tail=f(-8,0),wl=f(0,-8),wr=f(0,8),tl=f(-6,-4),tr=f(-6,4);
+      g.lineStyle(3,0xe6edf0,1).lineBetween(tail.x,tail.y,nose.x,nose.y).lineBetween(wl.x,wl.y,wr.x,wr.y).lineBetween(tl.x,tl.y,tr.x,tr.y);
+      g.fillStyle(0xe6edf0).fillCircle(nose.x,nose.y,2);
+    }
+    for(const drop of s.supplyDrops??[]){const sx=x+drop.x*sc,sy=y+drop.y*sc;g.fillStyle(drop.opened?0x8a725e:0xff5d45,.95).fillRect(sx-4,sy-4,8,8);g.lineStyle(1,0xffe8b0,.9).strokeRect(sx-5,sy-5,10,10);}
+    for(const p of s.players){
+      if(!p.alive)continue;
+      const visibility=this.getPlayerVisibility(p);
+      if(p.id!==this.net.sessionId&&!visibility.visibleOnMinimap)continue;
+      const position=this.framePositions.get(p.id)??{x:p.x,y:p.y};
+      const color=p.id===this.net.sessionId?0x54dcff:p.bushRevealed?0xff424f:0xff686e;
+      g.fillStyle(color).fillCircle(x+position.x*sc,y+position.y*sc,p.id===this.net.sessionId?5:3);
+    }
+    const direction=zoneDirection(s.nextZoneX-s.zoneX,s.nextZoneY-s.zoneY);
+    const zoneLabel=s.zoneState==='FREE'
+      ?`안전구역 생성까지 · ${Math.max(0,Math.ceil(s.zoneTimer))}초`
+      :s.zoneState==='ANNOUNCING'
+        ?`첫 안전구역 예고 · ${Math.max(0,Math.ceil(s.zoneTimer))}초`
+        :`다음 원 ${direction} · ${Math.max(0,Math.ceil(s.zoneTimer))}초`;
+    g.fillStyle(0x061018,.82).fillRoundedRect(x,y+h+6,w,22,7);
+    this.addOrUpdateMiniLabel(x+w/2,y+h+17,zoneLabel);
+  }
+
+  private miniLabel?:Phaser.GameObjects.Text;
+  private addOrUpdateMiniLabel(x:number,y:number,text:string){
+    if(!this.miniLabel)this.miniLabel=this.add.text(x,y,text,{fontFamily:'sans-serif',fontSize:'11px',fontStyle:'bold',color:'#e7f2f7'}).setOrigin(.5).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+1);
+    this.miniLabel.setPosition(x,y).setText(text).setVisible(true);
+  }
+
+}

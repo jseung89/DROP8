@@ -1,0 +1,15 @@
+﻿Legend: production dependency, optional only, dev only
+
+@drop8/client@0.2.0 C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\client (PRIVATE)
+????  dependencies:
+?붴?? @colyseus/sdk@0.17.43
+
+@drop8/server@0.2.0 C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\server (PRIVATE)
+????  dependencies:
+?쒋?? @colyseus/core@0.17.43
+?쒋?? @colyseus/schema@4.0.26
+????  devDependencies:
+?붴?? @colyseus/sdk@0.17.43
+
+4 packages in 4 projects
+

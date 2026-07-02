@@ -1,0 +1,150 @@
+
+### TypeScript typecheck
+> pnpm run typecheck
+exit=0
+
+$ pnpm --filter @drop8/shared typecheck && pnpm --filter @drop8/shared build && pnpm --filter @drop8/client typecheck && pnpm --filter @drop8/server typecheck
+$ tsc -p tsconfig.json --noEmit
+$ tsc -p tsconfig.json
+$ tsc --noEmit
+$ tsc -p tsconfig.json --noEmit
+
+
+### ESLint
+> pnpm run lint
+exit=0
+
+$ eslint --config eslint.config.ts shared/src shared/tests client/src server/src server/tests
+
+
+### 공용 신규·영향 테스트
+> pnpm --filter @drop8/shared exec vitest run tests/refactor017-adhesive-status.test.ts tests/refactor017-strip-trap-geometry.test.ts tests/rules.test.ts --reporter=verbose
+exit=1
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/shared[39m
+
+ [32m✓[39m tests/refactor017-strip-trap-geometry.test.ts[2m > [22mRefactor 017 strip trap geometry[2m > [22mtriggers a motorcycle-sized circle crossing the low strip[32m 2[2mms[22m[39m
+ [32m✓[39m tests/refactor017-strip-trap-geometry.test.ts[2m > [22mRefactor 017 strip trap geometry[2m > [22mrejects overlapping traps but allows separated placements[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor017-adhesive-status.test.ts[2m > [22mRefactor 017 adhesive and vehicle status rules[2m > [22muses the strongest active multiplier instead of multiplying effects[32m 2[2mms[22m[39m
+ [32m✓[39m tests/refactor017-adhesive-status.test.ts[2m > [22mRefactor 017 adhesive and vehicle status rules[2m > [22mdrops expired effects and restores exact neutral multipliers[32m 1[2mms[22m[39m
+ [32m✓[39m tests/refactor017-adhesive-status.test.ts[2m > [22mRefactor 017 adhesive and vehicle status rules[2m > [22mnormalizes adhesive charge aliases without changing existing ammunition mappings[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor017-adhesive-status.test.ts[2m > [22mRefactor 017 adhesive and vehicle status rules[2m > [22muses a wider server-authoritative short-range cone[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mshared rules[2m > [22mcreates a readable six-character room code[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mshared rules[2m > [22mremoves angle brackets and control characters from chat[32m 0[2mms[22m[39m
+ [31m×[39m tests/rules.test.ts[2m > [22mshared rules[2m > [22mcontains fists and six firearms including sniper and bazooka[32m 10[2mms[22m[39m
+[31m   → expected [ 'fists', 'pistol', 'smg', …(6) ] to deeply equal [ 'fists', 'pistol', 'smg', …(5) ][39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mshared rules[2m > [22mnormalizes diagonal motorcycle movement without changing a cardinal direction[32m 1[2mms[22m[39m
+ [31m×[39m tests/rules.test.ts[2m > [22mshared rules[2m > [22muses four pickup ammo types and keeps rockets separate[32m 1[2mms[22m[39m
+[31m   → expected [ Array(6) ] to deeply equal [ 'fuel_ammo', 'pistol_ammo', …(3) ][39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mshared rules[2m > [22mkeeps motorcycle performance unchanged and leaves about 5-6 percent hp after a direct bazooka hit[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mregional loot tables[2m > [22mmakes hospital recovery items more common than firearms[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mregional loot tables[2m > [22mgives military and warehouse their intended specialties[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mregional loot tables[2m > [22mmakes forest camp favor healing and melee tools[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 004B world identity[2m > [22mdefines a distinct visual theme and decorations for every named region[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 004B world identity[2m > [22mplaces most bushes in forest camp without blocking walls or building doors[32m 12[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 004C collision clearance[2m > [22mkeeps every building doorway comfortably wider than a player diameter[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 005 world and route rules[2m > [22mturns visible field props into collision geometry while leaving decorative markers passable[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 005 world and route rules[2m > [22mcreates long randomized plane routes that cross the map[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 005 world and route rules[2m > [22mkeeps every randomized next zone fully inside the current zone[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 005B building visibility rules[2m > [22massigns stable building ids to interior coordinates[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 005B building visibility rules[2m > [22mshows the same space and only connects indoor/outdoor players near the same door[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 006 map and projectile rules[2m > [22mdefines distinct small and large map configs[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 006 map and projectile rules[2m > [22mgives the sniper a much faster but non-penetrating projectile[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 006 map and projectile rules[2m > [22mfinds the first intersection of a fast bullet segment and a circular hitbox[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 007 motorcycle and scope rules[2m > [22madds motorcycles to both map sizes[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 007 motorcycle and scope rules[2m > [22mincreases weapon spread with motorcycle speed and turning[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 007 motorcycle and scope rules[2m > [22mapplies no low-speed impact damage and caps high-speed damage below instant kill[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 008 combat and vehicle balance rules[2m > [22mnormalizes finite aim vectors and rejects unusable input[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 008 combat and vehicle balance rules[2m > [22muses a human-speed launch and reaches 1.85x speed after 2.4 seconds[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 008 combat and vehicle balance rules[2m > [22mloses progressively more speed during sharp direction changes[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 008 combat and vehicle balance rules[2m > [22maccepts only targets in the forward sniper corridor and range[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 008 combat and vehicle balance rules[2m > [22msteps vehicle shooting spread from stable to heavily inaccurate[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 009 window transit rules[2m > [22mcreates deterministic windows for every building without overlapping its door center[32m 2[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 009 window transit rules[2m > [22mkeeps window openings solid for movement but open for bullets and visibility[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 009 window transit rules[2m > [22mallows sight through a window but never cross-window item interaction[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22mlimits window sight to a local expanding portal instead of an endless strip[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22mbuilds a widening trapezoid and rejects targets outside its lateral edge[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22mactivates only an aimed nearby window and drops it outside the proximity limit[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22mselects one nearby aimed door or window as a unified portal[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22mrequires door proximity and limits door sight to a local portal volume[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22mblocks every cross-space portal when no nearby portal is selected[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22msamples the target center and both sides for partial window exposure[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22mapplies weapon-specific motorcycle projectile damage and shotgun cap inputs[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22mdamages motorcycles only on meaningful wall or player impacts[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22mmakes the motorcycle blast near-lethal at the center and falls off by distance[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010 window combat and vehicle destruction rules[2m > [22mblocks explosions with solid walls and reduces pressure through windows[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010D angle-aware portal visibility rules[2m > [22mchanges the portal frustum continuously from left through center to right[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010D angle-aware portal visibility rules[2m > [22msmoothly attenuates front, side, peripheral, and out-of-view aim[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010D angle-aware portal visibility rules[2m > [22mcaps the near-door and near-window render angles[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010D angle-aware portal visibility rules[2m > [22muses aim attenuation for actual cross-space visibility without changing bullet geometry[32m 1[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 010D angle-aware portal visibility rules[2m > [22mretains the current portal for peripheral fade but lets a newly aimed portal win[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 011 audio rules[2m > [22mnormalizes audio settings and category gain[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 011 audio rules[2m > [22mattenuates distance and pans safely[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 011 audio rules[2m > [22mexposes stable occlusion profiles[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 011 audio rules[2m > [22mclassifies direct and solid sound paths[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 015A supply and flamethrower shared rules[2m > [22mdefines supply-only flamethrower fuel and stable balance constants[32m 0[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts[2m > [22mRefactor 015A supply and flamethrower shared rules[2m > [22muses a directional short-range cone[32m 0[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m2 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m57 passed[39m[22m[90m (59)[39m
+[2m   Start at [22m 12:15:33
+[2m   Duration [22m 551ms[2m (transform 528ms, setup 0ms, import 773ms, tests 57ms, environment 0ms)[22m
+
+undefined
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\shared:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run tests/refactor017-adhesive-status.test.ts tests/refactor017-strip-trap-geometry.test.ts tests/rules.test.ts "--reporter=verbose"
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 2 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/rules.test.ts[2m > [22mshared rules[2m > [22mcontains fists and six firearms including sniper and bazooka
+[31m[1mAssertionError[22m: expected [ 'fists', 'pistol', 'smg', …(6) ] to deeply equal [ 'fists', 'pistol', 'smg', …(5) ][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[33m@@ -5,6 +5,7 @@[39m
+[2m    "rifle",[22m
+[2m    "shotgun",[22m
+[2m    "sniper",[22m
+[2m    "bazooka",[22m
+[2m    "flamethrower",[22m
+[31m+   "adhesive_sprayer",[39m
+[2m  ][22m
+
+[36m [2m❯[22m tests/rules.test.ts:[2m14:34[22m[39m
+    [90m 12|[39m
+    [90m 13|[39m   it('contains fists and six firearms including sniper and bazooka', (…
+    [90m 14|[39m     expect(Object.keys(WEAPONS)).toEqual(['fists', 'pistol', 'smg', 'r…
+    [90m   |[39m                                  [31m^[39m
+    [90m 15|[39m   })[33m;[39m
+    [90m 16|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m tests/rules.test.ts[2m > [22mshared rules[2m > [22muses four pickup ammo types and keeps rockets separate
+[31m[1mAssertionError[22m: expected [ Array(6) ] to deeply equal [ 'fuel_ammo', 'pistol_ammo', …(3) ][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[33m@@ -1,6 +1,7 @@[39m
+[2m  [[22m
+[31m+   "adhesive_charge",[39m
+[2m    "fuel_ammo",[22m
+[2m    "pistol_ammo",[22m
+[2m    "rocket_ammo",[22m
+[2m    "shotgun_ammo",[22m
+[2m    "standard_ammo",[22m
+
+[36m [2m❯[22m tests/rules.test.ts:[2m26:52[22m[39m
+    [90m 24|[39m   })[33m;[39m
+    [90m 25|[39m   [34mit[39m([32m'uses four pickup ammo types and keeps rockets separate'[39m[33m,[39m () [33m=>[39m {
+    [90m 26|[39m     expect(Object.keys(AMMO_DISPLAY_NAMES).sort()).toEqual(['fuel_ammo…
+    [90m   |[39m                                                    [31m^[39m
+    [90m 27|[39m     [34mexpect[39m([33mWEAPONS[39m[33m.[39mpistol[33m.[39mammoType)[33m.[39m[34mtoBe[39m([32m'pistol_ammo'[39m)[33m;[39m
+    [90m 28|[39m     [34mexpect[39m([33mWEAPONS[39m[33m.[39mshotgun[33m.[39mammoType)[33m.[39m[34mtoBe[39m([32m'shotgun_ammo'[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯[22m[39m
+
+

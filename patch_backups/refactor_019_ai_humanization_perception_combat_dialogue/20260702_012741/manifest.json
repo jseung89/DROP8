@@ -1,0 +1,128 @@
+{
+  "patchId": "DROP8 Refactor 019 AI Humanization FIXED v2",
+  "patchFile": "DROP8_refactor_019_ai_humanization_perception_combat_dialogue_patch_FIXED_v2.ts",
+  "createdAt": "2026-07-02T01:27:41.180Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "shared/src/index.ts",
+      "existed": true,
+      "beforeSha256": "e01231f83ee20256445cf54658782ac04cdf4eb39f4f68ae31e5bdda4f8dc6b8",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "shared/src/aiHumanization.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "26032fd1c6943b238c14625725ca18297d0285fb52ad3df6eaeedb69de7cdb61",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/aiHumanization.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true,
+      "beforeSha256": "dd380b1b4433a62692e9c47c1ee3800ccb9bc67f91aee5a4ab1e71b3ba57df9d",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "existed": true,
+      "beforeSha256": "23c6473e06c2c86a4fe9ca63569caa2be87f6304f01536835c55716c2538f090",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true,
+      "beforeSha256": "bd655ad3dfdc6e488ce7244d84e4f972f3085a631f3af00b35d7c72505b31bf2",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/style.css",
+      "existed": true,
+      "beforeSha256": "5feedb73e1bbda08e8edc5e75d960f854f11c7d6b458486814b865866cdc823a",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "ff92926bf67439c434f390c350b5404fdf7ff77fd5a9eb0e8b5bd3335ad85f52",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/TEST_PLAN.md",
+      "existed": true,
+      "beforeSha256": "cc942577cdc7d64a5f9fd5905f1498ce98b2f1399c801e689eec803bc6bc6588",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "shared/tests/refactor019-ai-humanization.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor019-ai-humanization.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/room.test.ts",
+      "existed": true,
+      "beforeSha256": "510e7136e395bf0cf1d8b58fbc806bbdfd3cdc5b7c4726226c855640fc64c922",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "shared/src/aiHumanization.ts",
+    "server/src/rooms/aiHumanization.ts",
+    "shared/tests/refactor019-ai-humanization.test.ts",
+    "server/tests/refactor019-ai-humanization.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ],
+  "balanceSnapshot": {
+    "shotgun": "shotgun:{ id:'shotgun', name:'샷건', damage:15, fireInterval:.72, magazine:5, reloadSeconds:2.0, spread:.18, projectileSpeed:860, range:440, pellets:8, moveMultiplier:.96, ammoType:'shotgun_ammo', slot:'primary' },",
+    "flamethrower": "flamethrower:{ id:'flamethrower', name:'화염방사기', damage:9, fireInterval:.10, magazine:100, reloadSeconds:4.5, spread:0, projectileSpeed:1, range:420, pellets:1, moveMultiplier:.88, ammoType:'fuel_ammo', slot:'primary' },",
+    "bazooka": "bazooka:{ id:'bazooka', name:'바주카포', damage:0, fireInterval:1.65, magazine:1, reloadSeconds:4.2, spread:.012, projectileSpeed:900, range:1250, pellets:1, moveMultiplier:.78, ammoType:'rocket_ammo', slot:'primary' },",
+    "motorcycle": "export const MOTORCYCLE_BALANCE = {",
+    "silver": "silver_crossbow:{ id:'silver_crossbow', name:'은화살 쇠뇌', damage:14, fireInterval:.42, magazine:4, reloadSeconds:1.35, spread:.16, projectileSpeed:2100, range:1050, pellets:5, moveMultiplier:.96, ammoType:'silver_bolt', slot:'primary' }",
+    "werewolf": "silverBoltDamage:20,silverBoltHumanDamage:14,silverSlowSeconds:2.5,silverSlowMultiplier:.55,",
+    "adhesive": "adhesive_sprayer:{ id:'adhesive_sprayer', name:'점착 분사기', damage:0, fireInterval:.10, magazine:80, reloadSeconds:3.8, spread:0, projectileSpeed:1, range:315, pellets:1, moveMultiplier:.92, ammoType:'adhesive_charge', slot:'primary' },"
+  }
+}

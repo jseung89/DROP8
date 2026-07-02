@@ -1,0 +1,176 @@
+{
+  "patchId": "DROP8 Refactor 018 Werewolf Season FIXED v1",
+  "patchFile": "DROP8_refactor_018_werewolf_season_patch_FIXED_v1.ts",
+  "createdAt": "2026-07-01T05:49:24.316Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "client/index.html",
+      "existed": true,
+      "beforeSha256": "cd0d756af39f42d334738f97593034f1477b6c2e71c0e703aa2e3c6a6d3af618",
+      "eol": "LF"
+    },
+    {
+      "path": "shared/src/index.ts",
+      "existed": true,
+      "beforeSha256": "8c51cb3a1f7974ede22ee89f4bf2850477e067335caa9ebc0a0115535253a305",
+      "eol": "LF"
+    },
+    {
+      "path": "shared/src/vehicleEffects.ts",
+      "existed": true,
+      "beforeSha256": "d1de8b8b3dc8c044d1a9907f2a8a12dd6b003bae570e4661aa2fb06930e202fa",
+      "eol": "LF"
+    },
+    {
+      "path": "shared/tests/rules.test.ts",
+      "existed": true,
+      "beforeSha256": "651fdd09efcd22a4617ce471b0b83e2e2c241d631c1d80e27112a36a9d7e0c25",
+      "eol": "LF"
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "0c015d137e57b43b08050db5a0df5e09fcd4216522f1c3cca6522770bc9007f6",
+      "eol": "LF"
+    },
+    {
+      "path": "server/src/rooms/schema.ts",
+      "existed": true,
+      "beforeSha256": "634792a3e5322f1ddd97748fa014a0e096d122f58509c63c32dae569536d2b6e",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "existed": true,
+      "beforeSha256": "bd5d4d8b589bbeafd8d6c384a00d1e35fdfc5de70f5546f94b1d4d57d36a991a",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true,
+      "beforeSha256": "c7fbc4b5258fd4a969cc894567e9cf54a579dafc30b0216e27723f4062e9445d",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true,
+      "beforeSha256": "e63b2377eb884697147bea53b70fc4cb3724ccf9e4e36a751ad17a6f53548025",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/style.css",
+      "existed": true,
+      "beforeSha256": "0232d3f17076690b5cbab4bcde5845a95bef406bfbfba58575d152ee50acbe80",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/audio/audioTypes.ts",
+      "existed": true,
+      "beforeSha256": "cffabfd3bc38addc65797f8fcab6f8edebb9d34e27f2395468282921035079a6",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/audio/SoundRegistry.ts",
+      "existed": true,
+      "beforeSha256": "8f90af274cbcf2d84a80c0256c8466e34adebc87d0fcb1eb3d0ea1fafd1b087d",
+      "eol": "LF"
+    },
+    {
+      "path": "client/src/audio/synthSounds.ts",
+      "existed": true,
+      "beforeSha256": "0c0e72a1e435b2ec40afcbdca5c744860befd596f6f6b0fe0a612dddfdde3184",
+      "eol": "LF"
+    },
+    {
+      "path": "README.md",
+      "existed": true,
+      "beforeSha256": "940a1b32826db021e52d4eb1388d0fae302fb82b589cb42215fec1fae01a6e6d",
+      "eol": "LF"
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "8fe2629351a2ef92e50305e7defd632296dd9f199bf5e7da5d08e61f022b0e9e",
+      "eol": "LF"
+    },
+    {
+      "path": "docs/TEST_PLAN.md",
+      "existed": true,
+      "beforeSha256": "a6a0a4f70aff9106cb1d53160a1e87bb2d7c4687d78c0f98dac7466af86ade54",
+      "eol": "LF"
+    },
+    {
+      "path": "shared/src/werewolfSeason.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "shared/tests/refactor018-werewolf-season.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "shared/tests/refactor018-werewolf-map-candidates.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "server/tests/refactor018-werewolf-ritual-transform.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "server/tests/refactor018-werewolf-combat.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "server/tests/refactor018-silver-crossbow.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "server/tests/refactor018-werewolf-recharge-cleanup.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    },
+    {
+      "path": "server/tests/refactor018-werewolf-schema-sync.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF"
+    }
+  ],
+  "createdFiles": [
+    "shared/src/werewolfSeason.ts",
+    "shared/tests/refactor018-werewolf-season.test.ts",
+    "shared/tests/refactor018-werewolf-map-candidates.test.ts",
+    "server/tests/refactor018-werewolf-ritual-transform.test.ts",
+    "server/tests/refactor018-werewolf-combat.test.ts",
+    "server/tests/refactor018-silver-crossbow.test.ts",
+    "server/tests/refactor018-werewolf-recharge-cleanup.test.ts",
+    "server/tests/refactor018-werewolf-schema-sync.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

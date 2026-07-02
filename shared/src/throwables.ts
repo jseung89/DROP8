@@ -36,7 +36,7 @@ export const THROWABLE_CONFIGS:Record<ThrowableType,ThrowableConfig>={
 };
 
 export const SMOKE_TIMING={deployDelayMs:700,growMs:1200,holdMs:8000,fadeMs:1500} as const;
-export const FIRE_TIMING={durationMs:8000,tickMs:THROWABLE_FIRE_TICK_MS,playerInitialDamage:8,playerTickDamage:3,vehicleInitialDamage:8,vehicleDamagePerSecond:8} as const;
+export const FIRE_TIMING={durationMs:8000,tickMs:THROWABLE_FIRE_TICK_MS,playerInitialDamage:12,playerTickDamage:4,vehicleInitialDamage:12,vehicleDamagePerSecond:12} as const;
 
 export interface ThrowableMotion{
   x:number;y:number;z:number;vx:number;vy:number;vz:number;

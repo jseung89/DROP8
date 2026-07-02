@@ -90,7 +90,7 @@ describe('Refactor 012 throwable server authority', () => {
       const field=new FireFieldState();field.id=id;field.ownerId='enemy';field.x=player.x;field.y=player.y;field.radius=115;field.expiresAt=9999;field.buildingId='';room.state.fireFields.set(id,field);
     }
     await new Promise((resolve)=>setTimeout(resolve,310));
-    expect(player.hp).toBeGreaterThanOrEqual(94);
-    expect(player.hp).toBeLessThanOrEqual(97);
+    expect(player.hp).toBeGreaterThanOrEqual(92);
+    expect(player.hp).toBeLessThanOrEqual(96);
   });
 });

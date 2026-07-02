@@ -1,9 +1,12 @@
+// DROP8_REFACTOR_018_WEREWOLF_SEASON
+// DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
+// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
 import type { AudioCategory, SoundOcclusion } from '@drop8/shared';
 
 export type SoundId =
   | 'ui_click' | 'ui_confirm' | 'ui_error' | 'chat_send'
   | 'countdown_tick' | 'match_start' | 'victory' | 'defeat'
-  | 'weapon_pistol_fire' | 'weapon_smg_fire' | 'weapon_rifle_fire' | 'weapon_shotgun_fire' | 'weapon_sniper_fire'
+  | 'weapon_pistol_fire' | 'weapon_smg_fire' | 'weapon_rifle_fire' | 'weapon_shotgun_fire' | 'weapon_sniper_fire' | 'weapon_bazooka_fire' | 'weapon_flamethrower_fire' | 'weapon_adhesive_sprayer_fire' | 'weapon_silver_crossbow_fire'
   | 'weapon_dry_fire' | 'reload_start' | 'reload_complete'
   | 'impact_wall' | 'impact_ground' | 'impact_frame' | 'impact_vehicle' | 'impact_player'
   | 'local_damage' | 'low_health' | 'hit_confirm' | 'kill_confirm' | 'player_death'
@@ -15,7 +18,10 @@ export type SoundId =
   | 'motorcycle_hit' | 'motorcycle_critical' | 'motorcycle_warning' | 'motorcycle_explosion'
   | 'zone_warning' | 'zone_start' | 'zone_damage' | 'zone_final'
   | 'throwable_select' | 'throwable_prepare' | 'throwable_throw' | 'throwable_bounce'
-  | 'frag_explosion' | 'smoke_deploy' | 'fire_ignite' | 'throwable_pickup' | 'throwable_swap'
+  | 'frag_explosion' | 'bazooka_explosion' | 'smoke_deploy' | 'fire_ignite' | 'throwable_pickup' | 'throwable_swap'
+  | 'strip_trap_place' | 'strip_trap_trigger' | 'strip_trap_break'
+  | 'werewolf_altar_wake' | 'werewolf_transform' | 'werewolf_claw'
+  | 'supply_incoming' | 'supply_land' | 'supply_open'
   | 'water_enter' | 'water_exit' | 'water_steam' | 'water_extinguish';
 
 export interface SoundDefinition {

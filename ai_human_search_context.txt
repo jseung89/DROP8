@@ -1,0 +1,66 @@
+
+========== planAi ==========
+  private planAi(p:PlayerState,intent:AiIntent){
+    const memory=this.ensureAiMemory(p),profile=this.ensureAiProfile(p),now=this.now();this.updateAiRoomMemory(p,memory);
+    const fire=[...this.state.fireFields.values()].find((field)=>fireFieldContains(field,p,this.map.buildingVisibilityZones));
+    const grenade=[...this.state.thrownObjects.values()].find((object)=>object.kind==='fragGrenade'&&object.detonateAt-now<1.1&&distance(p.x,p.y,object.x,object.y)<220);
+    const hazard=fire??grenade;
+    if(hazard){const dx=p.x-hazard.x,dy=p.y-hazard.y,length=Math.hypot(dx,dy)||1;intent.targetId='';intent.lootId='';intent.mode='retreat';intent.state=fire?'AVOID_FIRE':'EVADE_GRENADE';this.setAiDestination(p,intent,p.x+dx/length*280,p.y+dy/length*280,true);intent.lastRepathReason=intent.state;this.emitAiDialogue(p,'retreat_back','retreat');return;}
+    const previousLoot=intent.lootId;intent.targetId='';intent.mode='move';
+    const zoneActive=Boolean(this.state.zoneActive),outside=zoneActive&&distance(p.x,p.y,this.state.zoneX,this.state.zoneY)>this.state.zoneRadius-180,nextUrgent=zoneActive&&(this.state.zoneState==='SHRINKING'||this.state.zoneTimer<14),outsideNext=zoneActive&&distance(p.x,p.y,this.state.nextZoneX,this.state.nextZoneY)>this.state.nextZoneRadius-120;
+    if(outside||(nextUrgent&&outsideNext)){this.releaseLootReservation(p.id,previousLoot);intent.lootId='';this.cancelHeal(p);p.aiState='ZONE_ESCAPE';intent.state='ZONE_ESCAPE';const safe=this.aiZoneTarget(p,outside?this.state.zoneX:this.state.nextZoneX,outside?this.state.zoneY:this.state.nextZoneY,outside?this.state.zoneRadius:this.state.nextZoneRadius);this.setAiDestination(p,intent,safe.x,safe.y);return;}
+    const target=this.findVisibleTarget(p,intent),targetDistance=target?distance(p.x,p.y,target.x,target.y):Number.POSITIVE_INFINITY,recentlyAttacked=now<(this.aiDefendUntil.get(p.id)??0),combatReady=this.aiCombatReady(p),early=now-(this.aiLandedAt.get(p.id)??now)<15&&!combatReady,danger=Boolean(target&&targetDistance<430);
+    if(this.healUntil.has(p.id)){this.releaseLootReservation(p.id,previousLoot);intent.lootId='';p.aiState='HEAL';intent.state='HEAL';intent.mode='hold';return;}
+    if(p.hp<=55&&(p.bandages>0||p.medkits>0)&&!danger){if(this.beginHeal(p,'auto')){this.releaseLootReservation(p.id,previousLoot);intent.lootId='';intent.state='HEAL';intent.mode='hold';this.emitAiDialogue(p,'heal_need','heal');return;}}
+    if(early){const loot=this.findBestLoot(p);if(loot&&(!target||targetDistance>65||!recentlyAttacked)){this.assignLootIntent(p,intent,loot,true);return;}this.releaseLootReservation(p.id,previousLoot);intent.lootId='';if(target){this.rememberAiTarget(p,target,intent);const dx=p.x-target.x,dy=p.y-target.y,len=Math.hypot(dx,dy)||1;if(targetDistance<=65&&p.hp>35){intent.targetId=target.id;p.aiState='DEFEND';intent.state='DEFEND';intent.mode='hold';this.setEquipped(p,p.melee&&p.melee!=='fists'?p.melee as MeleeId:'fists',true);}else{p.aiState='RETREAT';intent.state='RETREAT';intent.mode='retreat';this.setAiDestination(p,intent,p.x+dx/len*320,p.y+dy/len*320);}return;}p.aiState=this.aiHasUsableGun(p)?'COMBAT_READY':'PATROL';intent.state=p.aiState;const patrol=this.state.zoneActive?{x:this.state.zoneX+(this.lootRandom()-.5)*500,y:this.state.zoneY+(this.lootRandom()-.5)*500}:this.aiPatrolPoint();this.setAiDestination(p,intent,patrol.x,patrol.y);return;}
+    this.releaseLootReservation(p.id,previousLoot);intent.lootId='';
+    if(target){this.rememberAiTarget(p,target,intent);intent.targetId=target.id;this.chooseAiWeapon(p,targetDistance);const weapon=WEAPONS[p.equipped as WeaponId];if(weapon&&weapon.id!=='fists'){const magazine=this.getWeaponMagazine(p,weapon.id),lowMagazine=magazine>0&&magazine<=Math.max(1,Math.ceil(weapon.magazine*.22));if(magazine<=0||lowMagazine&&targetDistance>this.desiredRange(weapon.id)*.9){if(this.getAmmo(p,weapon.ammoType)>0){const cover=this.findAiCoverPoint(p,target);this.beginReload(p,weapon.id);p.aiState='RELOAD';intent.state='RELOAD';intent.mode='retreat';if(cover)this.setAiDestination(p,intent,cover.x,cover.y);else this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));return;}if(magazine<=0)this.chooseAiWeapon(p,targetDistance,true);}}
+      p.aiState=p.hp<40?'RETREAT':'ENGAGE';intent.state=p.aiState;const desired=this.desiredRange(p.equipped as EquippedId);if(p.hp<40){const cover=this.findAiCoverPoint(p,target);intent.mode='retreat';if(cover)this.setAiDestination(p,intent,cover.x,cover.y);else this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));this.emitAiDialogue(p,p.hp<22?'retreat_hurt':'retreat_back','retreat');}else if(targetDistance<desired*(.42+profile.riskAvoidance*.12)){intent.mode='retreat';this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));}else if(targetDistance>desired*(1.05+profile.aggression*.15)){intent.mode='move';const chaseGoalMoved=distance(intent.routeGoalX,intent.routeGoalY,target.x,target.y)>180;const chaseNeedsRoute=[intent.route.length===0,chaseGoalMoved,intent.stuckFor>.65].some(Boolean);if(chaseNeedsRoute)this.setAiDestination(p,intent,target.x,target.y);}else{intent.mode='hold';intent.route=[];intent.tx=target.x;intent.ty=target.y;}return;}
+    if(memory.targetVisible)this.markAiTargetLost(p,intent,this.state.players.get(memory.targetId));
+    if(memory.searchUntil>now&&memory.confidence>10){memory.confidence=Math.max(0,memory.confidence-(now-memory.lastSeenAt)*.6);p.aiState='SEARCH_LAST_SEEN';intent.state='SEARCH_LAST_SEEN';this.setAiDestination(p,intent,memory.lastSeenX,memory.lastSeenY);return;}
+    const noise=this.findRecentNoise(p);if(noise){p.aiState='INVESTIGATE_SOUND';intent.state='INVESTIGATE_SOUND';this.setAiDestination(p,intent,noise.x,noise.y);this.emitAiDialogue(p,noise.kind==='vehicle'?'vehicle_heard':noise.kind==='footstep'||noise.kind==='running'?'uncertain_steps':'uncertain_sound',noise.kind==='vehicle'?'vehicle':'uncertain');return;}
+    if(p.insideBuilding&&(now-memory.buildingEnteredAt>(AI_HUMANIZATION.buildingDwellSeconds[0]+(1-profile.lootPreference)*(AI_HUMANIZATION.buildingDwellSeconds[1]-AI_HUMANIZATION.buildingDwellSeconds[0]))||now-memory.roomEnteredAt>AI_HUMANIZATION.roomIdleSeconds&&intent.stuckCount>=2)){const exit=this.findAiBuildingExitPoint(p,memory);if(exit){p.aiState='EXIT_BUILDING';intent.state='EXIT_BUILDING';intent.mode='move';memory.exitRequestedAt=now;this.setAiDestination(p,intent,exit.x,exit.y,true);this.emitAiDialogue(p,pickDialogue('exit',p.id,Math.floor(now*5)),'exit',true);return;}}
+    this.chooseAiWeapon(p);const current=WEAPONS[p.equipped as WeaponId];if(current&&current.id!=='fists'&&this.getWeaponMagazine(p,current.id)<=0&&this.getAmmo(p,current.ammoType)>0)this.beginReload(p,current.id);const loot=this.findBestLoot(p);if(loot){this.assignLootIntent(p,intent,loot,false);return;}p.aiState='PATROL';intent.state='PATROL';const patrol=this.state.zoneActive?{x:this.state.zoneX+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45),y:this.state.zoneY+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45)}:this.aiPatrolPoint();this.setAiDestination(p,intent,patrol.x,patrol.y);
+  }
+
+
+========== newAiIntent ==========
+  private newAiIntent(p:PlayerState):AiIntent{
+    return {
+      tx:p.x,ty:p.y,targetId:'',lootId:'',mode:'move',state:'PATROL',
+      avoidSign:Math.random()<.5?-1:1,stuckFor:0,lastX:p.x,lastY:p.y,
+      route:[],lastSeenX:p.x,lastSeenY:p.y,lastSeenUntil:0,
+      routeGoalX:p.x,routeGoalY:p.y,repathAt:0,
+      failedWindowId:'',failedWindowUntil:0,stuckCount:0,lastRepathReason:'spawn',
+    };
+  }
+
+
+========== markAiTargetLost ==========
+  private markAiTargetLost(p:PlayerState,intent:AiIntent,target?:PlayerState){const memory=this.ensureAiMemory(p);if(!memory.targetVisible)return;memory.targetVisible=false;memory.source='visual';memory.confidence=Math.min(memory.confidence,72);memory.searchUntil=Math.max(memory.searchUntil,this.now()+3.2);intent.lastSeenX=memory.lastSeenX;intent.lastSeenY=memory.lastSeenY;intent.lastSeenUntil=memory.searchUntil;intent.targetId='';const line:AiDialogueLineId=target?.inBush?'lost_bush':target?.insideBuilding?'lost_building':pickDialogue('lost',p.id,Math.floor(this.now()*10));if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI HUMAN] lost',{ai:p.id,target:memory.targetId,lastSeenX:Math.round(memory.lastSeenX),lastSeenY:Math.round(memory.lastSeenY),searchUntil:memory.searchUntil});this.emitAiDialogue(p,line,'lost');}
+
+
+========== AiIntent ==========
+type AiIntent = {
+  tx:number;
+  ty:number;
+  targetId:string;
+  lootId:string;
+  mode:AiMode;
+  state:string;
+  avoidSign:number;
+  stuckFor:number;
+  lastX:number;
+  lastY:number;
+  route:AiRoutePoint[];
+  lastSeenX:number;
+  lastSeenY:number;
+  lastSeenUntil:number;
+  routeGoalX:number;
+  routeGoalY:number;
+  repathAt:number;
+  failedWindowId:string;
+  failedWindowUntil:number;
+  stuckCount:number;
+  lastRepathReason:string;
+};

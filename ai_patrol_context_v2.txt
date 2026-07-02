@@ -1,0 +1,325 @@
+
+
+========== beginMatch ==========
+  private beginMatch(){
+    this.clearTransient();
+    this.elapsed=0;
+    this.lootRandom=createSeededRandom((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
+    this.state.phase='PLANE';
+    this.state.winner='';
+    this.state.placements.clear();
+    this.state.worldSize=this.map.width;
+    this.state.zoneX=this.worldSize/2;
+    this.state.zoneY=this.worldSize/2;
+    this.state.zoneRadius=this.map.initialZoneRadius;
+    this.state.zoneStartX=this.state.zoneX;
+    this.state.zoneStartY=this.state.zoneY;
+    this.state.zoneStartRadius=this.state.zoneRadius;
+    this.state.nextZoneX=this.state.zoneX;
+    this.state.nextZoneY=this.state.zoneY;
+    this.state.nextZoneRadius=this.state.zoneRadius;
+    this.state.zoneTimer=this.map.zoneFreeSeconds;
+    this.state.zoneStage=0;
+    this.state.zoneProgress=0;
+    this.state.zoneActive=false;
+    this.state.zoneState='FREE';
+    this.state.supplySpawned=false;
+    this.state.supplyDropId='';
+    this.choosePlane();
+
+    let aiIndex=0;
+    for(const p of this.state.players.values()){
+      p.hp=100;
+      p.armor=0;
+      p.alive=true;
+      p.kills=0;
+      p.damageDone=0;
+      p.attackSeq=0;
+      p.hitSeq=0;
+      p.lastHitAngle=0;
+      p.lastHitDamage=0;
+      p.inBush=false;
+      p.bushRevealed=false;
+      p.buildingId='';
+      p.roomIndex=0;
+      p.insideBuilding=false;
+      p.isSwimming=false;
+      p.buildingTransitionSeq=0;
+      p.isSniperScoped=false;
+      p.isDriving=false;
+      p.vehicleId='';
+      p.isVaulting=false;
+      p.vaultProgress=0;
+      p.vaultWindowId='';
+      p.reloading=false;
+      p.reloadWeapon='';
+      p.reloadProgress=0;
+      p.phase='plane';
+      p.altitude=FALL_START_ALTITUDE;
+      p.primary='';
+      p.secondary='';
+      p.melee='fists';
+      p.equipped='fists';
+      p.previousEquipped='fists';
+      p.throwableType='';
+      p.throwableCount=0;
+      p.isPreparingThrow=false;
+      p.throwCharge=0;
+      p.aiState=p.ai?'PLANE':'';
+      p.magazine=0;
+      p.pistolMagazine=0;
+      p.smgMagazine=0;
+      p.rifleMagazine=0;
+      p.shotgunMagazine=0;
+      p.sniperMagazine=0;
+      p.bazookaMagazine=0;
+      p.flamethrowerMagazine=0;
+      p.pistolAmmo=0;
+      p.standardAmmo=0;
+      p.shotgunAmmo=0;
+      p.rocketAmmo=0;
+      p.fuelAmmo=0;
+      this.resetWerewolfPlayer(p);
+      {const tactical=this.tacticalInventory(p.id);tactical.adhesiveSprayerMagazine=0;tactical.adhesiveCharge=0;tactical.stripTrapCount=0;tactical.silverCrossbowMagazine=0;tactical.silverBoltAmmo=0;}
+      p.bandages=0;
+      p.medkits=0;
+      p.healingKind='';
+      p.healingProgress=0;
+      p.x=this.planeStart.x;
+      p.y=this.planeStart.y;
+      this.lastSafePositions.set(p.id,{x:p.x,y:p.y,mapId:this.map.id,buildingId:'',roomIndex:0,recordedAt:this.now()});
+      this.stuckStates.set(p.id,{lastX:p.x,lastY:p.y,movingSince:0,lastRecoveryAt:-99});
+      if(p.ai){
+        this.aiThinkAt.set(p.id,3+aiIndex++*1.7);
+        this.aiIntent.set(p.id,this.newAiIntent(p));
+        this.aiProfiles.set(p.id,createAiProfile(p.id,this.state.difficulty as Difficulty));
+        this.aiMemories.set(p.id,createAiMemory(p.x,p.y,p.buildingId,p.roomIndex,this.now()));
+      }
+    }
+    this.state.aliveCount=this.state.players.size;
+    this.spawnLoot();
+    this.spawnMotorcycles();
+    this.initializeWerewolfSeason();
+    this.system('비행기가 출발했습니다. Space로 낙하하세요.');
+  }
+
+
+
+========== recoverPlayer ==========
+  private recoverPlayer(p:PlayerState,reason:'collision'|'stuck'|'invalid'){
+    const state=this.stuckStates.get(p.id)??{lastX:p.x,lastY:p.y,movingSince:0,lastRecoveryAt:-99};
+    if(this.now()-state.lastRecoveryAt<1.5)return false;
+    const previous=this.lastSafePositions.get(p.id);
+    const point=this.findNearestFreePoint(p.x,p.y,320,false)
+      ??(previous&&previous.mapId===this.map.id&&this.isPositionFree(previous.x,previous.y)?previous:undefined)
+      ??this.map.emergencySpawnPoints.find((candidate)=>this.isPositionFree(candidate.x,candidate.y));
+    if(!point)return false;
+    p.x=point.x;p.y=point.y;
+    state.lastX=p.x;state.lastY=p.y;state.movingSince=0;state.lastRecoveryAt=this.now();
+    this.stuckStates.set(p.id,state);
+    this.lastSafePositions.set(p.id,{x:p.x,y:p.y,mapId:this.map.id,buildingId:p.buildingId,roomIndex:p.roomIndex,recordedAt:this.now()});
+    this.state.recoveryCount++;
+    const client=this.clients.find((candidate)=>candidate.sessionId===p.id);
+    client?.send('positionRecovery',{x:p.x,y:p.y,reason});
+    const intent=this.aiIntent.get(p.id);if(intent){intent.route=[];intent.repathAt=0;intent.stuckFor=0;intent.lastX=p.x;intent.lastY=p.y;}
+    return true;
+  }
+
+
+
+========== updateAi ==========
+  private updateAi(dt:number){
+    const now=this.now();
+    this.cleanupLootReservations(now);
+    for(const p of this.state.players.values()){
+      if(!p.ai||!p.alive||p.phase!=='landed')continue;
+      if(p.isVaulting){
+        if(!this.vaultJobs.has(p.id))this.clearVault(p);
+        else continue;
+      }
+      let intent=this.aiIntent.get(p.id);
+      if(!intent){intent=this.newAiIntent(p);this.aiIntent.set(p.id,intent);}
+      const memory=this.ensureAiMemory(p);this.ensureAiProfile(p);this.updateAiRoomMemory(p,memory);
+      if(!this.aiLandedAt.has(p.id))this.aiLandedAt.set(p.id,now);
+      if(now>=(this.aiThinkAt.get(p.id)??0)){
+        this.aiThinkAt.set(p.id,now+(this.state.difficulty==='hard'?.14:this.state.difficulty==='easy'?.34:.22));
+        this.planAi(p,intent);
+      }
+      this.runAi(p,intent,dt);
+    }
+  }
+
+
+
+========== runAi ==========
+  private runAi(p:PlayerState,intent:AiIntent,dt:number){
+    if(this.healUntil.has(p.id))return;
+    const now=this.now(),memory=this.ensureAiMemory(p),profile=this.ensureAiProfile(p),target=intent.targetId?this.state.players.get(intent.targetId):undefined;
+    if(target?.alive){if(now>=memory.nextVisionCheckAt){memory.nextVisionCheckAt=now+AI_HUMANIZATION.visualRefreshSeconds;memory.targetVisible=this.aiCanVisuallyAcquire(p,target,intent);if(memory.targetVisible)this.rememberAiTarget(p,target,intent);else this.markAiTargetLost(p,intent,target);}if(memory.targetVisible){const d=distance(p.x,p.y,target.x,target.y);this.chooseAiWeapon(p,d);const weaponId=p.equipped as WeaponId,movementRatio=intent.mode==='hold'?.3:1;refreshAiAim(memory,profile,p.id+target.id,now,d,movementRatio,weaponId);const aimX=target.x+memory.aimOffsetX,aimY=target.y+memory.aimOffsetY,desiredAngle=Math.atan2(aimY-p.y,aimX-p.x),weaponTurn=weaponId==='pistol'||weaponId==='smg'?1.18:weaponId==='sniper'||weaponId==='bazooka'||weaponId==='silver_crossbow'?.72:1,previousAngle=p.angle;p.angle=turnAngleToward(p.angle,desiredAngle,profile.turnRate*weaponTurn*dt);const aimDelta=Math.abs(this.angleDiff(desiredAngle,p.angle));if(Math.abs(this.angleDiff(p.angle,previousAngle))>.08)memory.reactionReadyAt=Math.max(memory.reactionReadyAt,now+.08);const canShoot=now>=memory.reactionReadyAt&&aimDelta<(weaponId==='shotgun'?.22:.14)&&now>=memory.burstCooldownUntil;if(canShoot){if(p.equipped==='fists'||p.equipped in MELEE_WEAPONS){const melee=p.equipped==='fists'?WEAPONS.fists:MELEE_WEAPONS[p.equipped as MeleeId];if(d<=melee.range+4)this.meleePlayer(p);}else{const weapon=WEAPONS[weaponId]!;if(weapon.id==='bazooka'&&d<BAZOOKA_BALANCE.aiMinimumRange){intent.mode='retreat';p.aiState='BAZOOKA_SAFE_DISTANCE';}else if(this.getWeaponMagazine(p,weapon.id)>0){prepareAiBurst(memory,p.id,weapon.id,now);const attackBefore=p.attackSeq;this.firePlayer(p);if(p.attackSeq!==attackBefore)finishAiBurstShot(memory,p.id,weapon.id,now);}else if(this.getAmmo(p,weapon.ammoType)>0)this.beginReload(p,weapon.id);}}}}
+
+    const loot=intent.lootId?this.state.loot.get(intent.lootId):undefined;
+    if(loot&&distance(p.x,p.y,loot.x,loot.y)<72&&spaceInteractionAllowed(p,loot,this.map.portals)){
+      if(this.aiLootScore(p,loot.kind as LootKind)>0){
+        const result=this.applyLoot(p,loot.kind as LootKind,loot);
+        if(result.success){this.state.loot.delete(loot.id);this.lootReservations.delete(loot.id);}
+      }
+      this.releaseLootReservation(p.id,intent.lootId);
+      intent.lootId='';
+      intent.route=[];
+      this.aiThinkAt.set(p.id,0);
+    }
+
+    if(intent.mode==='hold'){
+      if(target){
+        const side=p.angle+Math.PI/2*intent.avoidSign;
+        this.tryMove(p,Math.cos(side)*72*dt,Math.sin(side)*72*dt);
+      }
+      return;
+    }
+
+    if(this.advanceAiRoute(p,intent)||p.isVaulting)return;
+    const waypoint=intent.route[0]??{x:intent.tx,y:intent.ty};
+    let angle=Math.atan2(waypoint.y-p.y,waypoint.x-p.x);
+    if(intent.mode==='retreat'&&target)angle=Math.atan2(p.y-target.y,p.x-target.x);
+    if(!target)p.angle=angle;
+    const movementProfile=this.ensureAiProfile(p),baseLandSpeed=this.state.difficulty==='hard'?235:this.state.difficulty==='easy'?175:205,landSpeed=baseLandSpeed*(.93+movementProfile.aggression*.1);
+    const aiMovementSlowed=this.now()<p.werewolf.silverSlowUntil;const speed=(p.isSwimming?landSpeed*(SWIM_SPEED/PLAYER_SPEED):landSpeed*movementMultiplierAt(p.x,p.y,this.map.shallowWaterZones,this.map.landCrossings))*(aiMovementSlowed?.6:1);
+    const moved=this.moveAiWithAvoidance(p,intent,waypoint,angle,speed,dt);
+    this.updateSwimmingState(p);
+
+    const progress=distance(p.x,p.y,intent.lastX,intent.lastY);
+    intent.stuckFor=progress<.7?intent.stuckFor+dt:Math.max(0,intent.stuckFor-dt*2.4);
+    if(moved&&progress>2)intent.stuckCount=Math.max(0,intent.stuckCount-1);
+    const unstuckThreshold=AI_HUMANIZATION.unstuckStageSeconds[Math.min(2,intent.stuckCount)]??3;
+    if(intent.stuckFor>unstuckThreshold){
+      if(!this.isPositionFree(p.x,p.y))this.ensureAiFree(p);
+      const blockedWindow=intent.route[0]?.kind==='window'?intent.route[0].windowId??'':'';
+      if(blockedWindow){intent.failedWindowId=blockedWindow;intent.failedWindowUntil=this.now()+2.5;}
+      intent.avoidSign*=-1;
+      intent.stuckCount++;
+      intent.repathAt=0;
+      const memory=this.ensureAiMemory(p);memory.unstuckStage=Math.min(4,memory.unstuckStage+1);const buildingExit=intent.stuckCount>=2?this.findAiBuildingExitPoint(p,memory):undefined;
+      const escape=buildingExit??this.findAiEscapePoint(p,intent);
+      const rebuilt=this.buildRoute(escape?.x??p.x,escape?.y??p.y,intent.tx,intent.ty,intent);
+      intent.route=escape?[escape,...rebuilt]:rebuilt;
+      intent.lastRepathReason=blockedWindow?'window-stuck':'collision-stuck';
+      intent.stuckFor=0;
+      if(intent.stuckCount>=2)this.emitAiDialogue(p,'stuck_blocked','stuck');
+      if(AI_NAV_DEBUG)console.debug('[DROP8 AI NAV]',p.id,intent.lastRepathReason,intent.stuckCount);
+      this.aiThinkAt.set(p.id,0);
+    }
+    intent.lastX=p.x;
+    intent.lastY=p.y;
+  }
+
+
+
+========== moveAiWithAvoidance ==========
+  private moveAiWithAvoidance(p:PlayerState,intent:AiIntent,waypoint:AiRoutePoint,angle:number,speed:number,dt:number){
+    const step=speed*dt;
+    const sign=intent.avoidSign||1;
+    const offsets=[0,sign*Math.PI/8,-sign*Math.PI/8,sign*Math.PI/4,-sign*Math.PI/4,sign*Math.PI*3/8,-sign*Math.PI*3/8,sign*Math.PI/2,-sign*Math.PI/2,Math.PI];
+    const candidates:Array<{angle:number;score:number}>=[];
+    for(const offset of offsets){
+      if(offset===Math.PI&&intent.stuckFor<.35)continue;
+      const candidateAngle=angle+offset;
+      const x=clamp(p.x+Math.cos(candidateAngle)*step,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
+      const y=clamp(p.y+Math.sin(candidateAngle)*step,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
+      if(!this.playerMovementPositionFree(p,x,y))continue;
+      const before=distance(p.x,p.y,waypoint.x,waypoint.y);
+      const after=distance(x,y,waypoint.x,waypoint.y);
+      let firePenalty=0;
+      const candidateSpace={x,y,buildingId:buildingIdAt(x,y,12,this.map.buildingVisibilityZones)};
+      for(const field of this.state.fireFields.values())if(fireFieldContains(field,candidateSpace,this.map.buildingVisibilityZones))firePenalty+=500;
+      const score=(before-after)*12-Math.abs(offset)*18-firePenalty-(offset===Math.PI?80:0);
+      candidates.push({angle:candidateAngle,score});
+    }
+    candidates.sort((a,b)=>b.score-a.score);
+    for(const candidate of candidates)if(this.tryMove(p,Math.cos(candidate.angle)*step,Math.sin(candidate.angle)*step))return true;
+    return false;
+  }
+
+
+
+========== findAiEscapePoint ==========
+  private findAiEscapePoint(p:PlayerState,intent:AiIntent):Point|undefined{
+    let selected:Point|undefined;
+    let best=Number.POSITIVE_INFINITY;
+    const goalAngle=Math.atan2(intent.ty-p.y,intent.tx-p.x);
+    for(const radius of [72,120,180,250]){
+      for(let i=0;i<16;i++){
+        const offset=(i%2===0?1:-1)*Math.ceil(i/2)*(Math.PI/12);
+        const angle=goalAngle+offset;
+        const x=clamp(p.x+Math.cos(angle)*radius,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
+        const y=clamp(p.y+Math.sin(angle)*radius,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
+        if(!this.isPositionFree(x,y)||this.segmentBlocked(p.x,p.y,x,y,PLAYER_BODY_RADIUS))continue;
+        const score=distance(x,y,intent.tx,intent.ty)+Math.abs(offset)*35;
+        if(score<best){best=score;selected={x,y};}
+      }
+      if(selected)break;
+    }
+    return selected;
+  }
+
+
+
+========== setAiDestination ==========
+  private setAiDestination(p:PlayerState,intent:AiIntent,x:number,y:number,force=false){
+    const tx=clamp(x,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
+    const ty=clamp(y,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
+    const changed=distance(intent.routeGoalX,intent.routeGoalY,tx,ty)>84;
+    const now=this.now();
+    intent.tx=tx;
+    intent.ty=ty;
+    const periodicDue=now>=intent.repathAt;
+    const shouldRepath=force||changed||intent.route.length===0||(periodicDue&&intent.stuckFor>.35);
+    if(shouldRepath){
+      const previous=intent.route;
+      const rebuilt=this.buildAiRoute(p,tx,ty,intent);
+      const rebuiltBlocked=rebuilt.length===1&&this.segmentBlocked(p.x,p.y,rebuilt[0]!.x,rebuilt[0]!.y);
+      if(!force&&!changed&&previous.length>0&&rebuiltBlocked){
+        intent.route=previous;
+        intent.lastRepathReason='preserve-valid-route';
+      }else{
+        intent.route=rebuilt;
+        intent.lastRepathReason=force?'forced':changed?'goal-change':intent.route.length===0?'route-empty':'stuck-repath';
+      }
+      intent.routeGoalX=tx;
+      intent.routeGoalY=ty;
+      intent.repathAt=now+1.05+Math.random()*.35;
+    }else if(periodicDue){
+      // Static walls do not invalidate a healthy route. Periodic timers are only
+      // a health check; real replanning is driven by goal changes or measured stalls.
+      intent.repathAt=now+1.05+Math.random()*.35;
+      intent.lastRepathReason='route-healthy';
+    }
+  }
+
+
+
+========== advanceAiRoute ==========
+  private advanceAiRoute(p:PlayerState,intent:AiIntent){
+    while(intent.route.length){
+      const waypoint=intent.route[0]!;
+      const threshold=waypoint.kind==='window'?34:44;
+      if(distance(p.x,p.y,waypoint.x,waypoint.y)>=threshold)return false;
+      if(waypoint.kind!=='window'){intent.route.shift();continue;}
+      const candidate=waypoint.windowId?this.aiWindowVaultCandidate(p,waypoint.windowId):undefined;
+      if(candidate&&this.beginWindowVault(p,candidate)){
+        intent.route.shift();
+        intent.stuckFor=0;
+        intent.stuckCount=0;
+        intent.lastRepathReason='window-vault';
+        return true;
+      }
+      intent.failedWindowId=waypoint.windowId??'';
+      intent.failedWindowUntil=this.now()+2.5;
+      intent.route=this.buildRoute(p.x,p.y,intent.tx,intent.ty,intent);
+      intent.repathAt=this.now()+.7;
+      intent.lastRepathReason='window-rejected';
+      if(AI_NAV_DEBUG)console.debug('[DROP8 AI NAV]',p.id,intent.lastRepathReason,intent.failedWindowId);
+      return false;
+    }
+    return false;
+  }
+

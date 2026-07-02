@@ -1,0 +1,57 @@
+{
+  "patch": "Refactor 016C Player State Sync Hotfix FIXED v1",
+  "createdAt": "2026-07-01T01:17:06.176Z",
+  "files": [
+    {
+      "path": "server/src/rooms/schema.ts",
+      "existed": true
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true
+    },
+    {
+      "path": "server/tests/room.test.ts",
+      "existed": true
+    },
+    {
+      "path": "server/tests/refactor016-client-source.test.ts",
+      "existed": true
+    },
+    {
+      "path": "server/tests/refactor016c-player-state-sync.test.ts",
+      "existed": false
+    }
+  ],
+  "criticalBefore": [
+    {
+      "name": "bazooka projectileSpeed",
+      "value": "900"
+    },
+    {
+      "name": "supply triggerZoneStage",
+      "value": "0"
+    },
+    {
+      "name": "supply weights",
+      "value": "0|100"
+    },
+    {
+      "name": "flamethrower tick damage",
+      "value": "9|6|1"
+    },
+    {
+      "name": "bazooka vehicle damage",
+      "value": "170|128|14|120"
+    }
+  ],
+  "versions": "client sdk ^0.17.43 · server core ^0.17.42 · schema ^4.0.26 · test sdk ^0.17.43"
+}

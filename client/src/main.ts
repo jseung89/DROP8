@@ -1,7 +1,12 @@
+// DROP8_REFACTOR_019_AI_HUMANIZATION
+// DROP8_REFACTOR_018_WEREWOLF_SEASON
+// DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
+// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
+// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
 // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
 // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 import Phaser from 'phaser';
-import { AMMO_DISPLAY_NAMES, GAME_NAME, LOOT_LABELS, MAX_PLAYERS, MELEE_WEAPONS, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_SCOPE_SPEED_RATIO, WEAPONS, isThrowableType, type AmmoType, type WeaponId, type ThrowableType } from '@drop8/shared';
+import { AI_DIALOGUE_LINES, AMMO_DISPLAY_NAMES, GAME_NAME, LOOT_LABELS, MAX_PLAYERS, MELEE_WEAPONS, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_SCOPE_SPEED_RATIO, WEAPONS, isThrowableType, type AmmoType, type WeaponId, type ThrowableType } from '@drop8/shared';
 import { GameScene } from './GameScene';
 import { Network } from './network';
 import { normalizeChatText, shouldSubmitChatKey } from './chatInput';
@@ -18,6 +23,8 @@ let inventoryOpen=false;
 let chatComposing=false;
 let lobbyChatComposing=false;
 let roomListTimer=0;
+let roomListRequestSeq=0;
+let roomListAbort:AbortController|null=null;
 let pickupToastTimer=0;
 let fieldChatCollapsed=localStorage.getItem('drop8-field-chat-collapsed')!=='false';
 let fieldChatUnread=0;
@@ -239,6 +246,7 @@ for(const button of Array.from(document.querySelectorAll<HTMLButtonElement>('#qu
 net.listeners.add(render);
 net.messages.add((type,p)=>{
   if(type==='chat')addMessage(p);
+  if(type==='aiDialogue'){const lineId=String(p?.lineId??'') as keyof typeof AI_DIALOGUE_LINES;addMessage({...p,channel:'ai',sender:p?.sender??'AI',text:AI_DIALOGUE_LINES[lineId]??String(p?.text??'')});}
   if(type==='killfeed')addKill(p);
   if(type==='result'){
     $('result').classList.remove('hidden');
@@ -256,8 +264,8 @@ function addMessage(p:any){
   const lobbyChannel=p.channel==='lobby'||(p.channel==='system'&&net.snapshot?.phase==='LOBBY');
   const box=lobbyChannel?$('lobbyMessages'):$('gameMessages');
   const d=document.createElement('div');
-  d.className=`message ${p.channel==='system'?'system':''}`;
-  const channel=p.channel==='nearby'?'근거리':p.channel==='spectator'?'관전':p.channel==='system'?'시스템':'';
+  d.className=`message ${p.channel==='system'?'system':p.channel==='ai'?'ai':''}`;
+  const channel=p.channel==='nearby'?'근거리':p.channel==='spectator'?'관전':p.channel==='system'?'시스템':p.channel==='ai'?'AI 음성':'';
   d.textContent=`${channel?`[${channel}] `:''}${p.sender}: ${p.text}`;
   box.append(d);
   const limit=box.id==='gameMessages'?8:30;
@@ -293,6 +301,10 @@ function reserveAmmo(me:any,equipped:string){
   if(ammoType==='pistol_ammo')return me?.pistolAmmo??0;
   if(ammoType==='standard_ammo')return me?.standardAmmo??0;
   if(ammoType==='shotgun_ammo')return me?.shotgunAmmo??0;
+  if(ammoType==='rocket_ammo')return me?.rocketAmmo??0;
+  if(ammoType==='fuel_ammo')return me?.fuelAmmo??0;
+  if(ammoType==='adhesive_charge')return me?.adhesiveCharge??0;
+  if(ammoType==='silver_bolt')return me?.silverBoltAmmo??0;
   return 0;
 }
 function ammoLabel(equipped:string){const type=WEAPONS[equipped as WeaponId]?.ammoType as Exclude<AmmoType,'none'>|undefined;return type?AMMO_DISPLAY_NAMES[type]:'';}
@@ -303,6 +315,10 @@ function magazineFor(me:any,id:string){
   if(id==='rifle')return me?.rifleMagazine??0;
   if(id==='shotgun')return me?.shotgunMagazine??0;
   if(id==='sniper')return me?.sniperMagazine??0;
+  if(id==='bazooka')return me?.bazookaMagazine??0;
+  if(id==='flamethrower')return me?.flamethrowerMagazine??0;
+  if(id==='adhesive_sprayer')return me?.adhesiveSprayerMagazine??0;
+  if(id==='silver_crossbow')return me?.silverCrossbowMagazine??0;
   return 0;
 }
 
@@ -311,6 +327,21 @@ function weaponName(id:string){return WEAPONS[id as WeaponId]?.name??MELEE_WEAPO
 function setSlot(id:string,name:string,sub:string,active:boolean,empty:boolean){
   const slot=$(id);slot.classList.toggle('active',active);slot.classList.toggle('empty',empty);
   const b=slot.querySelector('b');const small=slot.querySelector('small');if(b)b.textContent=name;if(small)small.textContent=sub;
+}
+
+let weaponSlotDragFrom=0;
+let suppressWeaponSlotClickUntil=0;
+const weaponSlotElements=Array.from(document.querySelectorAll<HTMLElement>('.weapon-slot'));
+for(const slot of weaponSlotElements){
+  const slotNumber=Number(slot.dataset.weaponSlot);
+  slot.addEventListener('click',()=>{if(performance.now()<suppressWeaponSlotClickUntil)return;net.send('switch',{slot:slotNumber});slot.blur();});
+  slot.addEventListener('keydown',(event)=>{if(event.key==='Enter'){event.preventDefault();net.send('switch',{slot:slotNumber});slot.blur();}});
+  slot.addEventListener('dragstart',(event)=>{weaponSlotDragFrom=slotNumber;slot.classList.add('dragging');event.dataTransfer?.setData('text/plain',String(slotNumber));if(event.dataTransfer)event.dataTransfer.effectAllowed='move';});
+  slot.addEventListener('dragover',(event)=>{event.preventDefault();if(weaponSlotDragFrom&&weaponSlotDragFrom!==slotNumber)slot.classList.add('drop-target');if(event.dataTransfer)event.dataTransfer.dropEffect='move';});
+  slot.addEventListener('dragleave',()=>slot.classList.remove('drop-target'));
+  slot.addEventListener('drop',(event)=>{event.preventDefault();const from=Number(event.dataTransfer?.getData('text/plain')||weaponSlotDragFrom);slot.classList.remove('drop-target');if((from===1||from===2)&&from!==slotNumber){net.send('swapWeaponSlots',{from,to:slotNumber});suppressWeaponSlotClickUntil=performance.now()+350;}weaponSlotDragFrom=0;weaponSlotElements.forEach((item)=>item.classList.remove('dragging','drop-target'));});
+  slot.addEventListener('dragend',()=>{weaponSlotDragFrom=0;suppressWeaponSlotClickUntil=performance.now()+250;weaponSlotElements.forEach((item)=>item.classList.remove('dragging','drop-target'));});
+  slot.addEventListener('contextmenu',(event)=>{event.preventDefault();net.send('dropWeapon',{slot:slotNumber});});
 }
 
 function renderInventory(me:any){
@@ -327,13 +358,14 @@ function renderInventory(me:any){
   const autoHeal=(me?.medkits??0)>0&&(missing>25||(me?.bandages??0)<=0)?'구급상자':(me?.bandages??0)>0?'붕대':(me?.medkits??0)>0?'구급상자':'회복 없음';
   const throwable:ThrowableType|''=isThrowableType(me?.throwableType)?me.throwableType:'';
   setSlot('slotThrowable',throwable?LOOT_LABELS[throwable]: '투척물 없음',throwable?`수량 ${me?.throwableCount??0}개`:'파편탄 · 연막탄 · 화염탄',equipped===throwable,!throwable);
+  setSlot('slotTactical','스트립 트랩',`수량 ${me?.stripTrapCount??0}개 · 전방 설치`,false,(me?.stripTrapCount??0)<=0);
   setSlot('slotHeal',autoHeal,`붕대 ${me?.bandages??0} · 키트 ${me?.medkits??0}`,false,autoHeal==='회복 없음');
   $('armorText').textContent=String(Math.ceil(me?.armor??0));
   ($('armorBar') as HTMLElement).style.width=`${Math.max(0,Math.min(100,me?.armor??0))}%`;
   const details=[
     ['주무기',primary?`${weaponName(primary)} · ${magazineFor(me,primary)} / ${reserveAmmo(me,primary)}발`:'비어 있음'],
     ['보조무기',secondary?`${weaponName(secondary)} · ${magazineFor(me,secondary)} / ${reserveAmmo(me,secondary)}발`:'비어 있음'],
-    ['근접',weaponName(melee)],['권총탄',String(me?.pistolAmmo??0)],['일반 총알',String(me?.standardAmmo??0)],['샷건탄',String(me?.shotgunAmmo??0)],
+    ['근접',weaponName(melee)],['은화살',String(me?.silverBoltAmmo??0)],['점착 충전량',String(me?.adhesiveCharge??0)],['스트립 트랩',String(me?.stripTrapCount??0)],['권총탄',String(me?.pistolAmmo??0)],['일반 총알',String(me?.standardAmmo??0)],['샷건탄',String(me?.shotgunAmmo??0)],['로켓탄',String(me?.rocketAmmo??0)],['연료',String(me?.fuelAmmo??0)],
     ['투척무기',throwable?`${LOOT_LABELS[throwable]} ×${me?.throwableCount??0}`:'비어 있음'],['방탄조끼',`${Math.ceil(me?.armor??0)}%`],['붕대',String(me?.bandages??0)],['구급상자',String(me?.medkits??0)],
   ];
   $('inventoryDetails').innerHTML=details.map(([label,value])=>`<div class="inventory-detail"><b>${label}</b><span>${value}</span></div>`).join('');
@@ -377,11 +409,41 @@ function render(){
     $('vehicleDurability').textContent=`내구도 ${hp} / ${maxHp}`;
     vehicleHud.classList.toggle('critical',Boolean(motorcycle.critical));
     vehicleHud.classList.toggle('exploding',Boolean(motorcycle.exploding));
-    const warning=me.equipped==='sniper'&&ratio>MOTORCYCLE_SCOPE_SPEED_RATIO?'속도를 줄이고 이동키를 놓아야 스코프 사용 가능':ratio>.8?'고속 이동 중 · 명중률 크게 감소':ratio>.4?'이동 사격 · 명중률 감소':'WASD · 이동 · E · 내리기';
+    const slowRemaining=Math.max(0,Number(motorcycle.slowUntil??0)-Number(s.serverTime??0));
+    const slowKind=String(motorcycle.slowKind??'');
+    const slowLabel=slowKind==='strip_trap'?'타이어 손상':slowKind==='werewolf_hunt'?'늑대 사냥 표식':slowKind==='mixed'?'복합 감속':'점착 감속';
+    const slowText=slowRemaining>0?slowLabel+` · ${slowRemaining.toFixed(1)}초 · 최고속도 ${Math.round(Number(motorcycle.slowSpeedMultiplier??1)*100)}%`:'';
+    const warning=slowText|| (me.equipped==='sniper'&&ratio>MOTORCYCLE_SCOPE_SPEED_RATIO?'속도를 줄이고 이동키를 놓아야 스코프 사용 가능':ratio>.8?'고속 이동 중 · 명중률 크게 감소':ratio>.4?'이동 사격 · 명중률 감소':'WASD · 이동 · E · 내리기');
     $('vehicleWarning').textContent=warning;
   }else{$('vehicleWarning').textContent='';vehicleHud.classList.remove('critical','exploding');}
   gameEl.classList.toggle('scope-active',Boolean(me?.isSniperScoped));
   renderInventory(me);
+  const wolfHud=$('werewolfHud');
+  const wolf=me?.werewolf;
+  const serverTime=Number(s.serverTime??0);
+  wolfHud.classList.toggle('hidden',!wolf?.hasCurse&&!wolf?.ritualizing&&!wolf?.transformPreparing&&!wolf?.transformed);
+  if(wolf?.ritualizing){
+    const left=Math.max(0,Number(wolf.ritualCompletesAt??0)-serverTime);
+    wolfHud.textContent=`제단 의식 ${left.toFixed(1)}초 · E키 유지`;
+    wolfHud.className='werewolf-hud ritual';
+  }else if(wolf?.transformPreparing){
+    const left=Math.max(0,Number(wolf.transformReadyAt??0)-serverTime);
+    wolfHud.textContent=`늑대인간 변신 준비 ${left.toFixed(1)}초`;
+    wolfHud.className='werewolf-hud preparing';
+  }else if(wolf?.transformed){
+    const left=Math.max(0,Number(wolf.transformEndsAt??0)-serverTime);
+    const sprint=Math.round(Math.max(0,Math.min(1,Number(wolf.sprintGauge??0)))*100);
+    const silver=Math.max(0,Number(wolf.silverSlowUntil??0)-serverTime);
+    wolfHud.textContent=`늑대인간 ${left.toFixed(1)}초 · 질주 ${sprint}%${silver>0?` · 은화살 감속 ${silver.toFixed(1)}초`:''}`;
+    wolfHud.className='werewolf-hud transformed';
+  }else if(wolf?.hasCurse){
+    const left=Math.max(0,Number(wolf.curseExpiresAt??0)-serverTime);
+    wolfHud.textContent=`늑대의 저주 · 강제 변신까지 ${left.toFixed(1)}초 · F 변신`;
+    wolfHud.className='werewolf-hud cursed';
+  }else{
+    wolfHud.textContent='';
+    wolfHud.className='werewolf-hud hidden';
+  }
   if(me?.healingKind){
     const name=me.healingKind==='medkit'?'구급상자':'붕대';
     $('healText').textContent=`${name} 회복 중 ${Math.round((me.healingProgress??0)*100)}% · 이동/공격 시 취소`;
@@ -420,18 +482,23 @@ function renderLobby(s:any){
   $<HTMLSelectElement>('mapSizeMode').value=s.mapId??s.mapSizeMode??'small';
 }
 
-type PublicRoomInfo={roomId:string;roomCode:string;hostName:string;players:number;humans:number;maxPlayers:number;phase:string;fillAi:boolean;publicRoom:boolean;mapSizeMode:'small'|'large'|'dock8';mapDisplayName:string};
+type PublicRoomInfo={roomId:string;roomCode:string;hostName:string;players:number;humans:number;maxPlayers:number;phase:string;fillAi:boolean;publicRoom:boolean;locked:boolean;mapSizeMode:'small'|'large'|'dock8';mapDisplayName:string};
 
 async function refreshRooms(){
   if(home.classList.contains('hidden'))return;
-  const list=$('roomList');
+  const list=$('roomList'),requestSeq=++roomListRequestSeq;
+  roomListAbort?.abort();roomListAbort=new AbortController();
   try{
-    const response=await fetch('/api/rooms',{cache:'no-store'});
+    const response=await fetch('/api/rooms',{cache:'no-store',signal:roomListAbort.signal});
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
     const data=await response.json() as {rooms?:PublicRoomInfo[]};
-    cachedRooms=data.rooms??[];renderRoomList(cachedRooms);
-  }catch{
-    if(!list.children.length)list.innerHTML='<p class="empty-note">방 목록을 불러오지 못했습니다.</p>';
+    if(requestSeq!==roomListRequestSeq||home.classList.contains('hidden'))return;
+    const deduplicated=new Map<string,PublicRoomInfo>();
+    for(const room of data.rooms??[]){const key=String(room.roomCode||room.roomId).toUpperCase();if(key&&room.publicRoom!==false)deduplicated.set(key,room);}
+    cachedRooms=[...deduplicated.values()];renderRoomList(cachedRooms);
+  }catch(error){
+    if((error as Error)?.name==='AbortError'||requestSeq!==roomListRequestSeq)return;
+    list.innerHTML='<p class="empty-note error-note">방 목록을 불러오지 못했습니다. 잠시 후 자동으로 다시 시도합니다.</p>';
   }
 }
 
@@ -443,10 +510,10 @@ function renderRoomList(rooms:PublicRoomInfo[]){
   for(const room of filtered){
     const row=document.createElement('div');row.className='room-row';
     const info=document.createElement('div');
-    const status=room.phase==='LOBBY'?(room.players>=room.maxPlayers?'인원 가득 참':'대기 중'):room.phase==='FINISHED'?'종료 중':'게임 중';
+    const status=room.phase==='LOBBY'?(room.locked?'잠김':room.players>=room.maxPlayers?'인원 가득 참':'대기 중'):room.phase==='FINISHED'?'종료 중':'게임 중';
     info.innerHTML=`<b>#${escapeText(room.roomCode)}</b><span>${escapeText(room.hostName)} · ${room.players}/${room.maxPlayers} · ${escapeText(room.mapDisplayName||'작은 맵')} · ${status}${room.fillAi?' · AI':''}</span>`;
     const join=document.createElement('button');join.type='button';join.textContent='참가';
-    join.disabled=room.phase!=='LOBBY'||room.players>=room.maxPlayers;
+    join.disabled=room.locked||room.phase!=='LOBBY'||room.players>=room.maxPlayers;
     join.onclick=()=>{roomCode.value=room.roomCode;void connect(false);};
     row.append(info,join);list.append(row);
   }
@@ -457,7 +524,7 @@ function startRoomListPolling(){
   void refreshRooms();
   roomListTimer=window.setInterval(()=>void refreshRooms(),2500);
 }
-function stopRoomListPolling(){window.clearInterval(roomListTimer);roomListTimer=0;}
+function stopRoomListPolling(){window.clearInterval(roomListTimer);roomListTimer=0;roomListAbort?.abort();roomListAbort=null;roomListRequestSeq++;}
 
 function setFieldChatCollapsed(collapsed:boolean){
   fieldChatCollapsed=collapsed;

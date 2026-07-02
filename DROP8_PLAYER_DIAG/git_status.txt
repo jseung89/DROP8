@@ -1,0 +1,63 @@
+﻿ M client/index.html
+ M client/src/GameScene.ts
+ M client/src/audio/SoundRegistry.ts
+ M client/src/audio/audioTypes.ts
+ M client/src/audio/synthSounds.ts
+ M client/src/main.ts
+ M client/src/network.ts
+ M client/src/style.css
+ M docs/PATCH_NOTES.md
+ M server/src/rooms/Drop8Room.ts
+ M server/src/rooms/schema.ts
+ M server/tests/room.test.ts
+ M server/tests/throwables.test.ts
+ M shared/src/index.ts
+ M shared/src/throwables.ts
+ M shared/tests/rules.test.ts
+ M shared/tests/throwables.test.ts
+?? DROP8_PLAYER_DIAG/
+?? DROP8_refactor_014_plane_visibility_bazooka_weapon_slot_patch_FIXED_v1.ts
+?? DROP8_refactor_015A_supply_drop_flamethrower_patch_FIXED_v1.ts
+?? DROP8_refactor_016_solo_ai_item_interface_fist_patch_FIXED_v1.ts
+?? DROP8_refactor_016_solo_ai_item_interface_fist_patch_FIXED_v2.ts
+?? DROP8_refactor_016_solo_ai_item_interface_fist_patch_FIXED_v3.ts
+?? client/src/GameScene.ts.before_flame_lint_cleanup.bak
+?? client/src/GameScene.ts.before_flamethrower_weapon_shape.bak
+?? client/src/GameScene.ts.before_player_sync_016B.bak
+?? client/src/GameScene.ts.before_rocket_visual_fix.bak
+?? client/src/main.ts.before_window_vault_space_fix.bak
+?? client/src/network.ts.before_player_sync_016B.bak
+?? docs/PATCH_NOTES.md.before_bazooka_damage170.bak
+?? node
+?? patch_backups/refactor_014_plane_visibility_bazooka_weapon_slot_FIXED_v1/
+?? patch_backups/refactor_015A_supply_drop_flamethrower_FIXED_v1/
+?? patch_backups/refactor_016_solo_ai_item_interface_fist_FIXED_v2/
+?? patch_backups/refactor_016_solo_ai_item_interface_fist_FIXED_v3/
+?? powershell
+?? server/src/rooms/Drop8Room.ts.before_bazooka_motorcycle_fire_block.bak
+?? server/src/rooms/Drop8Room.ts.before_bazooka_spawn_boost.bak
+?? server/src/rooms/Drop8Room.ts.before_bazooka_stationary_fire_fix.bak
+?? server/tests/refactor014-bazooka-slot-plane.test.ts
+?? server/tests/refactor014-bazooka-slot-plane.test.ts.before_bazooka_damage170.bak
+?? server/tests/refactor015a-supply-flamethrower.test.ts
+?? server/tests/refactor015a-supply-flamethrower.test.ts.before_first_zone_flame100.bak
+?? server/tests/refactor016-client-source.test.ts
+?? server/tests/refactor016-solo-ai-item-fist.test.ts
+?? server/tests/room.test.ts.before_auto_equip_race_fix.bak
+?? server/tests/room.test.ts.before_pickup_message_race_fix.bak
+?? server/tests/room.test.ts.before_refactor014_slot_test_fix.bak
+?? server/tests/throwables.test.ts.before_fire_damage_test_fix.bak
+?? shared/src/index.ts.before_bazooka_damage170.bak
+?? shared/src/index.ts.before_bazooka_spawn_boost.bak
+?? shared/src/index.ts.before_bazooka_speed900.bak
+?? shared/src/index.ts.before_first_zone_flame100.bak
+?? shared/src/index.ts.before_flamethrower_damage_buff.bak
+?? shared/src/index.ts.before_flamethrower_supply_100.bak
+?? shared/src/index.ts.before_supply_first_zone_test.bak
+?? shared/src/throwables.ts.before_fire_damage_buff.bak
+?? shared/tests/refactor016-solo-ai-item-fist.test.ts
+?? shared/tests/rules.test.ts.before_bazooka_damage170.bak
+?? shared/tests/rules.test.ts.before_first_zone_flame100.bak
+?? shared/tests/throwables.test.ts.before_fire_damage_buff.bak
+?? {if(event.key
+

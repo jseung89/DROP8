@@ -1,3 +1,8 @@
+// DROP8_REFACTOR_019_AI_HUMANIZATION
+// DROP8_REFACTOR_018_WEREWOLF_SEASON
+// DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
+// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
+// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
 // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
 // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 // DROP8_REFACTOR_013G_DOCK8_RECOVERY
@@ -5,8 +10,8 @@
 import Phaser from 'phaser';
 import {
 // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
-  BUSH_HIDE_DISTANCE, LOOT_COLORS, LOOT_LABELS, MELEE_WEAPONS, THROWABLE_CONFIGS, THROWABLE_MAX_CHARGE_MS, MOTORCYCLE_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, MOTORCYCLE_DIRECT_ACCELERATION, MOTORCYCLE_DIRECT_DECELERATION, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_MOUNT_DISTANCE, MOTORCYCLE_RADIUS, MOTORCYCLE_ROTATION_RESPONSE, MOTORCYCLE_SCOPE_SPEED_RATIO, PLAYER_BODY_RADIUS, PLAYER_HIT_RADIUS, PLAYER_SEPARATION_RADIUS, PLAYER_SPEED, SNIPER_SCOPE_MOVE_MULTIPLIER,
-  REGION_THEMES, RENDER_DEPTH, WEAPONS, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_FEATHER, angleAwarePortalPolygon, buildingIdAt, buildingSpacesInteractable, buildingZoneById, buildingZonesAt, circleHitsRect, clamp, createThrowableMotion, crossSpaceOpening, distance, doorPortalOpening, findPortalVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, isThrowableType, motorcycleSpreadRadians, normalizeAimVector, predictThrowableTrajectory, normalizeMovementInput, pointInDirectionalScope, regionAt, segmentClearOfRects, selectActivePortal, smokeVisibilityBetween, spaceAt, spaceInteractionAllowed, traceSpaceVisibility, movementMultiplierAt, terrainAt, SWIM_SPEED, soundOcclusionBetween, targetVisibilitySamples, throwableEffectRadius,
+  AI_DIALOGUE_LINES, BUSH_HIDE_DISTANCE, LOOT_COLORS, LOOT_LABELS, MELEE_WEAPONS, THROWABLE_CONFIGS, THROWABLE_MAX_CHARGE_MS, MOTORCYCLE_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, MOTORCYCLE_DIRECT_ACCELERATION, MOTORCYCLE_DIRECT_DECELERATION, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_MOUNT_DISTANCE, MOTORCYCLE_RADIUS, MOTORCYCLE_ROTATION_RESPONSE, MOTORCYCLE_MAX_TURN_RATE, MOTORCYCLE_SCOPE_SPEED_RATIO, PLAYER_BODY_RADIUS, PLAYER_HIT_RADIUS, PLAYER_SEPARATION_RADIUS, PLAYER_SPEED, SNIPER_SCOPE_MOVE_MULTIPLIER,
+  REGION_THEMES, RENDER_DEPTH, WEAPONS, WEREWOLF_BALANCE, werewolfSpeed, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_FEATHER, angleAwarePortalPolygon, buildingIdAt, buildingSpacesInteractable, buildingZoneById, buildingZonesAt, circleHitsRect, clamp, createThrowableMotion, crossSpaceOpening, distance, doorPortalOpening, findPortalVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, isThrowableType, motorcycleSpreadRadians, normalizeAimVector, predictThrowableTrajectory, normalizeMovementInput, pointInDirectionalScope, regionAt, segmentClearOfRects, selectActivePortal, smokeVisibilityBetween, spaceAt, spaceInteractionAllowed, traceSpaceVisibility, movementMultiplierAt, terrainAt, SWIM_SPEED, soundOcclusionBetween, targetVisibilitySamples, throwableEffectRadius,
   type DecorKind, type EquippedId, type LootKind, type MapConfig, type MapId, type WeaponId, type MeleeId, type ThrowableType, type WindowOpening
 } from '@drop8/shared';
 import type { Network } from './network';
@@ -17,6 +22,7 @@ type DisplayPoint={x:number;y:number};
 type TargetVisibilityResult=VisibilityResult&{nameplateVisible:boolean;vehicleVisible:boolean;portalKind:'same'|'door'|'window'|'none';portalOpeningId:string;portalViewMode:'front'|'side'|'peripheral'|'none';revealStrength:number};
 type CharacterDeathPayload={entityId?:string;entityType?:'player'|'ai';x?:number;y?:number;angle?:number;buildingId?:string;displayName?:string;ai?:boolean;equipped?:EquippedId;killerId?:string;cause?:string;hitDirectionX?:number;hitDirectionY?:number;inBush?:boolean;bushRevealed?:boolean;diedAt?:number};
 type DeathVisual={entityId:string;x:number;y:number;angle:number;buildingId:string;ai:boolean;equipped:EquippedId;cause:string;hitDirectionX:number;hitDirectionY:number;startedAt:number;duration:number;pushDistance:number;inBush:boolean;bushRevealed:boolean;local:boolean};
+type AiDialoguePayload={playerId?:string;speakerId?:string;sender?:string;lineId?:keyof typeof AI_DIALOGUE_LINES;text?:string;category?:string;channel?:string;time?:number;sentAt?:number};
 type ChatPayload={playerId?:string;sender?:string;nickname?:string;text?:string;channel?:string;time?:number;sentAt?:number};
 type PlayerOverlay={
   container:Phaser.GameObjects.Container;
@@ -75,6 +81,7 @@ export class GameScene extends Phaser.Scene {
   private lastHitSeq=new Map<string,number>();
   private hitStartedAt=new Map<string,number>();
   private predictedLocal:DisplayPoint|null=null;
+  private werewolfPredictionVector:DisplayPoint|null=null;
   private localAimAngle=0;
   private localAimX=1;
   private localAimY=0;
@@ -121,7 +128,7 @@ export class GameScene extends Phaser.Scene {
   private lastZoneState='';
   private zoneWarningStage='';
   private lastPhase='';
-  private chatMessageHandler=(type:string,payload:any)=>{if(type==='chat')this.receiveChat(payload as ChatPayload);if(type==='positionRecovery')this.receivePositionRecovery(payload);if(type==='vehicleRecovery')this.receiveVehicleRecovery(payload);if(type==='characterDeath')this.receiveCharacterDeath(payload as CharacterDeathPayload);if(type==='audioEvent')this.receiveAudioEvent(payload as AudioEventMessage);};
+  private chatMessageHandler=(type:string,payload:any)=>{if(type==='chat')this.receiveChat(payload as ChatPayload);if(type==='aiDialogue')this.receiveAiDialogue(payload as AiDialoguePayload);if(type==='positionRecovery')this.receivePositionRecovery(payload);if(type==='vehicleRecovery')this.receiveVehicleRecovery(payload);if(type==='characterDeath')this.receiveCharacterDeath(payload as CharacterDeathPayload);if(type==='audioEvent')this.receiveAudioEvent(payload as AudioEventMessage);};
   private chatStateHandler=(event:Event)=>{
     const open=Boolean((event as CustomEvent<{open?:boolean}>).detail?.open);
     this.chatBlocked=open;
@@ -129,7 +136,7 @@ export class GameScene extends Phaser.Scene {
     if(open){
       for(const key of Object.values(this.keys??{}))key.reset();
       this.scopeRequested=false;this.cancelLocalThrow();
-      this.net.send('input',{x:0,y:0,aimX:this.localAimX,aimY:this.localAimY,angle:this.localAimAngle,seq:++this.seq,aiming:false,accelerate:false,brake:false,turnLeft:false,turnRight:false});
+      this.net.send('input',{x:0,y:0,aimX:this.localAimX,aimY:this.localAimY,angle:this.localAimAngle,seq:++this.seq,aiming:false,huntSprint:false,accelerate:false,brake:false,turnLeft:false,turnRight:false});
     }
   };
 
@@ -163,18 +170,21 @@ export class GameScene extends Phaser.Scene {
     this.fpsText=this.add.text(12,12,'',{fontFamily:'monospace',fontSize:'12px',color:'#9fb2bf',backgroundColor:'#071018aa',padding:{x:6,y:4}}).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+10);
     this.perfText=this.add.text(12,78,'',{fontFamily:'monospace',fontSize:'12px',color:'#d9edf8',backgroundColor:'#061018e8',padding:{x:8,y:7}}).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+12).setVisible(false);
     this.regionText=this.add.text(12,46,'',{fontFamily:'sans-serif',fontSize:'13px',fontStyle:'bold',color:'#f4f7ef',backgroundColor:'#071018cc',padding:{x:9,y:6}}).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+10).setVisible(false);
-    this.keys=this.input.keyboard!.addKeys('W,A,S,D,E,Q,R,ONE,TWO,THREE,FOUR,M,F3,SPACE,ENTER,LEFT,RIGHT') as Record<string,Phaser.Input.Keyboard.Key>;
+    this.keys=this.input.keyboard!.addKeys('W,A,S,D,E,F,Q,R,ONE,TWO,THREE,FOUR,FIVE,M,F3,SPACE,ENTER,LEFT,RIGHT') as Record<string,Phaser.Input.Keyboard.Key>;
     this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{void audio.unlock();const me=this.local();if(this.isTyping()||!me)return;if(pointer.rightButtonDown()&&this.localThrowPreparing){this.cancelLocalThrow();return;}if(pointer.leftButtonDown()&&me.alive&&me.phase==='landed'&&!me.isSwimming&&!me.isVaulting&&isThrowableType(me.equipped)&&me.throwableCount>0){this.localThrowPreparing=true;this.localThrowStartedAt=this.time.now;this.localThrowVehicleId=me.isDriving?String(me.vehicleId??''):'';this.net.send('throwPrepare');}});
     this.input.on('pointerup',(pointer:Phaser.Input.Pointer)=>{const me=this.local();if(pointer.button!==0||!this.localThrowPreparing||!me)return;if(me.isSwimming){this.cancelLocalThrow();return;}this.net.send('throw',{aimX:this.localAimX,aimY:this.localAimY});this.localThrowPreparing=false;this.localThrowStartedAt=0;this.localThrowVehicleId='';});
     this.keys.LEFT.on('down',()=>{this.spectateIndex=Math.max(0,this.spectateIndex-1);});
     this.keys.RIGHT.on('down',()=>{this.spectateIndex++;});
-    this.keys.E.on('down',()=>{const me=this.local();if(!this.isTyping()&&!me?.isSwimming){this.cancelLocalThrow();this.net.send('interact');}});
+    this.keys.E.on('down',()=>{const me=this.local();if(!this.isTyping()&&!me?.isSwimming){this.cancelLocalThrow();this.net.send('werewolfRitualStart');}});
+    this.keys.E.on('up',()=>{if(!this.isTyping())this.net.send('werewolfRitualCancel');});
+    this.keys.F.on('down',()=>{if(!this.isTyping())this.net.send('werewolfTransform');});
     this.keys.R.on('down',()=>{const me=this.local();if(!this.isTyping()&&!me?.isSwimming)this.net.send('reload');});
     this.keys.ONE.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:1});}});
     this.keys.TWO.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:2});}});
     this.keys.THREE.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:3});}});
     this.keys.FOUR.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:4});}});
+    this.keys.FIVE.on('down',()=>{const me=this.local();if(!this.isTyping()&&me?.alive&&me.phase==='landed'&&!me.isDriving&&!me.isSwimming&&!me.isVaulting){this.cancelLocalThrow();this.net.send('placeStripTrap');}});
     this.keys.Q.on('down',()=>{const me=this.local();if(!this.isTyping()&&!me?.isSwimming){this.cancelLocalThrow();this.net.send('heal',{kind:'auto'});}});
     this.keys.SPACE.on('down',()=>{if(this.isTyping())return;const me=this.local();if(me?.isSwimming)return;this.net.send(me?.phase==='landed'?'vaultWindow':'jump');});
     this.keys.M.on('down',()=>{this.mapOpen=!this.mapOpen;this.lastMiniDraw=0;});
@@ -224,10 +234,12 @@ export class GameScene extends Phaser.Scene {
     this.trackMotorcycles(s);
     if(me){
       const typing=this.isTyping();
+      const wolf=me.werewolf??{};
+      const actionLocked=Boolean(wolf.ritualizing||wolf.transformPreparing||Number(s.serverTime??0)<Number(wolf.actionLockedUntil??0));
       const currentThrowVehicleId=me.isDriving?String(me.vehicleId??''):'';
-      if(this.localThrowPreparing&&(typing||!me.alive||me.phase!=='landed'||me.isSwimming||me.isVaulting||!isThrowableType(me.equipped)||me.throwableCount<=0||currentThrowVehicleId!==this.localThrowVehicleId))this.cancelLocalThrow();
-      const rawX=typing||me.isVaulting?0:(this.keys.D.isDown?1:0)-(this.keys.A.isDown?1:0);
-      const rawY=typing||me.isVaulting?0:(this.keys.S.isDown?1:0)-(this.keys.W.isDown?1:0);
+      if(this.localThrowPreparing&&(typing||!me.alive||me.phase!=='landed'||me.isSwimming||me.isVaulting||wolf.transformed||actionLocked||!isThrowableType(me.equipped)||me.throwableCount<=0||currentThrowVehicleId!==this.localThrowVehicleId))this.cancelLocalThrow();
+      const rawX=typing||me.isVaulting||actionLocked?0:(this.keys.D.isDown?1:0)-(this.keys.A.isDown?1:0);
+      const rawY=typing||me.isVaulting||actionLocked?0:(this.keys.S.isDown?1:0)-(this.keys.W.isDown?1:0);
       const normalizedInput=normalizeMovementInput(rawX,rawY);
       const x=normalizedInput.x,y=normalizedInput.y;
       const pointer=this.input.activePointer;
@@ -246,7 +258,7 @@ export class GameScene extends Phaser.Scene {
       const shown=holdingDeathCamera&&this.localDeathPoint?this.localDeathPoint:target.id===me.id&&this.predictedLocal?this.predictedLocal:this.remotePosition(target,time);
       const vehicleDisplay=localVehicle?this.displayMotorcycles.get(localVehicle.id):undefined;
       const vehicleSpeedRatio=localVehicle?Math.abs(Number(vehicleDisplay?.speed??localVehicle.speed??0))/MOTORCYCLE_MAX_SPEED:0;
-      const canScope=Boolean(!typing&&!me.isSwimming&&!me.isVaulting&&me.alive&&me.phase==='landed'&&me.equipped==='sniper'&&!me.reloading&&!me.healingKind&&(!me.isDriving||(vehicleSpeedRatio<=MOTORCYCLE_SCOPE_SPEED_RATIO&&rawX===0&&rawY===0)));
+      const canScope=Boolean(!typing&&!wolf.transformed&&!wolf.transformPreparing&&!me.isSwimming&&!me.isVaulting&&me.alive&&me.phase==='landed'&&me.equipped==='sniper'&&!me.reloading&&!me.healingKind&&(!me.isDriving||(vehicleSpeedRatio<=MOTORCYCLE_SCOPE_SPEED_RATIO&&rawX===0&&rawY===0)));
       if(!canScope&&pointer.rightButtonDown()&&me.equipped==='sniper'&&me.isDriving&&time-this.lastScopeNoticeAt>900){this.lastScopeNoticeAt=time;this.dispatchNotice('속도를 줄이고 이동키를 놓아야 스코프를 사용할 수 있습니다.','warning');}
       this.scopeRequested=canScope&&pointer.rightButtonDown();
 
@@ -264,12 +276,12 @@ export class GameScene extends Phaser.Scene {
       this.updateRegionLabel(shown.x,shown.y);
       this.updateTerrainDebug(shown.x,shown.y,Boolean(target?.isSwimming));
       if(time-this.lastInput>=50){
-        this.net.send('input',{x,y,aimX:this.localAimX,aimY:this.localAimY,angle:this.localAimAngle,seq:++this.seq,aiming:this.scopeRequested,accelerate:false,brake:false,turnLeft:false,turnRight:false});
+        this.net.send('input',{x,y,aimX:this.localAimX,aimY:this.localAimY,angle:this.localAimAngle,seq:++this.seq,aiming:this.scopeRequested,huntSprint:Boolean(wolf.transformed)&&pointer.rightButtonDown(),accelerate:false,brake:false,turnLeft:false,turnRight:false});
         this.lastInput=time;
       }
       if(!typing&&!me.isSwimming&&!me.isVaulting&&!isThrowableType(me.equipped)&&pointer.leftButtonDown()&&time-this.lastFire>=55){
-        this.net.send(me.equipped==='fists'||me.equipped in MELEE_WEAPONS?'melee':'fire');
-        if(me.equipped in WEAPONS&&me.equipped!=='fists')this.crosshairKick=Math.min(18,this.crosshairKick+(me.equipped==='shotgun'?9:me.equipped==='sniper'?5:3));
+        this.net.send(Boolean(wolf.transformed)||me.equipped==='fists'||me.equipped in MELEE_WEAPONS?'melee':'fire');
+        if(me.equipped in WEAPONS&&me.equipped!=='fists')this.crosshairKick=Math.min(18,this.crosshairKick+((me.equipped==='shotgun'||me.equipped==='silver_crossbow')?9:me.equipped==='sniper'?5:3));
         this.lastFire=time;
       }
       this.updateCombatHud(me,vehicleDisplay??localVehicle,typing,dt);
@@ -386,7 +398,7 @@ export class GameScene extends Phaser.Scene {
     this.crosshairKick=Math.max(0,this.crosshairKick-dt*24);
     this.updateScopeOverlay(me,dt);
     const g=this.crosshairG;g.clear();
-    if(typing||!me?.alive||me.phase!=='landed'||me.isSwimming||this.scopeBlend>.05)return;
+    if(typing||!me?.alive||me.phase!=='landed'||me.isSwimming||me.werewolf?.transformed||this.scopeBlend>.05)return;
     const id=me.equipped as WeaponId;
     const weapon=WEAPONS[id];
     if(!weapon||id==='fists')return;
@@ -687,6 +699,7 @@ export class GameScene extends Phaser.Scene {
 
   private resolvedViewerSpace(viewer:any){
     const x=Number(viewer?.x??0),y=Number(viewer?.y??0);
+    if(viewer?.phase!=='landed')return{buildingId:'',roomIndex:0,outdoors:true};
     const inferred=spaceAt(x,y,this.mapConfig.buildingVisibilityZones,this.mapConfig.rooms,0);
     const networkBuildingId=String(viewer?.buildingId??'');
     const networkRoomIndex=Number(viewer?.roomIndex??0);
@@ -699,6 +712,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateBuildingPresentation(viewer:any){
+    if(!viewer?.alive||viewer?.phase!=='landed'){this.activeBuildingId='';this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';for(const roof of this.buildingRoofs.values())roof.setAlpha(1);this.indoorMaskG.clear();const canvas=this.windowVisionCanvas,context=this.windowVisionContext;if(canvas&&context){context.clearRect(0,0,canvas.width,canvas.height);canvas.classList.add('hidden');}return;}
     const resolved=this.resolvedViewerSpace(viewer);
     const roomIndex=resolved.roomIndex;
     const currentRoom=this.mapConfig.rooms.find((candidate)=>candidate.index===roomIndex);
@@ -892,13 +906,84 @@ export class GameScene extends Phaser.Scene {
     const view=this.cameras.main.worldView;
     const visible=(x:number,y:number,m=120)=>x>=view.x-m&&x<=view.right+m&&y>=view.y-m&&y<=view.bottom+m;
 
+    const season=s.werewolfSeason;
+    if(season?.enabled){
+      if(visible(Number(season.altarX),Number(season.altarY),180)){
+        const ax=Number(season.altarX),ay=Number(season.altarY),active=season.altarPhase==='active',recharging=season.altarPhase==='recharging';
+        const pulse=.5+.5*Math.sin(time*.004);
+        g.fillStyle(0x101013,.9).fillEllipse(ax,ay+8,78,30);
+        g.fillStyle(0x383239,.96).fillRoundedRect(ax-30,ay-8,60,20,5);
+        g.fillStyle(0x55505a,.94).fillTriangle(ax-22,ay-8,ax,ay-43,ax+22,ay-8);
+        if(active||recharging){g.lineStyle(4,active?0xc63246:0x6f2835,.42+.35*pulse).strokeCircle(ax,ay,45+8*pulse);g.fillStyle(active?0xd5354e:0x782c3b,.08+.1*pulse).fillCircle(ax,ay,70+12*pulse);g.lineStyle(5,active?0xdf4058:0x72313d,.28+.25*pulse).lineBetween(ax,ay-38,ax,ay-150);}
+      }
+      if(season.armoryActive&&!season.armoryOpened&&visible(Number(season.armoryX),Number(season.armoryY),130)){
+        const bx=Number(season.armoryX),by=Number(season.armoryY),pulse=.45+.22*Math.sin(time*.005);
+        g.fillStyle(0x273039,.95).fillRoundedRect(bx-25,by-16,50,32,5);g.lineStyle(3,0xdce6ec,.65).strokeRoundedRect(bx-25,by-16,50,32,5);g.lineStyle(3,0xbecbd3,.55).lineBetween(bx,by-16,bx,by+16);
+        g.lineStyle(3,0xd9e5eb,pulse).strokeCircle(bx,by,38+4*pulse);
+      }
+      if(season.curseDropActive&&visible(Number(season.curseDropX),Number(season.curseDropY),100)){
+        const cx=Number(season.curseDropX),cy=Number(season.curseDropY),pulse=.5+.4*Math.sin(time*.008);
+        g.fillStyle(0xa51d3c,.22+.18*pulse).fillCircle(cx,cy,25+8*pulse);g.fillStyle(0xd93a5b,.95).fillCircle(cx,cy,8);g.lineStyle(2,0xff9aae,.8).strokeCircle(cx,cy,14);
+      }
+    }
+
+    for(const rocket of s.rockets??[]){
+      if(!this.spaceVisible(rocket)||!visible(rocket.x,rocket.y,80))continue;
+      const angle=Math.atan2(Number(rocket.vy||0),Number(rocket.vx||0));
+      const cos=Math.cos(angle),sin=Math.sin(angle),sideX=-sin,sideY=cos;
+      const noseX=rocket.x+cos*13,noseY=rocket.y+sin*13;
+      const tailX=rocket.x-cos*10,tailY=rocket.y-sin*10;
+      const flameX=rocket.x-cos*27,flameY=rocket.y-sin*27;
+      g.fillStyle(0xff7a2f,.45).fillTriangle(tailX+sideX*5,tailY+sideY*5,tailX-sideX*5,tailY-sideY*5,flameX,flameY);
+      g.fillStyle(0xffe083,.95).fillTriangle(tailX+sideX*2.5,tailY+sideY*2.5,tailX-sideX*2.5,tailY-sideY*2.5,rocket.x-cos*22,rocket.y-sin*22);
+      g.lineStyle(10,0x4d6651,1).lineBetween(tailX,tailY,rocket.x+cos*7,rocket.y+sin*7);
+      g.fillStyle(0xc7d3c4,1).fillTriangle(noseX,noseY,rocket.x+cos*4+sideX*5,rocket.y+sin*4+sideY*5,rocket.x+cos*4-sideX*5,rocket.y+sin*4-sideY*5);
+      g.fillStyle(0x29353a,1).fillTriangle(tailX+sideX*3,tailY+sideY*3,tailX-cos*7+sideX*9,tailY-sin*7+sideY*9,tailX-cos*4+sideX*2,tailY-sin*4+sideY*2);
+      g.fillStyle(0x29353a,1).fillTriangle(tailX-sideX*3,tailY-sideY*3,tailX-cos*7-sideX*9,tailY-sin*7-sideY*9,tailX-cos*4-sideX*2,tailY-sin*4-sideY*2);
+    }
+
+
+    for(const drop of s.supplyDrops??[]){
+      if(!visible(drop.x,drop.y,180))continue;const altitude=Number(drop.altitude||0),shadowScale=1+altitude/900;
+      g.fillStyle(0x000000,.22).fillEllipse(drop.x,drop.y,54*shadowScale,22*shadowScale);
+      const drawY=drop.y-altitude*.18;
+      if(!drop.landed){g.lineStyle(3,0xe9edf0,.8).lineBetween(drop.x-24,drawY-26,drop.x-11,drawY-4).lineBetween(drop.x+24,drawY-26,drop.x+11,drawY-4);g.fillStyle(0xe8ecef,.85).fillEllipse(drop.x,drawY-28,60,26);}
+      g.fillStyle(drop.opened?0x704a2d:0xb34a32,.96).fillRoundedRect(drop.x-22,drawY-14,44,28,5);g.lineStyle(3,0xf0d08d,.8).strokeRoundedRect(drop.x-22,drawY-14,44,28,5);g.lineStyle(3,0xf0d08d,.7).lineBetween(drop.x,drawY-14,drop.x,drawY+14);
+      if(drop.landed&&!drop.opened){const pulse=.45+.25*Math.sin(time*.006);g.lineStyle(4,0xff5b3d,pulse).lineBetween(drop.x,drop.y-18,drop.x,drop.y-180);g.fillStyle(0xff7048,.15).fillCircle(drop.x,drop.y,48);}
+    }
+    for(const jet of s.flameJets??[]){
+      if(!this.worldEntityVisible(jet.x,jet.y,String(jet.buildingId??''))||!visible(jet.x,jet.y,Number(jet.range||320)+80))continue;const age=Math.max(0,Number(s.serverTime||0)-Number(jet.startedAt||0)),life=Math.max(.01,Number(jet.expiresAt||0)-Number(jet.startedAt||0)),alpha=clamp(1-age/life,0,1),a=Number(jet.angle||0),range=Number(jet.range||320),half=Number(jet.halfAngle||.28),leftX=jet.x+Math.cos(a-half)*range,leftY=jet.y+Math.sin(a-half)*range,rightX=jet.x+Math.cos(a+half)*range,rightY=jet.y+Math.sin(a+half)*range;
+      g.fillStyle(0xff3d1f,.18*alpha).fillTriangle(jet.x,jet.y,leftX,leftY,rightX,rightY);g.fillStyle(0xff8b2d,.30*alpha).fillTriangle(jet.x,jet.y,jet.x+Math.cos(a-half*.62)*range*.78,jet.y+Math.sin(a-half*.62)*range*.78,jet.x+Math.cos(a+half*.62)*range*.78,jet.y+Math.sin(a+half*.62)*range*.78);g.fillStyle(0xffe36a,.72*alpha).fillTriangle(jet.x,jet.y,jet.x+Math.cos(a-half*.28)*range*.52,jet.y+Math.sin(a-half*.28)*range*.52,jet.x+Math.cos(a+half*.28)*range*.52,jet.y+Math.sin(a+half*.28)*range*.52);
+      for(let i=0;i<8;i++){const t=(i+1)/9,r=range*t,side=Math.sin(time*.02+i*2.3)*r*Math.tan(half)*.45;g.fillStyle(i%2?0xffd34f:0xff6a24,.55*alpha).fillCircle(jet.x+Math.cos(a)*r-Math.sin(a)*side,jet.y+Math.sin(a)*r+Math.cos(a)*side,4+(i%3)*2);}
+    }
+
+    for(const jet of s.adhesiveJets??[]){
+      if(!this.worldEntityVisible(jet.x,jet.y,String(jet.buildingId??''))||!visible(jet.x,jet.y,Number(jet.range||315)+80))continue;
+      const age=Math.max(0,Number(s.serverTime||0)-Number(jet.startedAt||0)),life=Math.max(.01,Number(jet.expiresAt||0)-Number(jet.startedAt||0)),alpha=clamp(1-age/life,0,1),a=Number(jet.angle||0),range=Number(jet.range||315),half=Number(jet.halfAngle||.36);
+      const leftX=jet.x+Math.cos(a-half)*range,leftY=jet.y+Math.sin(a-half)*range,rightX=jet.x+Math.cos(a+half)*range,rightY=jet.y+Math.sin(a+half)*range;
+      g.fillStyle(0xd9dde0,.13*alpha).fillTriangle(jet.x,jet.y,leftX,leftY,rightX,rightY);
+      g.fillStyle(0xaeb7bd,.24*alpha).fillTriangle(jet.x,jet.y,jet.x+Math.cos(a-half*.62)*range*.78,jet.y+Math.sin(a-half*.62)*range*.78,jet.x+Math.cos(a+half*.62)*range*.78,jet.y+Math.sin(a+half*.62)*range*.78);
+      for(let i=0;i<10;i++){const t=(i+1)/11,r=range*t,side=Math.sin(time*.016+i*2.1)*r*Math.tan(half)*.48;g.fillStyle(i%2?0xf1f3f4:0xb9c1c6,.55*alpha).fillCircle(jet.x+Math.cos(a)*r-Math.sin(a)*side,jet.y+Math.sin(a)*r+Math.cos(a)*side,3+(i%3)*1.5);}
+    }
+
+    for(const trap of s.stripTraps??[]){
+      if(!this.worldEntityVisible(trap.x,trap.y,String(trap.buildingId??''))||!visible(trap.x,trap.y,90))continue;
+      const half=Number(trap.length||100)/2,a=Number(trap.angle||0),dx=Math.cos(a)*half,dy=Math.sin(a)*half,owner=String(trap.ownerId??'')===this.net.sessionId;
+      const active=Boolean(trap.active),alpha=active ? .72 : .42;
+      g.lineStyle(Math.max(5,Number(trap.width||14)),active?0x22272b:0x343a3f,alpha).lineBetween(trap.x-dx,trap.y-dy,trap.x+dx,trap.y+dy);
+      g.lineStyle(2,0x70777c,.42).lineBetween(trap.x-dx,trap.y-dy,trap.x+dx,trap.y+dy);
+      for(let i=-4;i<=4;i++){const t=i/4,x=trap.x+dx*t,y=trap.y+dy*t,px=-Math.sin(a)*4,py=Math.cos(a)*4;g.lineStyle(1,0xa0a5a8,.34).lineBetween(x-px,y-py,x+px,y+py);}
+      if(owner){const pulse=.18+.08*Math.sin(time*.006);g.lineStyle(2,0x93bdc9,pulse).strokeEllipse(trap.x,trap.y,Number(trap.length||100)+12,Number(trap.width||14)+13);}
+    }
+
     const activeBulletIds=new Set<string>();
     for(const b of s.bullets){
       activeBulletIds.add(b.id);
       if(!this.spaceVisible(b)||!visible(b.x,b.y,40))continue;
       const d=this.getDisplayBullet(b.id,b.x,b.y);
-      g.lineStyle(3,0xffef9a,.9).lineBetween(d.x-b.vx*.012,d.y-b.vy*.012,d.x,d.y);
-      g.fillStyle(0xfff6bd).fillCircle(d.x,d.y,3);
+      const silver=b.weaponId==='silver_crossbow';
+      g.lineStyle(silver?4:3,silver?0xdce8ef:0xffef9a,.9).lineBetween(d.x-b.vx*.012,d.y-b.vy*.012,d.x,d.y);
+      g.fillStyle(silver?0xf4fbff:0xfff6bd).fillCircle(d.x,d.y,silver?3.5:3);
     }
     for(const id of this.displayBullets.keys())if(!activeBulletIds.has(id))this.displayBullets.delete(id);
 
@@ -941,7 +1026,7 @@ export class GameScene extends Phaser.Scene {
       if(!this.seenExplosionIds.has(explosion.id)){
         this.seenExplosionIds.add(explosion.id);
         const viewer=this.viewerPoint??this.local();
-        if(viewer){const d=distance(viewer.x,viewer.y,explosion.x,explosion.y);this.playWorldAudio(explosion.kind==='fragGrenade'?'frag_explosion':'motorcycle_explosion',{id:`explosion:${explosion.id}`,x:explosion.x,y:explosion.y,buildingId:buildingIdAt(explosion.x,explosion.y,0,this.mapConfig.buildingVisibilityZones)},1600);if(d<230)audio.applyTemporaryMuffle(320);}
+        if(viewer){const d=distance(viewer.x,viewer.y,explosion.x,explosion.y);this.playWorldAudio(explosion.kind==='fragGrenade'?'frag_explosion':explosion.kind==='bazooka'?'bazooka_explosion':'motorcycle_explosion',{id:`explosion:${explosion.id}`,x:explosion.x,y:explosion.y,buildingId:buildingIdAt(explosion.x,explosion.y,0,this.mapConfig.buildingVisibilityZones)},1600);if(d<230)audio.applyTemporaryMuffle(320);}
         if(viewer&&distance(viewer.x,viewer.y,explosion.x,explosion.y)<430)this.cameras.main.shake(130,.0045);
       }
     }
@@ -1223,6 +1308,12 @@ export class GameScene extends Phaser.Scene {
   }
 
 
+  private receiveAiDialogue(payload:AiDialoguePayload){
+    const lineId=payload?.lineId,text=lineId?AI_DIALOGUE_LINES[lineId]:String(payload?.text??'');
+    if(!text)return;
+    this.receiveChat({playerId:payload.playerId??payload.speakerId,sender:payload.sender,text,channel:'ai',time:payload.time,sentAt:payload.sentAt});
+  }
+
   private receiveChat(payload:ChatPayload){
     if(!payload?.playerId||!payload.text||payload.channel==='system'||payload.channel==='lobby')return;
     const player=this.net.snapshot?.players.find((item)=>item.id===payload.playerId);
@@ -1305,7 +1396,8 @@ export class GameScene extends Phaser.Scene {
     const visible=(x:number,y:number,m=120)=>x>=view.x-m&&x<=view.right+m&&y>=view.y-m&&y<=view.bottom+m;
     if(s.zoneActive)g.lineStyle(6,0x4db5ff,.72).strokeCircle(s.zoneX,s.zoneY,s.zoneRadius);
     if(s.zoneActive||s.zoneState==='ANNOUNCING')g.lineStyle(3,0xffffff,.36).strokeCircle(s.nextZoneX,s.nextZoneY,s.nextZoneRadius);
-    for(const l of s.loot){if(this.spaceVisible(l)&&visible(l.x,l.y,80)&&this.pointInsideScopeView(l.x,l.y))this.drawLootIcon(g,l.kind as LootKind,l.x,l.y,1);}
+    for(const drop of s.supplyDrops??[])if(drop.landed&&visible(drop.x,drop.y,100))g.lineStyle(3,drop.opened?0x8c755f:0xff6b4a,.9).strokeRect(drop.x-25,drop.y-17,50,34);
+    const viewer=this.viewerEntity();if(viewer?.alive&&viewer?.phase==='landed')for(const l of s.loot){if(this.spaceVisible(l)&&visible(l.x,l.y,80)&&this.pointInsideScopeView(l.x,l.y))this.drawLootIcon(g,l.kind as LootKind,l.x,l.y,1);}
   }
 
   private updateLocalPrediction(me:any,x:number,y:number,dt:number){
@@ -1323,8 +1415,24 @@ export class GameScene extends Phaser.Scene {
     const aimingPenalty=this.scopeRequested?SNIPER_SCOPE_MOVE_MULTIPLIER:1;
     const multiplier=me.isSwimming?1:(ranged?.moveMultiplier??melee?.moveMultiplier??1)*aimingPenalty;
     const terrain=movementMultiplierAt(this.predictedLocal.x,this.predictedLocal.y,this.mapConfig.shallowWaterZones,this.mapConfig.landCrossings);
-    const step=Math.min(.04,Math.max(0,dt))*(me.isSwimming?SWIM_SPEED:PLAYER_SPEED)*multiplier*terrain;
-    this.movePredicted(x*step,y*step);
+    const wolf=me.werewolf??{};
+    const playerMovementSlowed=Number(this.net.snapshot?.serverTime??0)<Number(wolf.silverSlowUntil??0);const baseSpeed=wolf.transformed?werewolfSpeed(MOTORCYCLE_MAX_SPEED,Boolean(wolf.sprinting),Boolean(me.insideBuilding),playerMovementSlowed):(me.isSwimming?SWIM_SPEED:PLAYER_SPEED)*multiplier*terrain*(playerMovementSlowed ? .6 : 1);
+    const safeDt=Math.min(.04,Math.max(0,dt));
+    let moveX=x,moveY=y;
+    if(wolf.transformed){
+      const magnitude=Math.hypot(x,y);
+      if(magnitude<=.08)this.werewolfPredictionVector=null;
+      else if(wolf.sprinting){
+        const desiredX=x/magnitude,desiredY=y/magnitude,previous=this.werewolfPredictionVector??{x:desiredX,y:desiredY};
+        const previousAngle=Math.atan2(previous.y,previous.x),desiredAngle=Math.atan2(desiredY,desiredX);
+        const delta=Math.atan2(Math.sin(desiredAngle-previousAngle),Math.cos(desiredAngle-previousAngle));
+        const maxTurn=MOTORCYCLE_MAX_TURN_RATE*3.1*WEREWOLF_BALANCE.sprintSteeringMultiplier*safeDt;
+        const nextAngle=previousAngle+clamp(delta,-maxTurn,maxTurn);
+        moveX=Math.cos(nextAngle);moveY=Math.sin(nextAngle);this.werewolfPredictionVector={x:moveX,y:moveY};
+      }else this.werewolfPredictionVector={x:moveX,y:moveY};
+    }else this.werewolfPredictionVector=null;
+    const step=safeDt*baseSpeed;
+    this.movePredicted(moveX*step,moveY*step);
   }
 
   private movePredicted(dx:number,dy:number){
@@ -1386,8 +1494,31 @@ export class GameScene extends Phaser.Scene {
       g.fillStyle(p.hp>40?0x55dd8c:0xff5f67,alpha).fillRect(x-25,y-37,50*Math.max(0,p.hp)/100,5);
       return;
     }
+    if(p.werewolf?.transformed){
+      const a=Number(p.angle||0),fx=Math.cos(a),fy=Math.sin(a),sx=-fy,sy=fx,pulse=p.werewolf.sprinting?3+Math.sin(time*.02)*2:0;
+      const wolfAttackSeq=Number(p.attackSeq??0),wolfPrevious=this.lastAttackSeq.get(p.id);
+      if(wolfPrevious===undefined)this.lastAttackSeq.set(p.id,wolfAttackSeq);
+      else if(wolfPrevious!==wolfAttackSeq){this.lastAttackSeq.set(p.id,wolfAttackSeq);this.attackStartedAt.set(p.id,time);}
+      const wolfAttackStarted=this.attackStartedAt.get(p.id)??-999,wolfAttackProgress=Math.max(0,Math.min(1,(time-wolfAttackStarted)/260)),wolfAttackActive=wolfAttackProgress<1,wolfAttackPulse=wolfAttackActive?Math.sin(wolfAttackProgress*Math.PI):0,wolfAttackSide=wolfAttackSeq%2===0?1:-1,wolfWindup=wolfAttackActive?Math.min(1,wolfAttackProgress/.28):0,wolfSweepT=wolfAttackActive?Math.max(0,Math.min(1,(wolfAttackProgress-.22)/.58)):0,wolfRecover=wolfAttackActive?Math.max(0,1-Math.max(0,(wolfAttackProgress-.8)/.2)):0;
+      g.fillStyle(0x08090c,.25*alpha).fillEllipse(x,y+25,56+pulse*2,22);
+      g.fillStyle(0x242832,.98*alpha).fillEllipse(x,y,44,50);
+      g.fillStyle(0x303640,.98*alpha).fillCircle(x+fx*13,y+fy*13,20);
+      g.fillStyle(0x303640,.98*alpha).fillTriangle(x+fx*4+sx*13,y+fy*4+sy*13,x+fx*5+sx*27,y+fy*5+sy*27,x+fx*16+sx*15,y+fy*16+sy*15);
+      g.fillStyle(0x303640,.98*alpha).fillTriangle(x+fx*4-sx*13,y+fy*4-sy*13,x+fx*5-sx*27,y+fy*5-sy*27,x+fx*16-sx*15,y+fy*16-sy*15);
+      g.fillStyle(0x171a20,.98*alpha).fillEllipse(x+fx*30,y+fy*30,24,15);
+      g.fillStyle(0xff334f,.95*alpha).fillCircle(x+fx*18+sx*7,y+fy*18+sy*7,3).fillCircle(x+fx*18-sx*7,y+fy*18-sy*7,3);
+      for(const side of [-1,1]){const striking=side===wolfAttackSide,restSide=side*24,attackSide=wolfAttackSide*(32-64*wolfSweepT),handSide=striking?attackSide*wolfRecover+restSide*(1-wolfRecover):restSide,handForward=34+pulse+(striking?15*wolfWindup*wolfRecover:0),hx=x+fx*10+sx*side*18,hy=y+fy*10+sy*side*18,ex=x+fx*handForward+sx*handSide,ey=y+fy*handForward+sy*handSide;g.lineStyle(8,0x303640,.95*alpha).lineBetween(hx,hy,ex,ey);for(let claw=-1;claw<=1;claw++)g.lineStyle(2,0xe2e5e8,.8*alpha).lineBetween(ex,ey,ex+fx*10+sx*claw*3,ey+fy*10+sy*claw*3);}
+      if(wolfAttackActive&&wolfSweepT>0){const slashStartSide=wolfAttackSide*38,slashEndSide=wolfAttackSide*(38-76*wolfSweepT),slashAlpha=Math.sin(Math.min(1,wolfSweepT)*Math.PI);for(let claw=-1;claw<=1;claw++){const slashForward=53+claw*7,startX=x+fx*slashForward+sx*(slashStartSide+claw*2),startY=y+fy*slashForward+sy*(slashStartSide+claw*2),endX=x+fx*slashForward+sx*(slashEndSide+claw*2),endY=y+fy*slashForward+sy*(slashEndSide+claw*2);g.lineStyle(14,0x7b1625,.22*slashAlpha*alpha).lineBetween(startX,startY,endX,endY);g.lineStyle(6,0xffd7dc,(.4+.55*slashAlpha)*alpha).lineBetween(startX,startY,endX,endY);}}
+      if(p.werewolf.silverSlowUntil>Number(this.net.snapshot?.serverTime??0))g.lineStyle(4,0xd8edf7,.7*alpha).strokeCircle(x,y,32+2*Math.sin(time*.01));
+      if(p.inBush)g.lineStyle(3,p.bushRevealed?0xffd45a:0x7ddf7f,(p.id===this.net.sessionId ? .88 : .45)*alpha).strokeCircle(x,y,30);
+      if(hitPulse>0)g.lineStyle(4,0xff4c57,hitPulse*alpha).strokeCircle(x,y,34+8*(1-hitPulse));
+      g.fillStyle(p.hp>40?0x55dd8c:0xff5f67,alpha).fillRect(x-25,y-42,50*Math.max(0,p.hp)/100,5);
+      return;
+    }
     const concealAlpha=p.inBush&&!p.bushRevealed&&p.id!==this.net.sessionId ? .72 : 1;
     g.fillStyle(bodyColor,concealAlpha*alpha).fillCircle(x,y,20*scale);
+    const adhesiveSlowActive=Number(p.werewolf?.silverSlowUntil??0)>Number(this.net.snapshot?.serverTime??0);
+    if(adhesiveSlowActive){const adhesivePulse=.5+.18*Math.sin(time*.012+Number(p.x||0)*.01);g.lineStyle(4,0xdde1e3,(.48+adhesivePulse*.28)*alpha).strokeEllipse(x,y+9,50*scale,32*scale);for(let i=0;i<7;i++){const a=i/7*Math.PI*2+time*.0014,r=17+(i%2)*5;g.fillStyle(0xcbd1d6,(.28+adhesivePulse*.3)*alpha).fillCircle(x+Math.cos(a)*r,y+9+Math.sin(a)*r*.55,3+(i%3));}}
     if(p.inBush)g.lineStyle(3,p.bushRevealed?0xffd45a:0x7ddf7f,(p.id===this.net.sessionId ? .88 : .45)*alpha).strokeCircle(x,y,25*scale);
     if(hitPulse>0)g.lineStyle(4,0xff4c57,hitPulse*alpha).strokeCircle(x,y,27+8*(1-hitPulse));
     g.lineStyle(4,0xffffff,(p.id===this.net.sessionId?1:.38)*alpha).strokeCircle(x,y,20*scale);
@@ -1464,6 +1595,25 @@ export class GameScene extends Phaser.Scene {
       g.lineStyle(5,0x7a5b3f,alpha).lineBetween(pt(4-recoil,0).x,pt(4-recoil,0).y,pt(24-recoil,0).x,pt(24-recoil,0).y);
       g.lineStyle(5,0x111920,alpha).lineBetween(scopeA.x,scopeA.y,scopeB.x,scopeB.y);
       g.fillStyle(0xff4858,alpha).fillCircle(end.x,end.y,3.5);
+    }else if(id==='silver_crossbow'){
+      const rear=pt(-8-recoil,0),front=pt(52-recoil,0),left=pt(25-recoil,-18),right=pt(25-recoil,18);
+      g.lineStyle(6,0x5a4636,alpha).lineBetween(rear.x,rear.y,front.x,front.y);
+      g.lineStyle(4,0xcbd6dc,alpha).lineBetween(left.x,left.y,front.x,front.y).lineBetween(front.x,front.y,right.x,right.y).lineBetween(right.x,right.y,left.x,left.y);
+      g.fillStyle(0xeaf4f8,alpha).fillTriangle(front.x,front.y,front.x-Math.cos(a-.45)*11,front.y-Math.sin(a-.45)*11,front.x-Math.cos(a+.45)*11,front.y-Math.sin(a+.45)*11);
+    }else if(id==='bazooka'){
+      const rear=pt(-12-recoil,0),end=pt(66-recoil,0),grip=pt(22-recoil,12);g.lineStyle(12,0x4d6651,alpha).lineBetween(rear.x,rear.y,end.x,end.y);g.lineStyle(5,0x20282b,alpha).lineBetween(pt(20-recoil,3).x,pt(20-recoil,3).y,grip.x,grip.y);g.fillStyle(0x9de27d,alpha).fillCircle(end.x,end.y,5);g.fillStyle(0x2d3438,alpha).fillCircle(rear.x,rear.y,7);
+    }else if(id==='adhesive_sprayer'){
+      const body=pt(8-recoil,0),barrel=pt(46-recoil,0),nozzle=pt(61-recoil,0),tank=pt(2-recoil,14),grip=pt(24-recoil,13),hoseA=pt(9-recoil,8),hoseB=pt(34-recoil,5);
+      g.lineStyle(12,0x505a60,alpha).lineBetween(body.x,body.y,barrel.x,barrel.y);g.lineStyle(7,0xc7ced2,alpha).lineBetween(barrel.x,barrel.y,nozzle.x,nozzle.y);g.fillStyle(0x9ca5aa,alpha).fillCircle(tank.x,tank.y,11);g.lineStyle(3,0x2f383d,alpha).strokeCircle(tank.x,tank.y,11);g.lineStyle(4,0x2f383d,alpha).lineBetween(hoseA.x,hoseA.y,hoseB.x,hoseB.y);g.lineStyle(5,0x20282b,alpha).lineBetween(pt(24-recoil,3).x,pt(24-recoil,3).y,grip.x,grip.y);g.fillStyle(0xe8ecee,.85*alpha).fillTriangle(pt(62-recoil,-4).x,pt(62-recoil,-4).y,pt(70-recoil,0).x,pt(70-recoil,0).y,pt(62-recoil,4).x,pt(62-recoil,4).y);
+    }else if(id==='flamethrower'){
+      const flameBody=pt(8-recoil,0),flameBarrel=pt(46-recoil,0),flameNozzle=pt(61-recoil,0),flameTank=pt(2-recoil,14),flameGrip=pt(24-recoil,13),hoseA=pt(9-recoil,8),hoseB=pt(34-recoil,5);
+      g.lineStyle(12,0x39454a,alpha).lineBetween(flameBody.x,flameBody.y,flameBarrel.x,flameBarrel.y);
+      g.lineStyle(7,0xb9c3c9,alpha).lineBetween(flameBarrel.x,flameBarrel.y,flameNozzle.x,flameNozzle.y);
+      g.fillStyle(0xb43e25,alpha).fillCircle(flameTank.x,flameTank.y,11);
+      g.lineStyle(3,0x252d31,alpha).strokeCircle(flameTank.x,flameTank.y,11);
+      g.lineStyle(4,0x252d31,alpha).lineBetween(hoseA.x,hoseA.y,hoseB.x,hoseB.y);
+      g.lineStyle(5,0x20282b,alpha).lineBetween(pt(24-recoil,3).x,pt(24-recoil,3).y,flameGrip.x,flameGrip.y);
+      g.fillStyle(0xffa13a,alpha).fillTriangle(pt(62-recoil,-5).x,pt(62-recoil,-5).y,pt(70-recoil,0).x,pt(70-recoil,0).y,pt(62-recoil,5).x,pt(62-recoil,5).y);
     }else if(id==='shotgun'){
       const endA=pt(58-recoil,-3),endB=pt(58-recoil,3),pump=pt(36-recoil,0);
       g.lineStyle(5,0x30383e,alpha).lineBetween(hand.x,hand.y,endA.x,endA.y).lineBetween(hand.x,hand.y,endB.x,endB.y);
@@ -1482,8 +1632,15 @@ export class GameScene extends Phaser.Scene {
     else if(kind==='rifle'){line(-13,0,13,0,4);line(-13,0,-18,-6,3);line(2,1,2,10,4);g.fillStyle(c).fillCircle(x+14*scale,y,2.5*scale);}
     else if(kind==='shotgun'){line(-14,-3,14,-3,3);line(-14,3,14,3,3);g.fillStyle(c).fillCircle(x+15*scale,y-3*scale,2).fillCircle(x+15*scale,y+3*scale,2);}
     else if(kind==='sniper'){line(-15,0,15,0,3);line(-5,-5,5,-5,3);line(-12,0,-16,6,3);g.fillStyle(c).fillCircle(x+16*scale,y,2.5*scale);}
+    else if(kind==='bazooka'){line(-16,0,15,0,8);g.fillStyle(c).fillCircle(x+15*scale,y,5*scale);line(-3,2,-3,10,4); }
+    else if(kind==='silver_crossbow'){line(-14,0,14,0,4);line(2,-12,14,0,3);line(14,0,2,12,3);line(2,-12,2,12,2);g.fillStyle(0xeaf4f8).fillTriangle(x+16*scale,y,x+9*scale,y-4*scale,x+9*scale,y+4*scale);}
+    else if(kind==='adhesive_sprayer'){line(-14,2,9,-4,7);g.fillStyle(0x9ca5aa).fillRoundedRect(x-13*scale,y-2*scale,13*scale,15*scale,3*scale);g.fillStyle(0xe8ecee,.85).fillTriangle(x+12*scale,y-8*scale,x+23*scale,y-3*scale,x+12*scale,y+2*scale);}
+    else if(kind==='flamethrower'){line(-14,2,9,-4,7);g.fillStyle(0xb43e25).fillRoundedRect(x-13*scale,y-2*scale,13*scale,15*scale,3*scale);g.fillStyle(0xff9a39,.9).fillTriangle(x+12*scale,y-8*scale,x+23*scale,y-3*scale,x+12*scale,y+2*scale);}
     else if(isThrowableType(kind)){g.fillStyle(c).fillCircle(x,y,8*scale);g.lineStyle(2,0xffffff,.65).strokeCircle(x,y,8*scale);if(kind==='incendiaryGrenade')line(-3,-10,3,-15,2);else line(0,-8,5,-13,2);}
-    else if(kind==='pistol_ammo'||kind==='standard_ammo'||kind==='shotgun_ammo'){for(const dx of [-6,0,6]){line(dx,-7,dx,6,3);g.fillStyle(c).fillCircle(x+dx*scale,y-7*scale,2*scale);}}
+    else if(kind==='pistol_ammo'||kind==='standard_ammo'||kind==='shotgun_ammo'||kind==='rocket_ammo'||kind==='silver_bolt'){for(const dx of [-6,0,6]){line(dx,-7,dx,6,3);g.fillStyle(c).fillCircle(x+dx*scale,y-7*scale,2*scale);}}
+    else if(kind==='adhesive_charge'){g.fillStyle(c).fillRoundedRect(x-9*scale,y-12*scale,18*scale,24*scale,6*scale);g.lineStyle(2*scale,0xf4f6f7,.8).strokeRoundedRect(x-9*scale,y-12*scale,18*scale,24*scale,6*scale);}
+    else if(kind==='strip_trap'){line(-15,0,15,0,6);for(const dx of [-10,-5,0,5,10])line(dx,-5,dx,5,1);}
+    else if(kind==='fuel_ammo'){g.fillStyle(c).fillRoundedRect(x-9*scale,y-12*scale,18*scale,24*scale,3*scale);g.lineStyle(2*scale,0xffd27d,.8).strokeRoundedRect(x-9*scale,y-12*scale,18*scale,24*scale,3*scale);}
     else if(kind==='vest'){g.fillStyle(c).fillTriangle(x-10*scale,y-9*scale,x+10*scale,y-9*scale,x,y+12*scale);g.fillStyle(0x061018).fillCircle(x,y-2*scale,4*scale);}
     else if(kind==='bandage'){g.fillStyle(c).fillRoundedRect(x-11*scale,y-5*scale,22*scale,10*scale,4*scale);g.fillStyle(0xffffff).fillCircle(x,y,3*scale);}
     else if(kind==='medkit'){g.fillStyle(c).fillRoundedRect(x-11*scale,y-11*scale,22*scale,22*scale,4*scale);g.lineStyle(4,0xffffff,1).lineBetween(x-6*scale,y,x+6*scale,y).lineBetween(x,y-6*scale,x,y+6*scale);}
@@ -1498,9 +1655,18 @@ export class GameScene extends Phaser.Scene {
     if(!s||!me||!me.alive||me.phase!=='landed'){this.pickupText.setVisible(false);return;}
     if(me.isSwimming){this.pickupText.setText('수영 중 · 공격과 상호작용 불가').setVisible(true);return;}
     if(me.isVaulting){this.pickupText.setText('창문 넘는 중').setVisible(true);return;}
+    if(me.werewolf?.ritualizing){this.pickupText.setText('제단 의식 중 · E키 유지').setVisible(true);return;}
+    if(me.werewolf?.transformPreparing){this.pickupText.setText('늑대인간으로 변신 중...').setVisible(true);return;}
+    if(me.werewolf?.transformed){this.pickupText.setText('좌클릭 할퀴기 · 우클릭 사냥 질주').setVisible(true);return;}
+    const season=s.werewolfSeason;
+    if(season?.curseDropActive&&Math.hypot(Number(season.curseDropX)-me.x,Number(season.curseDropY)-me.y)<=72){this.pickupText.setText('E  늑대의 저주 획득').setVisible(true);return;}
+    if(season?.altarPhase==='active'&&Math.hypot(Number(season.altarX)-me.x,Number(season.altarY)-me.y)<=WEREWOLF_BALANCE.ritualRadius+8){this.pickupText.setText('E 유지  늑대의 제단 의식 (3초)').setVisible(true);return;}
+    if(season?.armoryActive&&!season.armoryOpened&&Math.hypot(Number(season.armoryX)-me.x,Number(season.armoryY)-me.y)<=100){this.pickupText.setText('E  은빛 무기함 열기').setVisible(true);return;}
+    if(me.werewolf?.hasCurse){this.pickupText.setText('F  늑대인간 변신').setVisible(true);return;}
     if(me.isDriving){this.pickupText.setText('E  오토바이 내리기').setVisible(true);return;}
     const vault=findPortalVaultCandidate(me.x,me.y,String(me.buildingId??''),Number(me.roomIndex??0),this.mapConfig.portals);
     if(vault){this.pickupText.setText('Space  창문 넘기').setVisible(true);return;}
+    let nearestSupply:any;let supplyDistance=88*88;for(const drop of s.supplyDrops??[]){if(!drop.landed||drop.opened)continue;const dx=drop.x-me.x,dy=drop.y-me.y,d=dx*dx+dy*dy;if(d<supplyDistance){supplyDistance=d;nearestSupply=drop;}}if(nearestSupply){this.pickupText.setText('E  보급 상자 열기').setVisible(true);return;}
     let nearestMotorcycle:any;let motorcycleDistance=MOTORCYCLE_MOUNT_DISTANCE*MOTORCYCLE_MOUNT_DISTANCE;
     for(const motorcycle of s.motorcycles??[]){if(motorcycle.driverId||!buildingSpacesInteractable(me,motorcycle))continue;const dx=motorcycle.x-me.x,dy=motorcycle.y-me.y,d=dx*dx+dy*dy;if(d<motorcycleDistance){motorcycleDistance=d;nearestMotorcycle=motorcycle;}}
     if(nearestMotorcycle){this.pickupText.setText('E  오토바이 탑승').setVisible(true);return;}
@@ -1546,6 +1712,7 @@ export class GameScene extends Phaser.Scene {
     if(kind==='pistol_ammo')return[`권총탄 보유 ${me.pistolAmmo??0}발`];
     if(kind==='standard_ammo')return[`일반 총알 보유 ${me.standardAmmo??0}발`];
     if(kind==='shotgun_ammo')return[`샷건탄 보유 ${me.shotgunAmmo??0}발`];
+    if(kind==='rocket_ammo')return[`로켓탄 보유 ${me.rocketAmmo??0}발`];
     return[];
   }
 
@@ -1572,6 +1739,15 @@ export class GameScene extends Phaser.Scene {
       const urgency=clamp(1-remaining/(MOTORCYCLE_DESTRUCTION_BALANCE.explosionFuseMs/1000),0,1);
       g.lineStyle(2,0xff6f55,(.10+urgency*.24)*alpha).strokeCircle(x,y,MOTORCYCLE_DESTRUCTION_BALANCE.explosionRadius);
     }
+    if(Number(motorcycle.slowUntil||0)>serverTime){
+      const slowKind=String(motorcycle.slowKind||''),pulse=.36+.12*Math.sin(time*.014);
+      if(slowKind==='adhesive'||slowKind==='mixed'){for(let i=0;i<7;i++){const a=i/7*Math.PI*2+time*.001,r=16+(i%2)*6;g.fillStyle(0xdde1e3,.34*alpha).fillCircle(x+Math.cos(a)*r,y+Math.sin(a)*r,3+(i%3));}}
+      if(slowKind==='strip_trap'||slowKind==='mixed'){g.lineStyle(3,0xc6c9cb,pulse*alpha).lineBetween(rear.x-4,rear.y-5,rear.x+4,rear.y+5).lineBetween(front.x-4,front.y-5,front.x+4,front.y+5);}
+      if(slowKind==='werewolf_hunt'||slowKind==='mixed'||(motorcycle.huntMarkedBy&&Number(motorcycle.huntMarkUntil||0)>serverTime)){
+        g.lineStyle(3,0xff4f5f,(.42+.22*Math.sin(time*.018))*alpha).strokeCircle(x,y,25);
+        g.lineBetween(x-10,y-14,x-3,y+7).lineBetween(x,y-17,x+5,y+7).lineBetween(x+10,y-14,x+13,y+5);
+      }
+    }
     if(motorcycle.critical||motorcycle.exploding){
       const pulse=.35+.25*Math.sin(time*.012);
       g.fillStyle(0x4d5559,pulse*alpha).fillCircle(x-8,y-22,7).fillCircle(x+2,y-29,9).fillCircle(x+9,y-38,6);
@@ -1595,7 +1771,7 @@ export class GameScene extends Phaser.Scene {
       if(local)audio.playLocal(sound,1,eventId);else this.playWorldAudio(sound,payload,undefined,eventId);return;
     }
     const localSound=localMap[type];if(localSound&&local){audio.playLocal(localSound,1,eventId);return;}
-    const worldMap:Record<string,SoundId>={reload_start:'reload_start',reload_complete:'reload_complete',heal_start:'heal_start',heal_complete:'heal_complete',impact_wall:'impact_wall',impact_ground:'impact_ground',impact_frame:'impact_frame',impact_vehicle:'impact_vehicle',impact_player:'impact_player',motorcycle_collision:'motorcycle_collision',motorcycle_hit:'motorcycle_hit',motorcycle_critical:'motorcycle_critical',throwable_throw:'throwable_throw',throwable_bounce:'throwable_bounce',frag_explosion:'frag_explosion',smoke_deploy:'smoke_deploy',fire_ignite:'fire_ignite',water_enter:'water_enter',water_exit:'water_exit',water_steam:'water_steam',water_extinguish:'water_extinguish'};
+    const worldMap:Record<string,SoundId>={strip_trap_place:'strip_trap_place',strip_trap_trigger:'strip_trap_trigger',strip_trap_break:'strip_trap_break',werewolf_altar_wake:'werewolf_altar_wake',werewolf_transform:'werewolf_transform',werewolf_claw:'werewolf_claw',reload_start:'reload_start',reload_complete:'reload_complete',heal_start:'heal_start',heal_complete:'heal_complete',impact_wall:'impact_wall',impact_ground:'impact_ground',impact_frame:'impact_frame',impact_vehicle:'impact_vehicle',impact_player:'impact_player',motorcycle_collision:'motorcycle_collision',motorcycle_hit:'motorcycle_hit',motorcycle_critical:'motorcycle_critical',throwable_throw:'throwable_throw',throwable_bounce:'throwable_bounce',frag_explosion:'frag_explosion',bazooka_explosion:'bazooka_explosion',smoke_deploy:'smoke_deploy',fire_ignite:'fire_ignite',water_enter:'water_enter',water_exit:'water_exit',water_steam:'water_steam',water_extinguish:'water_extinguish',supply_incoming:'supply_incoming',supply_land:'supply_land',supply_open:'supply_open'};
     const worldSound=worldMap[type];if(worldSound)this.playWorldAudio(worldSound,payload,undefined,eventId);
   }
 
@@ -1692,7 +1868,7 @@ export class GameScene extends Phaser.Scene {
       `서버 tick 평균 ${Number(s.serverTickAvg||0).toFixed(1)}  p95 ${Number(s.serverTickP95||0).toFixed(1)}  max ${Number(s.serverTickMax||0).toFixed(1)}ms`,
       `AI ${Number(s.serverAiMs||0).toFixed(1)}  충돌 ${Number(s.serverCollisionMs||0).toFixed(1)}  차량 ${Number(s.serverVehicleMs||0).toFixed(1)}  자기장 ${Number(s.serverZoneMs||0).toFixed(1)}ms`,
       `맵 ${this.mapConfig.displayName} ${this.mapConfig.width}×${this.mapConfig.height}`,
-      `플레이어 ${players} / AI ${ai} / 오토바이 ${(s.motorcycles??[]).length} / 총알 ${s.bullets.length}/${Number(s.activeBulletLimit||0)} / 아이템 ${s.loot.length}`,
+      `플레이어 ${players} / AI ${ai} / 오토바이 ${(s.motorcycles??[]).length} / 총알 ${s.bullets.length}/${Number(s.activeBulletLimit||0)} · 로켓 ${(s.rockets??[]).length} / 아이템 ${s.loot.length}`,
       `차량 복구 ${Number(s.vehicleRecoveryCount||0)} / 플레이어 복구 ${Number(s.recoveryCount||0)}`, 
       `보간 버퍼 ${this.remoteBuffers.size} / 스냅 ${this.snapCorrections} / 누락 ${this.bufferMisses}`,
     ].join('\n'));
@@ -1742,6 +1918,10 @@ export class GameScene extends Phaser.Scene {
       g.lineStyle(3,0xe6edf0,1).lineBetween(tail.x,tail.y,nose.x,nose.y).lineBetween(wl.x,wl.y,wr.x,wr.y).lineBetween(tl.x,tl.y,tr.x,tr.y);
       g.fillStyle(0xe6edf0).fillCircle(nose.x,nose.y,2);
     }
+    for(const drop of s.supplyDrops??[]){const sx=x+drop.x*sc,sy=y+drop.y*sc;g.fillStyle(drop.opened?0x8a725e:0xff5d45,.95).fillRect(sx-4,sy-4,8,8);g.lineStyle(1,0xffe8b0,.9).strokeRect(sx-5,sy-5,10,10);}
+    const season=s.werewolfSeason;
+    if(season?.enabled&&season.altarPhase!=='dormant'&&season.altarPhase!=='disabled'){const ax=x+Number(season.altarX)*sc,ay=y+Number(season.altarY)*sc;g.fillStyle(season.altarPhase==='active'?0xd72f4a:0x792737,.95).fillCircle(ax,ay,5);g.lineStyle(2,0xff9aad,.85).strokeCircle(ax,ay,7);}
+    if(season?.armoryActive&&!season.armoryOpened){const bx=x+Number(season.armoryX)*sc,by=y+Number(season.armoryY)*sc;g.fillStyle(0xdce7ec,.95).fillRect(bx-4,by-4,8,8);g.lineStyle(1,0xffffff,.9).strokeRect(bx-5,by-5,10,10);}
     for(const p of s.players){
       if(!p.alive)continue;
       const visibility=this.getPlayerVisibility(p);

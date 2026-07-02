@@ -124,6 +124,6 @@ describe('Refactor 012 throwable shared rules', () => {
     expect(fireFieldContains({...outside,radius:115},inside,[zone])).toBe(true);
     expect(fireFieldContains({x:250,y:200,radius:115,buildingId:'building-test'},{x:260,y:210,buildingId:'another-room'},[zone])).toBe(false);
     expect(FIRE_TIMING.tickMs).toBe(250);
-    expect(FIRE_TIMING.playerTickDamage).toBe(3);
+    expect(FIRE_TIMING.playerTickDamage).toBe(4);
   });
 });

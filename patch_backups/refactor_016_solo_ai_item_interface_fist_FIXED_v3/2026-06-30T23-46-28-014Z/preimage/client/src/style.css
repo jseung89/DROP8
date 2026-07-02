@@ -1,0 +1,82 @@
+/* DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP */
+:root{font-family:Pretendard,Inter,system-ui,sans-serif;color:#f6f7f8;background:#071018;--accent:#ffce48;--panel:#121d29;--line:#2a3947}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at 20% 15%,#18344a 0,transparent 35%),#071018}.hidden{display:none!important}.screen{min-height:100vh}.card{background:rgba(16,29,41,.94);border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:0 25px 70px #0007}.screen.card{width:min(520px,calc(100% - 28px));min-height:auto;margin:7vh auto}.brand small{color:var(--accent);font-weight:800;letter-spacing:.1em}.brand h1{font-size:58px;margin:5px 0}.brand b{color:var(--accent)}.brand p{color:#aebdca;line-height:1.6}label{display:grid;gap:7px;margin:12px 0;color:#b9c6d0;font-size:13px}input,select,button{font:inherit;border-radius:11px;border:1px solid var(--line);background:#0c1721;color:#fff;padding:12px}button{cursor:pointer;font-weight:800}.primary{background:var(--accent);color:#192027;border-color:var(--accent)}.row{display:flex;gap:10px}.row>*{flex:1}.error{color:#ff7e83;min-height:24px;margin-top:12px}.lobby-layout{width:min(1180px,calc(100% - 28px));margin:auto;padding:28px 0;display:grid;grid-template-columns:1.5fr 1fr;gap:16px}.title-row{display:flex;justify-content:space-between;align-items:center}.slots{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:18px 0}.slot{padding:13px;border:1px solid var(--line);border-radius:12px;background:#0c1721}.slot.empty{color:#647684}.slot .badge{font-size:11px;color:var(--accent)}.settings{display:flex;gap:12px;align-items:center}.settings label{display:flex;align-items:center}.messages{height:430px;overflow:auto;background:#09131c;border-radius:12px;padding:12px;margin-bottom:12px}.message{margin:7px 0;color:#dce5eb}.message.system{color:#8fa4b4;font-size:13px}.chat-card form,.game-chat{display:flex;gap:8px}.chat-card input,.game-chat input{flex:1}#game{position:relative;overflow:hidden;background:#12271d}#gameCanvas{position:absolute;inset:0}.hud{position:absolute;z-index:10;background:#08131dcc;border:1px solid #ffffff22;border-radius:13px;padding:10px 15px;display:flex;gap:16px;backdrop-filter:blur(5px)}.top{top:12px;left:50%;transform:translateX(-50%)}.bottom{left:12px;bottom:12px;display:block;min-width:280px;line-height:1.7}#killfeed{position:absolute;right:15px;top:70px;z-index:10;text-align:right}.kill{background:#08131dcc;padding:7px 10px;margin:5px;border-radius:8px}.game-messages{position:absolute;z-index:10;left:15px;bottom:120px;width:360px;pointer-events:none}.game-messages .message{background:#08131dcc;padding:7px 10px;border-radius:8px}.game-chat{position:absolute;z-index:20;left:50%;bottom:35px;transform:translateX(-50%);width:min(620px,80%)}.result{position:absolute;z-index:30;inset:0;background:#03090ddd;display:grid;place-content:center;text-align:center}.result h2{font-size:54px;color:var(--accent)}@media(max-width:780px){.lobby-layout{grid-template-columns:1fr}.slots{grid-template-columns:1fr}.settings{display:block}}
+
+.quick-chat{position:absolute;z-index:24;left:50%;bottom:92px;transform:translateX(-50%);display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:#071018e8;border:1px solid #ffffff22;border-radius:14px;padding:12px}.quick-chat button{white-space:nowrap}.spectating{color:var(--accent);font-weight:900}
+#gameCodeText{color:var(--accent);cursor:pointer;user-select:all}#healText{color:#71f0a9;font-weight:800;min-height:1.3em}#itemsText{color:#c6d3dc}
+
+/* GAME_VIEWPORT_FIX_004 */
+html,body,#app{width:100%;height:100%;overflow:hidden}
+#game{position:relative;width:100vw;height:100vh;min-height:100vh;overflow:hidden;background:#12271d}
+#gameCanvas{position:absolute;inset:0;width:100%;height:100%}
+#gameCanvas canvas{display:block;width:100%;height:100%}
+
+/* REFACTOR_004A_INVENTORY */
+html,body,#app{width:100%;height:100%;overflow:hidden}
+#game{position:relative;width:100vw;height:100vh;min-height:100vh;overflow:hidden;background:#12271d}
+#gameCanvas{position:absolute;inset:0;width:100%;height:100%}
+#gameCanvas canvas{display:block;width:100%;height:100%}
+.inventory-belt{position:absolute;z-index:14;left:50%;bottom:14px;transform:translateX(-50%);display:flex;align-items:stretch;gap:7px;padding:8px;background:#071018e8;border:1px solid #ffffff24;border-radius:16px;backdrop-filter:blur(7px);max-width:calc(100vw - 24px)}
+.inventory-slot,.status-chip{min-width:132px;min-height:62px;display:flex;align-items:center;gap:9px;padding:8px 10px;border:2px solid #334453;border-radius:11px;background:#101d28;color:#eaf1f5;transition:border-color .12s,transform .12s,background .12s}
+.inventory-slot.active{border-color:#ffd34f;background:#29301e;box-shadow:0 0 0 2px #ffd34f26;transform:translateY(-3px)}
+.inventory-slot.empty{opacity:.58}.inventory-slot kbd{align-self:flex-start;background:#263746;border:1px solid #ffffff2b;border-radius:6px;padding:2px 6px;color:#ffd34f;font-weight:900}.slot-icon{font-size:22px;min-width:25px;text-align:center}.inventory-slot b{display:block;font-size:13px;white-space:nowrap}.inventory-slot small{display:block;color:#aebdca;font-size:11px;margin-top:4px;white-space:nowrap}.status-chip{min-width:64px;display:grid;place-content:center;text-align:center}.status-chip span{font-size:11px;color:#9fb0bd}.status-chip b{font-size:22px}.armor-slot{min-width:125px}.armor-track{display:block;width:82px;height:7px;margin-top:7px;background:#26333e;border-radius:8px;overflow:hidden}.armor-track i{display:block;height:100%;width:0;background:#69baff}.heal-progress{position:absolute;left:50%;bottom:76px;transform:translateX(-50%);color:#74f2aa;background:#071018e8;border-radius:8px;padding:5px 10px;font-weight:800;white-space:nowrap;min-height:0}.heal-progress:empty{display:none}.inventory-panel{position:absolute;z-index:32;left:50%;top:50%;transform:translate(-50%,-50%);width:min(650px,calc(100vw - 32px));background:#071018f4;border:1px solid #ffffff2c;border-radius:18px;padding:20px;box-shadow:0 30px 90px #000a}.inventory-panel h3{display:flex;justify-content:space-between;margin:0 0 16px}.inventory-panel h3 small{color:#91a4b2;font-size:12px}.inventory-details{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.inventory-detail{background:#13222e;border:1px solid #334653;border-radius:11px;padding:11px}.inventory-detail b{display:block;color:#fff}.inventory-detail span{color:#aabac6;font-size:12px}.pickup-compare{color:#ffd34f}
+@media(max-width:900px){.inventory-belt{gap:4px}.inventory-slot{min-width:98px;padding:6px}.inventory-slot .slot-icon{display:none}.armor-slot{min-width:96px}.inventory-details{grid-template-columns:repeat(2,1fr)}}
+
+
+/* REFACTOR_004C_FIELD_UI_RELOAD_COLLISION */
+.field-room-badge{position:absolute;z-index:42;right:14px;top:14px;padding:9px 13px;border:1px solid #ffd34f77;background:#071018e8;color:#dce8ef;border-radius:12px;backdrop-filter:blur(7px);box-shadow:0 8px 30px #0007}.field-room-badge b{color:#ffd34f}.copy-toast{position:absolute;z-index:55;right:14px;top:62px;background:#1f5037;color:#bdf7d3;border:1px solid #70e6a1;border-radius:10px;padding:8px 12px;font-weight:800}
+.field-chat-panel{position:absolute;z-index:16;left:14px;bottom:100px;width:min(390px,calc(100vw - 28px));background:#071018c9;border:1px solid #ffffff20;border-radius:14px;overflow:hidden;backdrop-filter:blur(6px);pointer-events:none}.field-chat-title{padding:7px 10px;border-bottom:1px solid #ffffff18;color:#ffd34f;font-weight:900;font-size:12px}.field-chat-title small{float:right;color:#91a4b2}.field-chat-panel .game-messages{position:static;width:auto;max-height:176px;min-height:38px;overflow:hidden;padding:5px 7px}.field-chat-panel .message{margin:4px 0;padding:6px 8px;background:#0b1822d9;border-left:3px solid #6eb6d9;font-size:13px}.field-chat-panel .message.system{border-left-color:#8fa4b4;color:#aebdc8}
+.reload-progress{position:absolute;left:50%;bottom:108px;transform:translateX(-50%);color:#ffd34f;background:#071018e8;border:1px solid #ffd34f55;border-radius:8px;padding:5px 10px;font-weight:900;white-space:nowrap}.reload-progress:empty{display:none}.inventory-slot{position:relative;overflow:hidden}.inventory-slot.reloading{border-color:#ffd34f}.inventory-slot.reloading::after{content:"";position:absolute;left:0;bottom:0;width:var(--reload-progress,0%);height:4px;background:#ffd34f;box-shadow:0 0 12px #ffd34f}
+@media(max-width:780px){.field-room-badge{right:8px;top:66px;font-size:12px}.field-chat-panel{left:8px;bottom:92px;width:min(330px,calc(100vw - 16px))}.field-chat-panel .game-messages{max-height:120px}.reload-progress{bottom:99px}}
+
+
+/* REFRACTOR_004C_CHAT_HOTFIX */
+.game-chat:not(.hidden){background:#071018e8;border:1px solid #ffd34f55;border-radius:14px;padding:8px;box-shadow:0 12px 36px #0008}
+.game-chat input:focus{outline:2px solid #ffd34f;outline-offset:1px}
+
+/* REFACTOR_005_VISIBILITY_MINIMAP_PERF */
+.field-room-badge{left:50%;right:auto;top:54px;transform:translateX(-50%);white-space:nowrap}
+#killfeed{right:14px;top:272px;width:190px;text-align:right;pointer-events:none}
+#killfeed .kill{margin:5px 0;background:#071018d9;border:1px solid #ffffff18}
+@media(max-width:780px){.field-room-badge{left:50%;right:auto;top:58px;transform:translateX(-50%)}#killfeed{top:246px;right:8px;width:158px}.top{top:8px;max-width:calc(100vw - 20px);font-size:12px}}
+
+/* REFACTOR_005B_BUILDING_LOBBY_ROOM_MANAGEMENT */
+#home.screen.card{width:min(760px,calc(100% - 28px));margin-top:3vh}.inline-check{display:flex;grid-template-columns:auto 1fr;align-items:center;gap:9px}.inline-check input{width:auto;margin:0}.room-browser{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}.room-browser h3{margin:0}.room-list{display:grid;gap:8px;max-height:230px;overflow:auto}.room-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 11px;border:1px solid var(--line);border-radius:11px;background:#0a151e}.room-row>div{display:grid;gap:3px}.room-row span{font-size:12px;color:#9fb0bd}.room-row button{min-width:72px;padding:8px 10px}.room-row button:disabled{opacity:.45;cursor:not-allowed}.empty-note{color:#8fa2b0;text-align:center;padding:18px 8px;margin:0}.compact-row{flex:0 0 auto}.compact-row>*{flex:0 0 auto}.danger{border-color:#ff6f77;color:#ffb7bb;background:#32161b}.slot{position:relative;min-height:62px}.kick-button{position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:6px 9px;font-size:12px}.game-leave{position:absolute;z-index:44;left:14px;top:14px;padding:8px 11px}.field-chat-panel{pointer-events:auto;transition:width .16s,height .16s,opacity .16s}.field-chat-title{display:flex;align-items:center;justify-content:space-between;gap:8px}.field-chat-title small{float:none;margin-left:6px}.field-chat-title button{padding:3px 7px;border:0;background:transparent;color:#ffd34f}.field-chat-title button b{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:99px;background:#ff6a72;color:#fff;font-size:10px}.field-chat-panel.collapsed{width:min(310px,calc(100vw - 28px))}.field-chat-panel.collapsed .game-messages{max-height:92px}.field-chat-panel.collapsed .game-messages .message:nth-last-child(-n+3){display:block}.field-chat-panel.collapsed .game-messages .message{display:none}.pickup-toast{position:absolute;z-index:54;left:50%;top:24%;transform:translateX(-50%);padding:10px 16px;border:1px solid #ffd34f88;border-radius:11px;background:#071018e8;color:#ffd34f;font-weight:900;box-shadow:0 10px 30px #0008}.inventory-slot.pickup-flash{animation:drop8PickupFlash .52s ease-out}@keyframes drop8PickupFlash{0%{transform:translateY(-5px) scale(1.05);box-shadow:0 0 0 5px #ffd34f55}100%{transform:none;box-shadow:none}}
+@media(max-width:780px){#home.screen.card{margin-top:1vh}.title-row{align-items:flex-start;gap:8px}.compact-row{display:grid}.game-leave{left:8px;top:58px}.field-chat-panel.collapsed{width:min(280px,calc(100vw - 16px))}.room-row{align-items:flex-start}}
+
+/* REFACTOR_008_COMBAT_VEHICLE_BALANCE */
+.scope-overlay{position:absolute;z-index:18;inset:0;width:100%;height:100%;pointer-events:none;background:transparent}
+.scope-overlay.hidden{display:none}
+#game.scope-active .field-room-badge,#game.scope-active .field-chat-panel,#game.scope-active #killfeed,#game.scope-active .game-leave,#game.scope-active .pickup-toast,#game.scope-active .quick-chat{opacity:0;pointer-events:none}
+#game.scope-active .top{opacity:.18}
+#game.scope-active .inventory-belt{opacity:.92}
+.field-room-badge,.field-chat-panel,#killfeed,.game-leave,.pickup-toast,.quick-chat,.top,.inventory-belt{transition:opacity .18s ease}
+.vehicle-hud{position:absolute;z-index:19;left:50%;bottom:98px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;padding:8px 12px;border:1px solid #ffcf5f77;border-radius:11px;background:#071018e8;color:#f5f7f8;backdrop-filter:blur(6px)}
+.vehicle-hud b{color:#ffd34f}.vehicle-hud span{color:#ffb071;font-size:12px;font-weight:800}
+@media(max-width:780px){.vehicle-hud{bottom:84px;max-width:calc(100vw - 20px);white-space:nowrap}}
+
+
+/* REFRACTOR_004C_CHAT_HOTFIX */
+.game-chat:not(.hidden){background:#071018e8;border:1px solid #ffd34f55;border-radius:14px;padding:8px;box-shadow:0 12px 36px #0008}
+.game-chat input:focus{outline:2px solid #ffd34f;outline-offset:1px}
+
+/* DROP8_REFACTOR_010_WINDOW_VEHICLE_DESTRUCTION */
+.game-notices{position:absolute;z-index:70;left:50%;top:82px;transform:translateX(-50%);display:grid;gap:7px;width:min(460px,calc(100vw - 32px));pointer-events:none}
+.game-notice{display:flex;align-items:center;gap:9px;padding:10px 13px;border:1px solid #8ea6b455;border-radius:11px;background:#071018ee;color:#e9f4f8;font-weight:800;box-shadow:0 10px 28px #0008;animation:drop8NoticeIn .16s ease-out}
+.game-notice::before{content:'안내';flex:0 0 auto;padding:2px 6px;border-radius:6px;background:#5e7582;color:#fff;font-size:10px;letter-spacing:.04em}
+.game-notice.warning{border-color:#ffd34f88;color:#fff1b3}.game-notice.warning::before{content:'경고';background:#9a6e12}
+.game-notice.error{border-color:#ff6f7788;color:#ffc5c9}.game-notice.error::before{content:'오류';background:#9d2f37}
+.game-notice.leaving{opacity:0;transform:translateY(-5px);transition:opacity .18s,transform .18s}
+.vehicle-hud{display:grid;gap:3px}.vehicle-hud #vehicleDurability{font-size:12px;font-weight:800;color:#bfe9f7}.vehicle-hud.critical #vehicleDurability{color:#ffba75}.vehicle-hud.exploding #vehicleDurability{color:#ff6f77;animation:drop8VehiclePulse .32s steps(2,end) infinite}
+@keyframes drop8NoticeIn{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:none}}
+@keyframes drop8VehiclePulse{50%{opacity:.35}}
+
+
+/* DROP8_REFACTOR_010A_WINDOW_VISIBILITY_DEATH_PRESENTATION */
+.window-visibility-overlay{position:absolute;z-index:7;inset:0;width:100%;height:100%;pointer-events:none;background:transparent}
+.window-visibility-overlay.hidden{display:none}
+
+
+/* DROP8_REFACTOR_011_SOUND_FOUNDATION_COMBAT_AUDIO */
+.audio-settings{position:fixed;right:14px;bottom:14px;z-index:2200;width:220px;padding:9px 12px;border:1px solid #ffffff26;border-radius:12px;background:#071018e8;backdrop-filter:blur(8px);font-size:12px}.audio-settings summary{cursor:pointer;font-weight:900;color:#f5d768}.audio-settings label{grid-template-columns:70px 1fr;align-items:center;margin:8px 0}.audio-settings input[type=range]{width:100%;padding:0}.audio-settings .audio-mute{display:flex;gap:8px}.audio-unlock-hint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:2300;padding:9px 14px;border:1px solid #ffffff2b;border-radius:999px;background:#071018e8;color:#f5d768;font-size:13px;font-weight:800;pointer-events:none}
+
+.weapon-slot{cursor:grab;user-select:none}.weapon-slot:active{cursor:grabbing}.weapon-slot.dragging{opacity:.42;transform:scale(.97)}.weapon-slot.drop-target{border-color:#74f2aa;background:#173326;box-shadow:0 0 0 3px #74f2aa33}.weapon-slot.empty{pointer-events:auto}

@@ -1,0 +1,1547 @@
+﻿git : warning: in the working copy of 'client/index.html', LF will be replaced by CRLF the next time Git touches it
+위치 줄:1 문자:1087
++ ... ing UTF8; ((git diff -- client/src/network.ts client/src/main.ts clie ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: in the working copy of 'client/src/GameScene.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'client/src/main.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'client/src/network.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/src/rooms/Drop8Room.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/src/rooms/schema.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'shared/src/index.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/client/index.html b/client/index.html
+index 8fedadb..2e57275 100644
+--- a/client/index.html
++++ b/client/index.html
+@@ -1,21 +1,23 @@
++<!-- DROP8_REFACTOR_016_SOLO_AI_ITEM_INTERFACE_FIST -->
++<!-- DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP -->
+ <!doctype html><html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DROP 8</title></head><body>
+ <div id="app">
+   <section id="home" class="screen card"><div class="brand"><small>2D REALTIME BATTLE ROYALE</small><h1>DROP <b>8</b></h1><p>移쒓뎄?ㅺ낵 諛?肄붾뱶濡??묒냽??鍮꾪뻾湲곗뿉???숉븯?섍퀬, 留⑥넀?쇰줈 ?뚮컢???쒖옉?섏꽭??</p></div>
+     <label>?됰꽕??input id="nickname" maxlength="16" placeholder="鍮꾩슦硫??먮룞 ?앹꽦"></label><label>諛?肄붾뱶<input id="roomCode" maxlength="6" placeholder="?? A7BC9K"></label><label>諛?鍮꾨?踰덊샇<input id="password" maxlength="32" placeholder="?좏깮"></label><label class="inline-check"><input id="publicRoom" type="checkbox" checked> 怨듦컻 諛?紐⑸줉???쒖떆</label>
+-    <div class="row"><button id="createBtn" class="primary">諛?留뚮뱾湲?/button><button id="joinBtn">諛?李멸?</button></div><div id="homeError" class="error"></div><div class="room-browser"><div class="title-row"><h3>諛?紐⑸줉</h3><button id="refreshRoomsBtn" type="button">?덈줈怨좎묠</button></div><div class="room-filter-row"><label>留??꾪꽣 <select id="roomMapFilter"><option value="all">?꾩껜</option><option value="small">?묒? 留?/option><option value="large">??留?/option><option value="dock8">8踰?遺??/option></select></label></div><div id="roomList" class="room-list"><p class="empty-note">李멸? 媛?ν븳 諛⑹쓣 遺덈윭?ㅻ뒗 以?..</p></div></div>
+-    <details><summary>議곗옉踰?/summary><p>WASD ?대룞 쨌 留덉슦??議곗? 쨌 醫뚰겢由?怨듦꺽 쨌 ?고겢由??寃??ㅼ퐫??쨌 E ?띾뱷/?ㅽ넗諛붿씠 쨌 R ?ъ옣??쨌 1/2/3 臾닿린 쨌 4 ?ъ쿃臾닿린 쨌 Q ?먮룞 ?뚮났 쨌 M 吏??쨌 Enter 梨꾪똿 쨌 Space ?숉븯</p></details>
++    <label>?붾줈 留?select id="soloMap"><option value="small" selected>?묒? 留?/option><option value="large">??留?/option><option value="dock8">8踰?遺??/option></select></label><button id="soloBtn" class="solo-primary" type="button">?붾줈 利됱떆 ?쒖옉</button><div class="row"><button id="createBtn" class="primary">諛?留뚮뱾湲?/button><button id="joinBtn">諛?李멸?</button></div><div id="homeError" class="error"></div><div class="room-browser"><div class="title-row"><h3>諛?紐⑸줉</h3><button id="refreshRoomsBtn" type="button">?덈줈怨좎묠</button></div><div class="room-filter-row"><label>留??꾪꽣 <select id="roomMapFilter"><option value="all">?꾩껜</option><option value="small">?묒? 留?/option><option value="large">??留?/option><option value="dock8">8踰?遺??/option></select></label></div><div id="roomList" class="room-list"><p class="empty-note">李멸? 媛?ν븳 諛⑹쓣 遺덈윭?ㅻ뒗 以?..</p></div></div>
++    <details><summary>議곗옉踰?/summary><p>WASD ?대룞 쨌 留덉슦??議곗? 쨌 醫뚰겢由?怨듦꺽 쨌 ?고겢由??寃??ㅼ퐫??쨌 E ?띾뱷/?ㅽ넗諛붿씠 쨌 R ?ъ옣??쨌 1/2/3 臾닿린 쨌 4 ?ъ쿃臾닿린 쨌 Z/X 移섎즺 ?좏깮 쨌 Q ?ъ슜 쨌 M 吏??쨌 Enter 梨꾪똿 쨌 Space ?숉븯</p></details>
+   </section>
+   <section id="lobby" class="screen hidden"><div class="lobby-layout"><div class="card"><div class="title-row"><h2>?湲곗떎 <span id="codeText"></span></h2><div class="row compact-row"><button id="copyBtn">珥덈? 留곹겕 蹂듭궗</button><button id="leaveLobbyBtn" class="danger" type="button">諛??섍?湲?/button></div></div><div id="slots" class="slots"></div><div id="hostSettings" class="settings"><label><input id="fillAi" type="checkbox" checked> 鍮덉옄由?AI 異⑹썝</label><label>AI <select id="difficulty"><option>easy</option><option selected>normal</option><option>hard</option></select></label><label>?먭린??<select id="zoneSpeed"><option>slow</option><option selected>normal</option><option>fast</option></select></label><label>留?<select id="mapSizeMode"><option value="small" selected>?묒? 留?쨌 2~4紐?沅뚯옣</option><option value="large">??留?쨌 6~8紐?沅뚯옣</option><option value="dock8">8踰?遺??쨌 媛??섏쁺 쨌 6~8紐?沅뚯옣</option></select></label></div><div class="row"><button id="readyBtn" class="primary">以鍮?/button><button id="startBtn">寃뚯엫 ?쒖옉</button></div></div>
+     <div class="card chat-card"><h3>濡쒕퉬 梨꾪똿</h3><div id="lobbyMessages" class="messages"></div><form id="lobbyChat"><input id="lobbyChatInput" maxlength="80" placeholder="硫붿떆吏"><button>?꾩넚</button></form></div></div></section>
+   <section id="game" class="hidden"><div id="gameCanvas"></div><canvas id="windowVisibilityOverlay" class="window-visibility-overlay hidden" aria-hidden="true"></canvas><canvas id="scopeOverlay" class="scope-overlay hidden" aria-hidden="true"></canvas><div id="vehicleHud" class="vehicle-hud hidden"><b id="vehicleSpeed">?띾룄 0</b><span id="vehicleDurability">?닿뎄??180 / 180</span><span id="vehicleWarning"></span></div><button id="leaveGameBtn" class="game-leave danger" type="button">諛??섍?湲?/button><button id="fieldRoomBadge" class="field-room-badge" type="button">諛?<b id="fieldRoomCodeText">#------</b> 쨌 珥덈? 蹂듭궗</button><div id="copyToast" class="copy-toast hidden">珥덈? 留곹겕 蹂듭궗??/div><div id="topHud" class="hud top"><span>諛?<b id="gameCodeText">------</b></span><span id="phaseText">PLANE</span><span>留?<b id="mapModeText">?묒? 留?/b></span><span>?앹〈 <b id="aliveText">8</b></span><span>??<b id="killsText">0</b></span><span>?먭린??<b id="zoneText">30</b></span></div><div id="inventoryHud" class="inventory-belt">
+   <div class="status-chip"><span>HP</span><b id="hpText">100</b></div>
+-  <div id="slotPrimary" class="inventory-slot"><kbd>1</kbd><span class="slot-icon">??/span><div><b id="primaryName">鍮꾩뼱 ?덉쓬</b><small id="primaryAmmo">-</small></div></div>
+-  <div id="slotSecondary" class="inventory-slot"><kbd>2</kbd><span class="slot-icon">??/span><div><b id="secondaryName">鍮꾩뼱 ?덉쓬</b><small id="secondaryAmmo">-</small></div></div>
++  <div id="slotPrimary" class="inventory-slot weapon-slot" draggable="true" data-weapon-slot="1" role="button" tabindex="0"><kbd>1</kbd><span class="slot-icon">??/span><div><b id="primaryName">鍮꾩뼱 ?덉쓬</b><small id="primaryAmmo">-</small></div></div>
++  <div id="slotSecondary" class="inventory-slot weapon-slot" draggable="true" data-weapon-slot="2" role="button" tabindex="0"><kbd>2</kbd><span class="slot-icon">??/span><div><b id="secondaryName">鍮꾩뼱 ?덉쓬</b><small id="secondaryAmmo">-</small></div></div>
+   <div id="slotMelee" class="inventory-slot"><kbd>3</kbd><span class="slot-icon">??/span><div><b id="meleeName">二쇰㉨</b><small>洹쇱젒</small></div></div>
+   <div id="slotThrowable" class="inventory-slot"><kbd>4</kbd><span class="slot-icon">??/span><div><b>?ъ쿃臾??놁쓬</b><small>?뚰렪??쨌 ?곕쭑??쨌 ?붿뿼??/small></div></div>
+-  <div id="slotHeal" class="inventory-slot"><kbd>Q</kbd><span class="slot-icon">??/span><div><b id="healName">?뚮났 ?놁쓬</b><small id="healCounts">遺뺣? 0 쨌 ?ㅽ듃 0</small></div></div>
++  <div id="slotBandage" class="inventory-slot heal-slot" role="button" tabindex="0" data-heal-kind="bandage"><kbd>Z</kbd><span class="slot-icon">??/span><div><b>遺뺣?</b><small id="bandageCount">0媛?쨌 25HP 쨌 2珥?/small></div></div><div id="slotMedkit" class="inventory-slot heal-slot" role="button" tabindex="0" data-heal-kind="medkit"><kbd>X</kbd><span class="slot-icon">??/span><div><b>援ш툒?곸옄</b><small id="medkitCount">0媛?쨌 60HP 쨌 4珥?/small></div></div>
+   <div id="slotArmor" class="inventory-slot armor-slot"><span class="slot-icon">燧?/span><div><b>議곕겮 <span id="armorText">0</span>%</b><span class="armor-track"><i id="armorBar"></i></span></div></div>
+   <div id="healText" class="heal-progress"></div><div id="reloadText" class="reload-progress"></div>
+ </div>
+-<div id="inventoryPanel" class="inventory-panel hidden"><h3>?몃깽?좊━ <small>Tab?쇰줈 ?リ린</small></h3><div id="inventoryDetails" class="inventory-details"></div><p>1/2/3 ?λ퉬 ?꾪솚 쨌 4 ?ъ쿃臾닿린 쨌 Q ?먮룞 ?뚮났 쨌 ?꾩씠??踰꾨━湲곕뒗 ?꾩냽 ?⑥튂?먯꽌 吏??/p></div><div id="killfeed"></div><div id="fieldChatPanel" class="field-chat-panel collapsed"><div class="field-chat-title"><span>?꾨뱶 梨꾪똿 <small>Enter</small></span><button id="toggleFieldChat" type="button" aria-label="梨꾪똿 濡쒓렇 ?쇱튂湲?>??<b id="chatUnread" class="hidden">0</b></button></div><div id="gameMessages" class="game-messages"></div></div><form id="gameChat" class="game-chat hidden"><input id="gameChatInput" maxlength="80" placeholder="硫붿떆吏瑜??낅젰?섍퀬 Enter濡??꾩넚 쨌 Esc 痍⑥냼"><button>?꾩넚</button></form><div id="gameNotices" class="game-notices" aria-live="polite" aria-atomic="false"></div><div id="pickupToast" class="pickup-toast hidden"></div><div id="quickChat" class="quick-chat hidden"><button data-msg="臾닿린 ?녿떎!">臾닿린 ?녿떎!</button><button data-msg="?몄슦吏 留먯옄!">?몄슦吏 留먯옄!</button><button data-msg="?ш린 ?꾧뎄 ?덈떎!">?ш린 ?꾧뎄 ?덈떎!</button><button data-msg="?꾨쭩媛??">?꾨쭩媛??</button><button data-msg="?섏???">?섏???</button><button data-msg="?뗣뀑?뗣뀑">?뗣뀑?뗣뀑</button></div><div id="result" class="result hidden"><h2 id="resultTitle"></h2><p id="resultStats"></p><button id="rematchBtn" class="primary">濡쒕퉬濡??뚯븘媛湲?/button></div></section>
++<div id="inventoryPanel" class="inventory-panel hidden"><h3>?몃깽?좊━ <small>1쨌2踰??쒕옒洹?援먰솚 쨌 ?고겢由?踰꾨━湲?쨌 Tab?쇰줈 ?リ린</small></h3><div id="inventoryDetails" class="inventory-details"></div><p>?대┃?쇰줈 ?좏깮 쨌 1/2踰??쒕옒洹?援먰솚 쨌 ?고겢由?踰꾨━湲?쨌 4 ?ъ쿃臾닿린 쨌 Z/X 移섎즺 ?좏깮 쨌 Q ?ъ슜</p></div><div id="killfeed"></div><div id="fieldChatPanel" class="field-chat-panel collapsed"><div class="field-chat-title"><span>?꾨뱶 梨꾪똿 <small>Enter</small></span><button id="toggleFieldChat" type="button" aria-label="梨꾪똿 濡쒓렇 ?쇱튂湲?>??<b id="chatUnread" class="hidden">0</b></button></div><div id="gameMessages" class="game-messages"></div></div><form id="gameChat" class="game-chat hidden"><input id="gameChatInput" maxlength="80" placeholder="硫붿떆吏瑜??낅젰?섍퀬 Enter濡??꾩넚 쨌 Esc 痍⑥냼"><button>?꾩넚</button></form><div id="gameNotices" class="game-notices" aria-live="polite" aria-atomic="false"></div><div id="pickupToast" class="pickup-toast hidden"></div><div id="quickChat" class="quick-chat hidden"><button data-msg="臾닿린 ?녿떎!">臾닿린 ?녿떎!</button><button data-msg="?몄슦吏 留먯옄!">?몄슦吏 留먯옄!</button><button data-msg="?ш린 ?꾧뎄 ?덈떎!">?ш린 ?꾧뎄 ?덈떎!</button><button data-msg="?꾨쭩媛??">?꾨쭩媛??</button><button data-msg="?섏???">?섏???</button><button data-msg="?뗣뀑?뗣뀑">?뗣뀑?뗣뀑</button></div><div id="result" class="result hidden"><h2 id="resultTitle"></h2><p id="resultStats"></p><button id="rematchBtn" class="primary">濡쒕퉬濡??뚯븘媛湲?/button></div></section>
+ <details id="audioSettingsPanel" class="audio-settings"><summary>?뵄 ?뚮━ ?ㅼ젙</summary><label>?꾩껜 ?뚮웾<input id="audioMaster" type="range" min="0" max="100" step="1"></label><label>?④낵??input id="audioEffects" type="range" min="0" max="100" step="1"></label><label>?섍꼍??input id="audioEnvironment" type="range" min="0" max="100" step="1"></label><label>?뚯븙<input id="audioMusic" type="range" min="0" max="100" step="1"></label><label class="audio-mute"><input id="audioMute" type="checkbox"> ?뚯냼嫄?/label></details><div id="audioUnlockHint" class="audio-unlock-hint">?뵄 ?뚮━瑜??ъ슜?섎젮硫??붾㈃???대┃?섏꽭??/div></div><script type="module" src="/src/main.ts"></script></body></html>
+diff --git a/client/src/GameScene.ts b/client/src/GameScene.ts
+index dc698e0..49a6c7f 100644
+--- a/client/src/GameScene.ts
++++ b/client/src/GameScene.ts
+@@ -1,3 +1,6 @@
++// DROP8_REFACTOR_016_SOLO_AI_ITEM_INTERFACE_FIST
++// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
++// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
+ // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
+ // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
+ // DROP8_REFACTOR_013G_DOCK8_RECOVERY
+@@ -163,7 +166,7 @@ export class GameScene extends Phaser.Scene {
+     this.fpsText=this.add.text(12,12,'',{fontFamily:'monospace',fontSize:'12px',color:'#9fb2bf',backgroundColor:'#071018aa',padding:{x:6,y:4}}).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+10);
+     this.perfText=this.add.text(12,78,'',{fontFamily:'monospace',fontSize:'12px',color:'#d9edf8',backgroundColor:'#061018e8',padding:{x:8,y:7}}).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+12).setVisible(false);
+     this.regionText=this.add.text(12,46,'',{fontFamily:'sans-serif',fontSize:'13px',fontStyle:'bold',color:'#f4f7ef',backgroundColor:'#071018cc',padding:{x:9,y:6}}).setScrollFactor(0).setDepth(RENDER_DEPTH.HUD+10).setVisible(false);
+-    this.keys=this.input.keyboard!.addKeys('W,A,S,D,E,Q,R,ONE,TWO,THREE,FOUR,M,F3,SPACE,ENTER,LEFT,RIGHT') as Record<string,Phaser.Input.Keyboard.Key>;
++    this.keys=this.input.keyboard!.addKeys('W,A,S,D,E,Q,R,Z,X,ONE,TWO,THREE,FOUR,M,F3,SPACE,ENTER,LEFT,RIGHT') as Record<string,Phaser.Input.Keyboard.Key>;
+     this.input.mouse?.disableContextMenu();
+     this.input.on('pointerdown',(pointer:Phaser.Input.Pointer)=>{void audio.unlock();const me=this.local();if(this.isTyping()||!me)return;if(pointer.rightButtonDown()&&this.localThrowPreparing){this.cancelLocalThrow();return;}if(pointer.leftButtonDown()&&me.alive&&me.phase==='landed'&&!me.isSwimming&&!me.isVaulting&&isThrowableType(me.equipped)&&me.throwableCount>0){this.localThrowPreparing=true;this.localThrowStartedAt=this.time.now;this.localThrowVehicleId=me.isDriving?String(me.vehicleId??''):'';this.net.send('throwPrepare');}});
+     this.input.on('pointerup',(pointer:Phaser.Input.Pointer)=>{const me=this.local();if(pointer.button!==0||!this.localThrowPreparing||!me)return;if(me.isSwimming){this.cancelLocalThrow();return;}this.net.send('throw',{aimX:this.localAimX,aimY:this.localAimY});this.localThrowPreparing=false;this.localThrowStartedAt=0;this.localThrowVehicleId='';});
+@@ -175,7 +178,9 @@ export class GameScene extends Phaser.Scene {
+     this.keys.TWO.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:2});}});
+     this.keys.THREE.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:3});}});
+     this.keys.FOUR.on('down',()=>{if(!this.isTyping()){this.cancelLocalThrow();this.net.send('switch',{slot:4});}});
+-    this.keys.Q.on('down',()=>{const me=this.local();if(!this.isTyping()&&!me?.isSwimming){this.cancelLocalThrow();this.net.send('heal',{kind:'auto'});}});
++    this.keys.Z.on('down',()=>{if(!this.isTyping())this.net.send('selectHeal',{kind:'bandage'});});
++    this.keys.X.on('down',()=>{if(!this.isTyping())this.net.send('selectHeal',{kind:'medkit'});});
++    this.keys.Q.on('down',()=>{const me=this.local();if(!this.isTyping()&&!me?.isSwimming){this.cancelLocalThrow();this.net.send('heal');}});
+     this.keys.SPACE.on('down',()=>{if(this.isTyping())return;const me=this.local();if(me?.isSwimming)return;this.net.send(me?.phase==='landed'?'vaultWindow':'jump');});
+     this.keys.M.on('down',()=>{this.mapOpen=!this.mapOpen;this.lastMiniDraw=0;});
+     this.keys.F3.on('down',()=>{if(this.isTyping())return;this.perfVisible=!this.perfVisible;this.perfText.setVisible(this.perfVisible);});
+@@ -687,6 +692,7 @@ export class GameScene extends Phaser.Scene {
+ 
+   private resolvedViewerSpace(viewer:any){
+     const x=Number(viewer?.x??0),y=Number(viewer?.y??0);
++    if(viewer?.phase!=='landed')return{buildingId:'',roomIndex:0,outdoors:true};
+     const inferred=spaceAt(x,y,this.mapConfig.buildingVisibilityZones,this.mapConfig.rooms,0);
+     const networkBuildingId=String(viewer?.buildingId??'');
+     const networkRoomIndex=Number(viewer?.roomIndex??0);
+@@ -699,6 +705,7 @@ export class GameScene extends Phaser.Scene {
+   }
+ 
+   private updateBuildingPresentation(viewer:any){
++    if(!viewer?.alive||viewer?.phase!=='landed'){this.activeBuildingId='';this.activePortalId='';this.activePortalBuildingId='';this.activePortalKind='';for(const roof of this.buildingRoofs.values())roof.setAlpha(1);this.indoorMaskG.clear();const canvas=this.windowVisionCanvas,context=this.windowVisionContext;if(canvas&&context){context.clearRect(0,0,canvas.width,canvas.height);canvas.classList.add('hidden');}return;}
+     const resolved=this.resolvedViewerSpace(viewer);
+     const roomIndex=resolved.roomIndex;
+     const currentRoom=this.mapConfig.rooms.find((candidate)=>candidate.index===roomIndex);
+@@ -892,6 +899,36 @@ export class GameScene extends Phaser.Scene {
+     const view=this.cameras.main.worldView;
+     const visible=(x:number,y:number,m=120)=>x>=view.x-m&&x<=view.right+m&&y>=view.y-m&&y<=view.bottom+m;
+ 
++    for(const rocket of s.rockets??[]){
++      if(!this.spaceVisible(rocket)||!visible(rocket.x,rocket.y,80))continue;
++      const angle=Math.atan2(Number(rocket.vy||0),Number(rocket.vx||0));
++      const cos=Math.cos(angle),sin=Math.sin(angle),sideX=-sin,sideY=cos;
++      const noseX=rocket.x+cos*13,noseY=rocket.y+sin*13;
++      const tailX=rocket.x-cos*10,tailY=rocket.y-sin*10;
++      const flameX=rocket.x-cos*27,flameY=rocket.y-sin*27;
++      g.fillStyle(0xff7a2f,.45).fillTriangle(tailX+sideX*5,tailY+sideY*5,tailX-sideX*5,tailY-sideY*5,flameX,flameY);
++      g.fillStyle(0xffe083,.95).fillTriangle(tailX+sideX*2.5,tailY+sideY*2.5,tailX-sideX*2.5,tailY-sideY*2.5,rocket.x-cos*22,rocket.y-sin*22);
++      g.lineStyle(10,0x4d6651,1).lineBetween(tailX,tailY,rocket.x+cos*7,rocket.y+sin*7);
++      g.fillStyle(0xc7d3c4,1).fillTriangle(noseX,noseY,rocket.x+cos*4+sideX*5,rocket.y+sin*4+sideY*5,rocket.x+cos*4-sideX*5,rocket.y+sin*4-sideY*5);
++      g.fillStyle(0x29353a,1).fillTriangle(tailX+sideX*3,tailY+sideY*3,tailX-cos*7+sideX*9,tailY-sin*7+sideY*9,tailX-cos*4+sideX*2,tailY-sin*4+sideY*2);
++      g.fillStyle(0x29353a,1).fillTriangle(tailX-sideX*3,tailY-sideY*3,tailX-cos*7-sideX*9,tailY-sin*7-sideY*9,tailX-cos*4-sideX*2,tailY-sin*4-sideY*2);
++    }
++
++
++    for(const drop of s.supplyDrops??[]){
++      if(!visible(drop.x,drop.y,180))continue;const altitude=Number(drop.altitude||0),shadowScale=1+altitude/900;
++      g.fillStyle(0x000000,.22).fillEllipse(drop.x,drop.y,54*shadowScale,22*shadowScale);
++      const drawY=drop.y-altitude*.18;
++      if(!drop.landed){g.lineStyle(3,0xe9edf0,.8).lineBetween(drop.x-24,drawY-26,drop.x-11,drawY-4).lineBetween(drop.x+24,drawY-26,drop.x+11,drawY-4);g.fillStyle(0xe8ecef,.85).fillEllipse(drop.x,drawY-28,60,26);}
++      g.fillStyle(drop.opened?0x704a2d:0xb34a32,.96).fillRoundedRect(drop.x-22,drawY-14,44,28,5);g.lineStyle(3,0xf0d08d,.8).strokeRoundedRect(drop.x-22,drawY-14,44,28,5);g.lineStyle(3,0xf0d08d,.7).lineBetween(drop.x,drawY-14,drop.x,drawY+14);
++      if(drop.landed&&!drop.opened){const pulse=.45+.25*Math.sin(time*.006);g.lineStyle(4,0xff5b3d,pulse).lineBetween(drop.x,drop.y-18,drop.x,drop.y-180);g.fillStyle(0xff7048,.15).fillCircle(drop.x,drop.y,48);}
++    }
++    for(const jet of s.flameJets??[]){
++      if(!this.worldEntityVisible(jet.x,jet.y,String(jet.buildingId??''))||!visible(jet.x,jet.y,Number(jet.range||320)+80))continue;const age=Math.max(0,Number(s.serverTime||0)-Number(jet.startedAt||0)),life=Math.max(.01,Number(jet.expiresAt||0)-Number(jet.startedAt||0)),alpha=clamp(1-age/life,0,1),a=Number(jet.angle||0),range=Number(jet.range||320),half=Number(jet.halfAngle||.28),leftX=jet.x+Math.cos(a-half)*range,leftY=jet.y+Math.sin(a-half)*range,rightX=jet.x+Math.cos(a+half)*range,rightY=jet.y+Math.sin(a+half)*range;
++      g.fillStyle(0xff3d1f,.18*alpha).fillTriangle(jet.x,jet.y,leftX,leftY,rightX,rightY);g.fillStyle(0xff8b2d,.30*alpha).fillTriangle(jet.x,jet.y,jet.x+Math.cos(a-half*.62)*range*.78,jet.y+Math.sin(a-half*.62)*range*.78,jet.x+Math.cos(a+half*.62)*range*.78,jet.y+Math.sin(a+half*.62)*range*.78);g.fillStyle(0xffe36a,.72*alpha).fillTriangle(jet.x,jet.y,jet.x+Math.cos(a-half*.28)*range*.52,jet.y+Math.sin(a-half*.28)*range*.52,jet.x+Math.cos(a+half*.28)*range*.52,jet.y+Math.sin(a+half*.28)*range*.52);
++      for(let i=0;i<8;i++){const t=(i+1)/9,r=range*t,side=Math.sin(time*.02+i*2.3)*r*Math.tan(half)*.45;g.fillStyle(i%2?0xffd34f:0xff6a24,.55*alpha).fillCircle(jet.x+Math.cos(a)*r-Math.sin(a)*side,jet.y+Math.sin(a)*r+Math.cos(a)*side,4+(i%3)*2);}
++    }
++
+     const activeBulletIds=new Set<string>();
+     for(const b of s.bullets){
+       activeBulletIds.add(b.id);
+@@ -941,7 +978,7 @@ export class GameScene extends Phaser.Scene {
+       if(!this.seenExplosionIds.has(explosion.id)){
+         this.seenExplosionIds.add(explosion.id);
+         const viewer=this.viewerPoint??this.local();
+-        if(viewer){const d=distance(viewer.x,viewer.y,explosion.x,explosion.y);this.playWorldAudio(explosion.kind==='fragGrenade'?'frag_explosion':'motorcycle_explosion',{id:`explosion:${explosion.id}`,x:explosion.x,y:explosion.y,buildingId:buildingIdAt(explosion.x,explosion.y,0,this.mapConfig.buildingVisibilityZones)},1600);if(d<230)audio.applyTemporaryMuffle(320);}
++        if(viewer){const d=distance(viewer.x,viewer.y,explosion.x,explosion.y);this.playWorldAudio(explosion.kind==='fragGrenade'?'frag_explosion':explosion.kind==='bazooka'?'bazooka_explosion':'motorcycle_explosion',{id:`explosion:${explosion.id}`,x:explosion.x,y:explosion.y,buildingId:buildingIdAt(explosion.x,explosion.y,0,this.mapConfig.buildingVisibilityZones)},1600);if(d<230)audio.applyTemporaryMuffle(320);}
+         if(viewer&&distance(viewer.x,viewer.y,explosion.x,explosion.y)<430)this.cameras.main.shake(130,.0045);
+       }
+     }
+@@ -961,7 +998,8 @@ export class GameScene extends Phaser.Scene {
+     this.drawDeathVisuals(time);
+ 
+     const visibleIds=new Set<string>();
+-    for(const p of s.players){
++    const playersForDrawing=[...s.players].sort((a,b)=>Number(a.id===this.net.sessionId)-Number(b.id===this.net.sessionId));
++    for(const p of playersForDrawing){
+       if(!p.alive)continue;
+       const local=p.id===this.net.sessionId;
+       const pos=this.framePositions.get(p.id)??p;
+@@ -1305,7 +1343,8 @@ export class GameScene extends Phaser.Scene {
+     const visible=(x:number,y:number,m=120)=>x>=view.x-m&&x<=view.right+m&&y>=view.y-m&&y<=view.bottom+m;
+     if(s.zoneActive)g.lineStyle(6,0x4db5ff,.72).strokeCircle(s.zoneX,s.zoneY,s.zoneRadius);
+     if(s.zoneActive||s.zoneState==='ANNOUNCING')g.lineStyle(3,0xffffff,.36).strokeCircle(s.nextZoneX,s.nextZoneY,s.nextZoneRadius);
+-    for(const l of s.loot){if(this.spaceVisible(l)&&visible(l.x,l.y,80)&&this.pointInsideScopeView(l.x,l.y))this.drawLootIcon(g,l.kind as LootKind,l.x,l.y,1);}
++    for(const drop of s.supplyDrops??[])if(drop.landed&&visible(drop.x,drop.y,100))g.lineStyle(3,drop.opened?0x8c755f:0xff6b4a,.9).strokeRect(drop.x-25,drop.y-17,50,34);
++    const viewer=this.viewerEntity();if(viewer?.alive&&viewer?.phase==='landed')for(const l of s.loot){if(this.spaceVisible(l)&&visible(l.x,l.y,80)&&this.pointInsideScopeView(l.x,l.y))this.drawLootIcon(g,l.kind as LootKind,l.x,l.y,1);}
+   }
+ 
+   private updateLocalPrediction(me:any,x:number,y:number,dt:number){
+@@ -1464,6 +1503,17 @@ export class GameScene extends Phaser.Scene {
+       g.lineStyle(5,0x7a5b3f,alpha).lineBetween(pt(4-recoil,0).x,pt(4-recoil,0).y,pt(24-recoil,0).x,pt(24-recoil,0).y);
+       g.lineStyle(5,0x111920,alpha).lineBetween(scopeA.x,scopeA.y,scopeB.x,scopeB.y);
+       g.fillStyle(0xff4858,alpha).fillCircle(end.x,end.y,3.5);
++    }else if(id==='bazooka'){
++      const rear=pt(-12-recoil,0),end=pt(66-recoil,0),grip=pt(22-recoil,12);g.lineStyle(12,0x4d6651,alpha).lineBetween(rear.x,rear.y,end.x,end.y);g.lineStyle(5,0x20282b,alpha).lineBetween(pt(20-recoil,3).x,pt(20-recoil,3).y,grip.x,grip.y);g.fillStyle(0x9de27d,alpha).fillCircle(end.x,end.y,5);g.fillStyle(0x2d3438,alpha).fillCircle(rear.x,rear.y,7);
++    }else if(id==='flamethrower'){
++      const flameBody=pt(8-recoil,0),flameBarrel=pt(46-recoil,0),flameNozzle=pt(61-recoil,0),flameTank=pt(2-recoil,14),flameGrip=pt(24-recoil,13),hoseA=pt(9-recoil,8),hoseB=pt(34-recoil,5);
++      g.lineStyle(12,0x39454a,alpha).lineBetween(flameBody.x,flameBody.y,flameBarrel.x,flameBarrel.y);
++      g.lineStyle(7,0xb9c3c9,alpha).lineBetween(flameBarrel.x,flameBarrel.y,flameNozzle.x,flameNozzle.y);
++      g.fillStyle(0xb43e25,alpha).fillCircle(flameTank.x,flameTank.y,11);
++      g.lineStyle(3,0x252d31,alpha).strokeCircle(flameTank.x,flameTank.y,11);
++      g.lineStyle(4,0x252d31,alpha).lineBetween(hoseA.x,hoseA.y,hoseB.x,hoseB.y);
++      g.lineStyle(5,0x20282b,alpha).lineBetween(pt(24-recoil,3).x,pt(24-recoil,3).y,flameGrip.x,flameGrip.y);
++      g.fillStyle(0xffa13a,alpha).fillTriangle(pt(62-recoil,-5).x,pt(62-recoil,-5).y,pt(70-recoil,0).x,pt(70-recoil,0).y,pt(62-recoil,5).x,pt(62-recoil,5).y);
+     }else if(id==='shotgun'){
+       const endA=pt(58-recoil,-3),endB=pt(58-recoil,3),pump=pt(36-recoil,0);
+       g.lineStyle(5,0x30383e,alpha).lineBetween(hand.x,hand.y,endA.x,endA.y).lineBetween(hand.x,hand.y,endB.x,endB.y);
+@@ -1482,8 +1532,14 @@ export class GameScene extends Phaser.Scene {
+     else if(kind==='rifle'){line(-13,0,13,0,4);line(-13,0,-18,-6,3);line(2,1,2,10,4);g.fillStyle(c).fillCircle(x+14*scale,y,2.5*scale);}
+     else if(kind==='shotgun'){line(-14,-3,14,-3,3);line(-14,3,14,3,3);g.fillStyle(c).fillCircle(x+15*scale,y-3*scale,2).fillCircle(x+15*scale,y+3*scale,2);}
+     else if(kind==='sniper'){line(-15,0,15,0,3);line(-5,-5,5,-5,3);line(-12,0,-16,6,3);g.fillStyle(c).fillCircle(x+16*scale,y,2.5*scale);}
++    else if(kind==='bazooka'){line(-16,0,15,0,8);g.fillStyle(c).fillCircle(x+15*scale,y,5*scale);line(-3,2,-3,10,4); }
++    else if(kind==='flamethrower'){line(-14,2,9,-4,7);g.fillStyle(0xb43e25).fillRoundedRect(x-13*scale,y-2*scale,13*scale,15*scale,3*scale);g.fillStyle(0xff9a39,.9).fillTriangle(x+12*scale,y-8*scale,x+23*scale,y-3*scale,x+12*scale,y+2*scale);}
+     else if(isThrowableType(kind)){g.fillStyle(c).fillCircle(x,y,8*scale);g.lineStyle(2,0xffffff,.65).strokeCircle(x,y,8*scale);if(kind==='incendiaryGrenade')line(-3,-10,3,-15,2);else line(0,-8,5,-13,2);}
+-    else if(kind==='pistol_ammo'||kind==='standard_ammo'||kind==='shotgun_ammo'){for(const dx of [-6,0,6]){line(dx,-7,dx,6,3);g.fillStyle(c).fillCircle(x+dx*scale,y-7*scale,2*scale);}}
++    else if(kind==='pistol_ammo'){for(const dx of [-5,2,9]){line(dx,-6,dx,7,3);g.fillStyle(c).fillCircle(x+dx*scale,y-7*scale,2*scale);}}
++    else if(kind==='standard_ammo'){for(const dx of [-7,0,7]){g.fillStyle(c).fillRect(x+(dx-2)*scale,y-10*scale,4*scale,18*scale);g.fillStyle(0xead3a1).fillTriangle(x+(dx-2)*scale,y-10*scale,x+(dx+2)*scale,y-10*scale,x+dx*scale,y-15*scale);}}
++    else if(kind==='shotgun_ammo'){for(const dx of [-6,0,6]){g.fillStyle(c).fillRoundedRect(x+(dx-3)*scale,y-9*scale,6*scale,18*scale,2*scale);g.fillStyle(0xf6d46d).fillRect(x+(dx-3)*scale,y+5*scale,6*scale,4*scale);}}
++    else if(kind==='rocket_ammo'){line(-13,0,10,0,7);g.fillStyle(c).fillTriangle(x+18*scale,y,x+8*scale,y-7*scale,x+8*scale,y+7*scale);g.fillStyle(0x33412d).fillTriangle(x-10*scale,y,x-16*scale,y-7*scale,x-16*scale,y+7*scale);}
++    else if(kind==='fuel_ammo'){g.fillStyle(c).fillRoundedRect(x-9*scale,y-12*scale,18*scale,24*scale,3*scale);g.lineStyle(2*scale,0xffd27d,.8).strokeRoundedRect(x-9*scale,y-12*scale,18*scale,24*scale,3*scale);g.fillStyle(0xffd27d).fillRect(x-3*scale,y-16*scale,8*scale,5*scale);}
+     else if(kind==='vest'){g.fillStyle(c).fillTriangle(x-10*scale,y-9*scale,x+10*scale,y-9*scale,x,y+12*scale);g.fillStyle(0x061018).fillCircle(x,y-2*scale,4*scale);}
+     else if(kind==='bandage'){g.fillStyle(c).fillRoundedRect(x-11*scale,y-5*scale,22*scale,10*scale,4*scale);g.fillStyle(0xffffff).fillCircle(x,y,3*scale);}
+     else if(kind==='medkit'){g.fillStyle(c).fillRoundedRect(x-11*scale,y-11*scale,22*scale,22*scale,4*scale);g.lineStyle(4,0xffffff,1).lineBetween(x-6*scale,y,x+6*scale,y).lineBetween(x,y-6*scale,x,y+6*scale);}
+@@ -1501,6 +1557,7 @@ export class GameScene extends Phaser.Scene {
+     if(me.isDriving){this.pickupText.setText('E  ?ㅽ넗諛붿씠 ?대━湲?).setVisible(true);return;}
+     const vault=findPortalVaultCandidate(me.x,me.y,String(me.buildingId??''),Number(me.roomIndex??0),this.mapConfig.portals);
+     if(vault){this.pickupText.setText('Space  李쎈Ц ?섍린').setVisible(true);return;}
++    let nearestSupply:any;let supplyDistance=88*88;for(const drop of s.supplyDrops??[]){if(!drop.landed||drop.opened)continue;const dx=drop.x-me.x,dy=drop.y-me.y,d=dx*dx+dy*dy;if(d<supplyDistance){supplyDistance=d;nearestSupply=drop;}}if(nearestSupply){this.pickupText.setText('E  蹂닿툒 ?곸옄 ?닿린').setVisible(true);return;}
+     let nearestMotorcycle:any;let motorcycleDistance=MOTORCYCLE_MOUNT_DISTANCE*MOTORCYCLE_MOUNT_DISTANCE;
+     for(const motorcycle of s.motorcycles??[]){if(motorcycle.driverId||!buildingSpacesInteractable(me,motorcycle))continue;const dx=motorcycle.x-me.x,dy=motorcycle.y-me.y,d=dx*dx+dy*dy;if(d<motorcycleDistance){motorcycleDistance=d;nearestMotorcycle=motorcycle;}}
+     if(nearestMotorcycle){this.pickupText.setText('E  ?ㅽ넗諛붿씠 ?묒듅').setVisible(true);return;}
+@@ -1546,6 +1603,7 @@ export class GameScene extends Phaser.Scene {
+     if(kind==='pistol_ammo')return[`沅뚯킑??蹂댁쑀 ${me.pistolAmmo??0}諛?];
+     if(kind==='standard_ammo')return[`?쇰컲 珥앹븣 蹂댁쑀 ${me.standardAmmo??0}諛?];
+     if(kind==='shotgun_ammo')return[`?룰굔??蹂댁쑀 ${me.shotgunAmmo??0}諛?];
++    if(kind==='rocket_ammo')return[`濡쒖폆??蹂댁쑀 ${me.rocketAmmo??0}諛?];
+     return[];
+   }
+ 
+@@ -1595,7 +1653,7 @@ export class GameScene extends Phaser.Scene {
+       if(local)audio.playLocal(sound,1,eventId);else this.playWorldAudio(sound,payload,undefined,eventId);return;
+     }
+     const localSound=localMap[type];if(localSound&&local){audio.playLocal(localSound,1,eventId);return;}
+-    const worldMap:Record<string,SoundId>={reload_start:'reload_start',reload_complete:'reload_complete',heal_start:'heal_start',heal_complete:'heal_complete',impact_wall:'impact_wall',impact_ground:'impact_ground',impact_frame:'impact_frame',impact_vehicle:'impact_vehicle',impact_player:'impact_player',motorcycle_collision:'motorcycle_collision',motorcycle_hit:'motorcycle_hit',motorcycle_critical:'motorcycle_critical',throwable_throw:'throwable_throw',throwable_bounce:'throwable_bounce',frag_explosion:'frag_explosion',smoke_deploy:'smoke_deploy',fire_ignite:'fire_ignite',water_enter:'water_enter',water_exit:'water_exit',water_steam:'water_steam',water_extinguish:'water_extinguish'};
++    const worldMap:Record<string,SoundId>={reload_start:'reload_start',reload_complete:'reload_complete',heal_start:'heal_start',heal_complete:'heal_complete',impact_wall:'impact_wall',impact_ground:'impact_ground',impact_frame:'impact_frame',impact_vehicle:'impact_vehicle',impact_player:'impact_player',motorcycle_collision:'motorcycle_collision',motorcycle_hit:'motorcycle_hit',motorcycle_critical:'motorcycle_critical',throwable_throw:'throwable_throw',throwable_bounce:'throwable_bounce',frag_explosion:'frag_explosion',bazooka_explosion:'bazooka_explosion',smoke_deploy:'smoke_deploy',fire_ignite:'fire_ignite',water_enter:'water_enter',water_exit:'water_exit',water_steam:'water_steam',water_extinguish:'water_extinguish',supply_incoming:'supply_incoming',supply_land:'supply_land',supply_open:'supply_open'};
+     const worldSound=worldMap[type];if(worldSound)this.playWorldAudio(worldSound,payload,undefined,eventId);
+   }
+ 
+@@ -1692,7 +1750,7 @@ export class GameScene extends Phaser.Scene {
+       `?쒕쾭 tick ?됯퇏 ${Number(s.serverTickAvg||0).toFixed(1)}  p95 ${Number(s.serverTickP95||0).toFixed(1)}  max ${Number(s.serverTickMax||0).toFixed(1)}ms`,
+       `AI ${Number(s.serverAiMs||0).toFixed(1)}  異⑸룎 ${Number(s.serverCollisionMs||0).toFixed(1)}  李⑤웾 ${Number(s.serverVehicleMs||0).toFixed(1)}  ?먭린??${Number(s.serverZoneMs||0).toFixed(1)}ms`,
+       `留?${this.mapConfig.displayName} ${this.mapConfig.width}횞${this.mapConfig.height}`,
+-      `?뚮젅?댁뼱 ${players} / AI ${ai} / ?ㅽ넗諛붿씠 ${(s.motorcycles??[]).length} / 珥앹븣 ${s.bullets.length}/${Number(s.activeBulletLimit||0)} / ?꾩씠??${s.loot.length}`,
++      `?뚮젅?댁뼱 ${players} / AI ${ai} / ?ㅽ넗諛붿씠 ${(s.motorcycles??[]).length} / 珥앹븣 ${s.bullets.length}/${Number(s.activeBulletLimit||0)} 쨌 濡쒖폆 ${(s.rockets??[]).length} / ?꾩씠??${s.loot.length}`,
+       `李⑤웾 蹂듦뎄 ${Number(s.vehicleRecoveryCount||0)} / ?뚮젅?댁뼱 蹂듦뎄 ${Number(s.recoveryCount||0)}`, 
+       `蹂닿컙 踰꾪띁 ${this.remoteBuffers.size} / ?ㅻ깄 ${this.snapCorrections} / ?꾨씫 ${this.bufferMisses}`,
+     ].join('\n'));
+@@ -1742,6 +1800,7 @@ export class GameScene extends Phaser.Scene {
+       g.lineStyle(3,0xe6edf0,1).lineBetween(tail.x,tail.y,nose.x,nose.y).lineBetween(wl.x,wl.y,wr.x,wr.y).lineBetween(tl.x,tl.y,tr.x,tr.y);
+       g.fillStyle(0xe6edf0).fillCircle(nose.x,nose.y,2);
+     }
++    for(const drop of s.supplyDrops??[]){const sx=x+drop.x*sc,sy=y+drop.y*sc;g.fillStyle(drop.opened?0x8a725e:0xff5d45,.95).fillRect(sx-4,sy-4,8,8);g.lineStyle(1,0xffe8b0,.9).strokeRect(sx-5,sy-5,10,10);}
+     for(const p of s.players){
+       if(!p.alive)continue;
+       const visibility=this.getPlayerVisibility(p);
+diff --git a/client/src/main.ts b/client/src/main.ts
+index 3999b99..b0420d1 100644
+--- a/client/src/main.ts
++++ b/client/src/main.ts
+@@ -1,7 +1,10 @@
++// DROP8_REFACTOR_016_SOLO_AI_ITEM_INTERFACE_FIST
++// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
++// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
+ // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
+ // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
+ import Phaser from 'phaser';
+-import { AMMO_DISPLAY_NAMES, GAME_NAME, LOOT_LABELS, MAX_PLAYERS, MELEE_WEAPONS, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_SCOPE_SPEED_RATIO, WEAPONS, isThrowableType, type AmmoType, type WeaponId, type ThrowableType } from '@drop8/shared';
++import { AMMO_PRESENTATION, GAME_NAME, LOOT_LABELS, MAX_PLAYERS, MELEE_WEAPONS, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_SCOPE_SPEED_RATIO, WEAPONS, isThrowableType, type AmmoType, type WeaponId, type ThrowableType } from '@drop8/shared';
+ import { GameScene } from './GameScene';
+ import { Network } from './network';
+ import { normalizeChatText, shouldSubmitChatKey } from './chatInput';
+@@ -83,10 +86,12 @@ function nick(){
+   return n;
+ }
+ 
+-async function connect(create:boolean){
++let soloStarting=false;
++async function connect(create:boolean,solo=false){
+   error.textContent='?곌껐 以?..';
+   try{
+-    const opts={nickname:nick(),password:password.value,roomPassword:password.value,publicRoom:$<HTMLInputElement>('publicRoom').checked,fillAi:true,difficulty:'normal',zoneSpeed:'normal',mapSizeMode:'small',mapId:'small'};
++    const selectedMap=solo?$<HTMLSelectElement>('soloMap').value:'small';
++    const opts={nickname:nick(),password:password.value,roomPassword:password.value,publicRoom:solo?false:$<HTMLInputElement>('publicRoom').checked,fillAi:true,soloMode:solo,difficulty:'normal',zoneSpeed:'normal',mapSizeMode:selectedMap,mapId:selectedMap};
+     if(create)await net.create(opts);
+     else await net.join(roomCode.value.trim(),opts);
+     home.classList.add('hidden');
+@@ -99,10 +104,13 @@ async function connect(create:boolean){
+   }catch(e){
+     audio.playUi('ui_error');
+     error.textContent=e instanceof Error?e.message:'諛??곌껐 ?ㅽ뙣';
++  }finally{
++    if(solo){soloStarting=false;const button=$<HTMLButtonElement>('soloBtn');button.disabled=false;button.textContent='?붾줈 利됱떆 ?쒖옉';}
+   }
+ }
+ 
+ $('createBtn').onclick=()=>void connect(true);
++$('soloBtn').onclick=()=>{if(soloStarting)return;soloStarting=true;const button=$<HTMLButtonElement>('soloBtn');button.disabled=true;button.textContent='?붾줈 寃쎄린 以鍮?以?..';void connect(true,true);};
+ $('joinBtn').onclick=()=>void connect(false);
+ $('refreshRoomsBtn').onclick=()=>void refreshRooms();
+ $('readyBtn').onclick=()=>net.send('ready');
+@@ -293,9 +301,12 @@ function reserveAmmo(me:any,equipped:string){
+   if(ammoType==='pistol_ammo')return me?.pistolAmmo??0;
+   if(ammoType==='standard_ammo')return me?.standardAmmo??0;
+   if(ammoType==='shotgun_ammo')return me?.shotgunAmmo??0;
++  if(ammoType==='rocket_ammo')return me?.rocketAmmo??0;
++  if(ammoType==='fuel_ammo')return me?.fuelAmmo??0;
+   return 0;
+ }
+-function ammoLabel(equipped:string){const type=WEAPONS[equipped as WeaponId]?.ammoType as Exclude<AmmoType,'none'>|undefined;return type?AMMO_DISPLAY_NAMES[type]:'';}
++function ammoLabel(equipped:string){const type=WEAPONS[equipped as WeaponId]?.ammoType as Exclude<AmmoType,'none'>|undefined;return type?AMMO_PRESENTATION[type].label:'';}
++function ammoTypeForWeapon(equipped:string){return WEAPONS[equipped as WeaponId]?.ammoType as Exclude<AmmoType,'none'>|undefined;}
+ 
+ function magazineFor(me:any,id:string){
+   if(id==='pistol')return me?.pistolMagazine??0;
+@@ -303,6 +314,8 @@ function magazineFor(me:any,id:string){
+   if(id==='rifle')return me?.rifleMagazine??0;
+   if(id==='shotgun')return me?.shotgunMagazine??0;
+   if(id==='sniper')return me?.sniperMagazine??0;
++  if(id==='bazooka')return me?.bazookaMagazine??0;
++  if(id==='flamethrower')return me?.flamethrowerMagazine??0;
+   return 0;
+ }
+ 
+@@ -313,27 +326,50 @@ function setSlot(id:string,name:string,sub:string,active:boolean,empty:boolean){
+   const b=slot.querySelector('b');const small=slot.querySelector('small');if(b)b.textContent=name;if(small)small.textContent=sub;
+ }
+ 
++let weaponSlotDragFrom=0;
++let suppressWeaponSlotClickUntil=0;
++const weaponSlotElements=Array.from(document.querySelectorAll<HTMLElement>('.weapon-slot'));
++for(const slot of weaponSlotElements){
++  const slotNumber=Number(slot.dataset.weaponSlot);
++  slot.addEventListener('click',()=>{if(performance.now()<suppressWeaponSlotClickUntil)return;net.send('switch',{slot:slotNumber});slot.blur();});
++  slot.addEventListener('keydown',(event)=>{if(event.key==='Enter'){event.preventDefault();net.send('switch',{slot:slotNumber});slot.blur();}});
++  slot.addEventListener('dragstart',(event)=>{weaponSlotDragFrom=slotNumber;slot.classList.add('dragging');event.dataTransfer?.setData('text/plain',String(slotNumber));if(event.dataTransfer)event.dataTransfer.effectAllowed='move';});
++  slot.addEventListener('dragover',(event)=>{event.preventDefault();if(weaponSlotDragFrom&&weaponSlotDragFrom!==slotNumber)slot.classList.add('drop-target');if(event.dataTransfer)event.dataTransfer.dropEffect='move';});
++  slot.addEventListener('dragleave',()=>slot.classList.remove('drop-target'));
++  slot.addEventListener('drop',(event)=>{event.preventDefault();const from=Number(event.dataTransfer?.getData('text/plain')||weaponSlotDragFrom);slot.classList.remove('drop-target');if((from===1||from===2)&&from!==slotNumber){net.send('swapWeaponSlots',{from,to:slotNumber});suppressWeaponSlotClickUntil=performance.now()+350;}weaponSlotDragFrom=0;weaponSlotElements.forEach((item)=>item.classList.remove('dragging','drop-target'));});
++  slot.addEventListener('dragend',()=>{weaponSlotDragFrom=0;suppressWeaponSlotClickUntil=performance.now()+250;weaponSlotElements.forEach((item)=>item.classList.remove('dragging','drop-target'));});
++  slot.addEventListener('contextmenu',(event)=>{event.preventDefault();net.send('dropWeapon',{slot:slotNumber});});
++}
++for(const slot of Array.from(document.querySelectorAll<HTMLElement>('.heal-slot'))){
++  const select=()=>net.send('selectHeal',{kind:slot.dataset.healKind});
++  slot.addEventListener('click',select);
++  slot.addEventListener('keydown',(event)=>{if(event.key==='Enter'){event.preventDefault();select();slot.blur();}});
++}
++
+ function renderInventory(me:any){
+   const primary=me?.primary??'',secondary=me?.secondary??'',melee=me?.melee??'fists',equipped=me?.equipped??'fists';
+-  setSlot('slotPrimary',weaponName(primary),primary?`${magazineFor(me,primary)} / ${reserveAmmo(me,primary)}諛?쨌 ${ammoLabel(primary)}`:'二쇰Т湲??놁쓬',equipped===primary, !primary);
+-  setSlot('slotSecondary',weaponName(secondary),secondary?`${magazineFor(me,secondary)} / ${reserveAmmo(me,secondary)}諛?쨌 ${ammoLabel(secondary)}`:'蹂댁“臾닿린 ?놁쓬',equipped===secondary,!secondary);
++  setSlot('slotPrimary',weaponName(primary),primary?`${AMMO_PRESENTATION[ammoTypeForWeapon(primary)!]?.glyph??''} ${magazineFor(me,primary)} / ${reserveAmmo(me,primary)}諛?쨌 ${ammoLabel(primary)}`:'二쇰Т湲??놁쓬',equipped===primary, !primary);
++  setSlot('slotSecondary',weaponName(secondary),secondary?`${AMMO_PRESENTATION[ammoTypeForWeapon(secondary)!]?.glyph??''} ${magazineFor(me,secondary)} / ${reserveAmmo(me,secondary)}諛?쨌 ${ammoLabel(secondary)}`:'蹂댁“臾닿린 ?놁쓬',equipped===secondary,!secondary);
++  for(const [slotId,weaponId] of [['slotPrimary',primary],['slotSecondary',secondary]] as const){const slot=$(slotId);for(const config of Object.values(AMMO_PRESENTATION))slot.classList.remove(config.cssClass);const type=ammoTypeForWeapon(weaponId);if(type)slot.classList.add(AMMO_PRESENTATION[type].cssClass);}
+   setSlot('slotMelee',weaponName(melee),'洹쇱젒 臾닿린',equipped===melee||(!melee&&equipped==='fists'),false);
+   for(const [slotId,weaponId] of [['slotPrimary',primary],['slotSecondary',secondary]] as const){
+     const slot=$(slotId);const active=Boolean(me?.reloading&&me?.reloadWeapon===weaponId);
+     slot.classList.toggle('reloading',active);slot.style.setProperty('--reload-progress',`${Math.round((me?.reloadProgress??0)*100)}%`);
+     if(active){const small=slot.querySelector('small');if(small)small.textContent=`?ъ옣??${Math.round((me.reloadProgress??0)*100)}%`;}
+   }
+-  const missing=Math.max(0,100-(me?.hp??100));
+-  const autoHeal=(me?.medkits??0)>0&&(missing>25||(me?.bandages??0)<=0)?'援ш툒?곸옄':(me?.bandages??0)>0?'遺뺣?':(me?.medkits??0)>0?'援ш툒?곸옄':'?뚮났 ?놁쓬';
++  const selectedHeal=me?.selectedHealKind==='medkit'?'medkit':'bandage';
+   const throwable:ThrowableType|''=isThrowableType(me?.throwableType)?me.throwableType:'';
+   setSlot('slotThrowable',throwable?LOOT_LABELS[throwable]: '?ъ쿃臾??놁쓬',throwable?`?섎웾 ${me?.throwableCount??0}媛?:'?뚰렪??쨌 ?곕쭑??쨌 ?붿뿼??,equipped===throwable,!throwable);
+-  setSlot('slotHeal',autoHeal,`遺뺣? ${me?.bandages??0} 쨌 ?ㅽ듃 ${me?.medkits??0}`,false,autoHeal==='?뚮났 ?놁쓬');
++  $('bandageCount').textContent=`${me?.bandages??0}媛?쨌 25HP 쨌 2珥?;
++  $('medkitCount').textContent=`${me?.medkits??0}媛?쨌 60HP 쨌 4珥?;
++  $('slotBandage').classList.toggle('selected',selectedHeal==='bandage');$('slotBandage').classList.toggle('unavailable',(me?.bandages??0)<=0);
++  $('slotMedkit').classList.toggle('selected',selectedHeal==='medkit');$('slotMedkit').classList.toggle('unavailable',(me?.medkits??0)<=0);
+   $('armorText').textContent=String(Math.ceil(me?.armor??0));
+   ($('armorBar') as HTMLElement).style.width=`${Math.max(0,Math.min(100,me?.armor??0))}%`;
+   const details=[
+     ['二쇰Т湲?,primary?`${weaponName(primary)} 쨌 ${magazineFor(me,primary)} / ${reserveAmmo(me,primary)}諛?:'鍮꾩뼱 ?덉쓬'],
+     ['蹂댁“臾닿린',secondary?`${weaponName(secondary)} 쨌 ${magazineFor(me,secondary)} / ${reserveAmmo(me,secondary)}諛?:'鍮꾩뼱 ?덉쓬'],
+-    ['洹쇱젒',weaponName(melee)],['沅뚯킑??,String(me?.pistolAmmo??0)],['?쇰컲 珥앹븣',String(me?.standardAmmo??0)],['?룰굔??,String(me?.shotgunAmmo??0)],
++    ['洹쇱젒',weaponName(melee)],['沅뚯킑??,String(me?.pistolAmmo??0)],['?쇰컲 珥앹븣',String(me?.standardAmmo??0)],['?룰굔??,String(me?.shotgunAmmo??0)],['濡쒖폆??,String(me?.rocketAmmo??0)],['?곕즺',String(me?.fuelAmmo??0)],
+     ['?ъ쿃臾닿린',throwable?`${LOOT_LABELS[throwable]} 횞${me?.throwableCount??0}`:'鍮꾩뼱 ?덉쓬'],['諛⑺깂議곕겮',`${Math.ceil(me?.armor??0)}%`],['遺뺣?',String(me?.bandages??0)],['援ш툒?곸옄',String(me?.medkits??0)],
+   ];
+   $('inventoryDetails').innerHTML=details.map(([label,value])=>`<div class="inventory-detail"><b>${label}</b><span>${value}</span></div>`).join('');
+diff --git a/client/src/network.ts b/client/src/network.ts
+index 8583a87..97da2da 100644
+--- a/client/src/network.ts
++++ b/client/src/network.ts
+@@ -1,15 +1,19 @@
++// DROP8_PLAYER_SYNC_HOTFIX_016B
++// DROP8_REFACTOR_016_SOLO_AI_ITEM_INTERFACE_FIST
++// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
++// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
+ // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
+ // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
+ import { Client, type Room } from '@colyseus/sdk';
+ // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
+ 
+ export type Snapshot={
+-  phase:string;roomCode:string;hostId:string;fillAi:boolean;publicRoom:boolean;difficulty:string;zoneSpeed:string;mapId:string;mapSizeMode:string;mapRevision:number;worldSize:number;
++  phase:string;roomCode:string;hostId:string;fillAi:boolean;publicRoom:boolean;soloMode:boolean;difficulty:string;zoneSpeed:string;mapId:string;mapSizeMode:string;mapRevision:number;worldSize:number;
+   zoneX:number;zoneY:number;zoneRadius:number;zoneStartX:number;zoneStartY:number;zoneStartRadius:number;
+-  nextZoneX:number;nextZoneY:number;nextZoneRadius:number;zoneTimer:number;zoneStage:number;zoneProgress:number;zoneActive:boolean;zoneState:string;
++  nextZoneX:number;nextZoneY:number;nextZoneRadius:number;zoneTimer:number;zoneStage:number;zoneProgress:number;zoneActive:boolean;zoneState:string;supplySpawned:boolean;supplyDropId:string;
+   planeStartX:number;planeStartY:number;planeX:number;planeY:number;planeEndX:number;planeEndY:number;planeAngle:number;planeProgress:number;
+   serverTime:number;serverTickAvg:number;serverTickP95:number;serverTickMax:number;serverAiMs:number;serverCollisionMs:number;serverZoneMs:number;serverVehicleMs:number;recoveryCount:number;vehicleRecoveryCount:number;activeBulletLimit:number;
+-  aliveCount:number;winner:string;players:any[];bullets:any[];loot:any[];motorcycles:any[];explosions:any[];thrownObjects:any[];smokeFields:any[];fireFields:any[];receivedAt:number;
++  aliveCount:number;winner:string;players:any[];bullets:any[];rockets:any[];loot:any[];motorcycles:any[];explosions:any[];thrownObjects:any[];smokeFields:any[];fireFields:any[];flameJets:any[];supplyDrops:any[];receivedAt:number;
+ };
+ 
+ const endpoint=location.origin.replace(/^http/,'ws');
+@@ -23,11 +27,14 @@ export class Network {
+   private playerCache=new Map<string,any>();
+   private bulletCache=new Map<string,any>();
+   private lootCache=new Map<string,any>();
++  private rocketCache=new Map<string,any>();
+   private motorcycleCache=new Map<string,any>();
+   private explosionCache=new Map<string,any>();
+   private thrownObjectCache=new Map<string,any>();
+   private smokeFieldCache=new Map<string,any>();
+   private fireFieldCache=new Map<string,any>();
++  private flameJetCache=new Map<string,any>();
++  private supplyDropCache=new Map<string,any>();
+   private lastPatchAt=0;
+   private patchIntervals:number[]=[];
+   private receivedBytesWindow=0;
+@@ -50,8 +57,8 @@ export class Network {
+       this.listeners.forEach(fn=>fn());
+     };
+     this.room.onStateChange(update);
+-    if(this.room.state?.players)update(this.room.state);
+-    for(const type of ['chat','killfeed','result','error','notice','pong','kicked','pickupResult','positionRecovery','vehicleRecovery','characterDeath','audioEvent'])this.room.onMessage(type,(p:any)=>{
++    if(this.room.state?.players)update(this.room.state); for(const delay of [0,50,150,400])window.setTimeout(()=>{if(this.room?.state)update(this.room.state);},delay);
++    for(const type of ['chat','killfeed','result','error','notice','pong','kicked','pickupResult','slotSwapResult','positionRecovery','vehicleRecovery','characterDeath','audioEvent'])this.room.onMessage(type,(p:any)=>{
+       if(type==='pong'&&Number.isFinite(Number(p?.t)))this.rtt=Math.max(0,Date.now()-Number(p.t));
+       this.messages.forEach(fn=>fn(type,p));
+     });
+@@ -60,34 +67,28 @@ export class Network {
+   }
+ 
+   private syncCollection(collection:any,cache:Map<string,any>){
+-    const seen=new Set<string>();
+-    if(collection&&typeof collection.values==='function'){
+-      for(const raw of collection.values()){
+-        const json=raw?.toJSON?.()??({...raw});
+-        const id=String(json.id??'');
+-        if(!id)continue;
+-        seen.add(id);
+-        const existing=cache.get(id);
+-        if(existing)Object.assign(existing,json);
+-        else cache.set(id,json);
+-      }
+-    }
+-    for(const id of cache.keys())if(!seen.has(id))cache.delete(id);
++    const seen=new Set<string>();let enumerated=false;
++    const accept=(raw:any,key?:unknown)=>{if(!raw)return;const json=raw?.toJSON?.()??({...raw});const id=String(json.id??key??'');if(!id)return;enumerated=true;seen.add(id);json.id=id;const existing=cache.get(id);if(existing)Object.assign(existing,json);else cache.set(id,json);};
++    if(collection&&typeof collection.forEach==='function')collection.forEach((raw:any,key:any)=>accept(raw,key));
++    if(!enumerated&&collection&&typeof collection.entries==='function')for(const entry of collection.entries())if(Array.isArray(entry))accept(entry[1],entry[0]);
++    if(!enumerated&&collection&&typeof collection.values==='function')for(const raw of collection.values())accept(raw);
++    if(!enumerated){const plain=collection?.toJSON?.();if(plain&&typeof plain==='object')for(const [key,raw] of Object.entries(plain))accept(raw,key);}
++    const size=Number(collection?.size);if(enumerated||(Number.isFinite(size)&&size===0))for(const id of cache.keys())if(!seen.has(id))cache.delete(id);
+     return [...cache.values()];
+   }
+ 
+   private toSnapshot(s:any,receivedAt:number):Snapshot{
+     const snapshot:Snapshot={
+-      phase:s.phase,roomCode:s.roomCode,hostId:s.hostId,fillAi:s.fillAi,publicRoom:s.publicRoom,difficulty:s.difficulty,zoneSpeed:s.zoneSpeed,mapId:s.mapId,mapSizeMode:s.mapSizeMode,mapRevision:s.mapRevision,worldSize:s.worldSize,
++      phase:s.phase,roomCode:s.roomCode,hostId:s.hostId,fillAi:s.fillAi,publicRoom:s.publicRoom,soloMode:Boolean(s.soloMode),difficulty:s.difficulty,zoneSpeed:s.zoneSpeed,mapId:s.mapId,mapSizeMode:s.mapSizeMode,mapRevision:s.mapRevision,worldSize:s.worldSize,
+       zoneX:s.zoneX,zoneY:s.zoneY,zoneRadius:s.zoneRadius,zoneStartX:s.zoneStartX,zoneStartY:s.zoneStartY,zoneStartRadius:s.zoneStartRadius,
+-      nextZoneX:s.nextZoneX, nextZoneY:s.nextZoneY,nextZoneRadius:s.nextZoneRadius,zoneTimer:s.zoneTimer,zoneStage:s.zoneStage,zoneProgress:s.zoneProgress,zoneActive:Boolean(s.zoneActive),zoneState:s.zoneState,
++      nextZoneX:s.nextZoneX, nextZoneY:s.nextZoneY,nextZoneRadius:s.nextZoneRadius,zoneTimer:s.zoneTimer,zoneStage:s.zoneStage,zoneProgress:s.zoneProgress,zoneActive:Boolean(s.zoneActive),zoneState:s.zoneState,supplySpawned:Boolean(s.supplySpawned),supplyDropId:String(s.supplyDropId??''),
+       planeStartX:s.planeStartX,planeStartY:s.planeStartY,planeX:s.planeX,planeY:s.planeY,planeEndX:s.planeEndX,planeEndY:s.planeEndY,planeAngle:s.planeAngle,planeProgress:s.planeProgress,
+       serverTime:s.serverTime,serverTickAvg:s.serverTickAvg,serverTickP95:s.serverTickP95,serverTickMax:s.serverTickMax,serverAiMs:s.serverAiMs,serverCollisionMs:s.serverCollisionMs,serverZoneMs:s.serverZoneMs,serverVehicleMs:s.serverVehicleMs,recoveryCount:s.recoveryCount,vehicleRecoveryCount:s.vehicleRecoveryCount,activeBulletLimit:s.activeBulletLimit,
+       aliveCount:s.aliveCount,winner:s.winner,
+-      players:this.syncCollection(s.players,this.playerCache),bullets:this.syncCollection(s.bullets,this.bulletCache),loot:this.syncCollection(s.loot,this.lootCache),motorcycles:this.syncCollection(s.motorcycles,this.motorcycleCache),explosions:this.syncCollection(s.explosions,this.explosionCache),thrownObjects:this.syncCollection(s.thrownObjects,this.thrownObjectCache),smokeFields:this.syncCollection(s.smokeFields,this.smokeFieldCache),fireFields:this.syncCollection(s.fireFields,this.fireFieldCache),receivedAt,
++      players:this.syncCollection(s.players,this.playerCache),bullets:this.syncCollection(s.bullets,this.bulletCache),rockets:this.syncCollection(s.rockets,this.rocketCache),loot:this.syncCollection(s.loot,this.lootCache),motorcycles:this.syncCollection(s.motorcycles,this.motorcycleCache),explosions:this.syncCollection(s.explosions,this.explosionCache),thrownObjects:this.syncCollection(s.thrownObjects,this.thrownObjectCache),smokeFields:this.syncCollection(s.smokeFields,this.smokeFieldCache),fireFields:this.syncCollection(s.fireFields,this.fireFieldCache),flameJets:this.syncCollection(s.flameJets,this.flameJetCache),supplyDrops:this.syncCollection(s.supplyDrops,this.supplyDropCache),receivedAt,
+     };
+     if(receivedAt-this.bytesWindowAt<1000){
+-      this.receivedBytesWindow+=220+snapshot.players.length*170+snapshot.bullets.length*70+snapshot.loot.length*55+snapshot.motorcycles.length*120+snapshot.explosions.length*55+snapshot.thrownObjects.length*90+snapshot.smokeFields.length*60+snapshot.fireFields.length*60;
++      this.receivedBytesWindow+=220+snapshot.players.length*170+snapshot.bullets.length*70+snapshot.rockets.length*85+snapshot.loot.length*55+snapshot.motorcycles.length*120+snapshot.explosions.length*55+snapshot.thrownObjects.length*90+snapshot.smokeFields.length*60+snapshot.fireFields.length*60+snapshot.flameJets.length*70+snapshot.supplyDrops.length*85;
+     }
+     return snapshot;
+   }
+@@ -100,9 +101,10 @@ export class Network {
+     this.playerCache.clear();
+     this.bulletCache.clear();
+     this.lootCache.clear();
++    this.rocketCache.clear();
+     this.motorcycleCache.clear();
+     this.explosionCache.clear();
+-    this.thrownObjectCache.clear();this.smokeFieldCache.clear();this.fireFieldCache.clear();
++    this.thrownObjectCache.clear();this.smokeFieldCache.clear();this.fireFieldCache.clear();this.flameJetCache.clear();this.supplyDropCache.clear();
+     this.patchIntervals=[];
+     this.lastPatchAt=0;
+     this.receivedBytesWindow=0;
+diff --git a/server/src/rooms/Drop8Room.ts b/server/src/rooms/Drop8Room.ts
+index 8bd5f4a..bd6e1e4 100644
+--- a/server/src/rooms/Drop8Room.ts
++++ b/server/src/rooms/Drop8Room.ts
+@@ -1,11 +1,21 @@
++// DROP8_REFACTOR_016_SOLO_AI_ITEM_INTERFACE_FIST
++// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
++// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
+ // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
+ // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
+ // DROP8_REFACTOR_013G_DOCK8_RECOVERY
+ // DROP8_REFACTOR_013H1_LARGE_NESTED_ROOM_WINDOW_DOCK8_TERRAIN_LOOT
+ import { Client, CloseCode, Room } from '@colyseus/core';
+-import { BulletState, Drop8State, ExplosionState, FireFieldState, LootState, MotorcycleState, PlayerState, SmokeFieldState, ThrownObjectState } from './schema.js';
++import { BulletState, Drop8State, ExplosionState, FireFieldState, FlameJetState, LootState, MotorcycleState, PlayerState, RocketState, SmokeFieldState, SupplyDropState, ThrownObjectState } from './schema.js';
+ import {
+ // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
++  AI_PROFILES,
++  FIST_BALANCE,
++  HEAL_SELECTION_BALANCE,
++  SOLO_MODE_BALANCE,
++  BAZOOKA_BALANCE,
++  FLAMETHROWER_BALANCE,
++  SUPPLY_DROP_BALANCE,
+   BUSH_FIRE_REVEAL_SECONDS,
+   BUSH_HIDE_DISTANCE,
+   BUSH_HIT_REVEAL_SECONDS,
+@@ -45,6 +55,10 @@ import {
+   SNIPER_SCOPE_MOVE_MULTIPLIER,
+   WEAPONS,
+   adjustedLootTableForMap,
++  aiProfileForIndex,
++  deterministicAiAimOffset,
++  bazookaPlayerDamage,
++  bazookaVehicleDamage,
+   WINDOW_INTERACTION_DISTANCE,
+   WINDOW_VAULT_COOLDOWN_MS,
+   WINDOW_VAULT_DURATION_MS,
+@@ -63,6 +77,7 @@ import {
+   fireFieldContains,
+   fragPlayerDamage,
+   fragVehicleDamage,
++  flamethrowerConeContains,
+   findPortalVaultCandidate,
+   portalBuildingIdForSide,
+   getMapConfig,
+@@ -100,6 +115,7 @@ import {
+   stepThrowableMotion,
+   visibilitySampleResult,
+   weightedLootChoice,
++  type AiProfileId,
+   type AmmoType,
+   type Building,
+   type Difficulty,
+@@ -164,6 +180,7 @@ type JoinOptions = {
+   publicRoom?:boolean;
+   mapSizeMode?:MapSizeMode;
+   mapId?:MapId;
++  soloMode?:boolean;
+ };
+ 
+ const AI_NAMES=['諛붾엺','?뚮ł??,'?쇱샊','?쒕떎','?꾨쭩','?뚮컢??,'?앹〈遊?];
+@@ -194,6 +211,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+   private password='';
+   private elapsed=0;
+   private bulletSeq=0;
++  private rocketSeq=0;
+   private lootSeq=0;
+   private planeStart={x:0,y:0};
+   private planeEnd={x:4096,y:4096};
+@@ -219,6 +237,9 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+   private throwableSeq=0;
+   private smokeSeq=0;
+   private fireSeq=0;
++  private flameSeq=0;
++  private supplySeq=0;
++  private flameDamageAt=new Map<string,number>();
+   private throwPrepareAt=new Map<string,number>();
+   private nextFireTickAt=0;
+ 
+@@ -231,8 +252,10 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     await this.presence.setex(`drop8:${code}`,'1',60*60*8);
+     this.roomId=code;
+     this.state.roomCode=code;
+-    this.state.fillAi=options.fillAi!==false;
+-    this.state.publicRoom=options.publicRoom!==false;
++    this.state.soloMode=options.soloMode===true;
++    this.maxClients=this.state.soloMode?SOLO_MODE_BALANCE.humanPlayers:MAX_PLAYERS;
++    this.state.fillAi=this.state.soloMode?true:options.fillAi!==false;
++    this.state.publicRoom=this.state.soloMode?false:options.publicRoom!==false;
+     this.state.difficulty=options.difficulty??'normal';
+     this.state.zoneSpeed=options.zoneSpeed??'normal';
+     this.state.mapId=normalizeMapId(options.mapId??options.mapSizeMode);
+@@ -254,9 +277,12 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     this.onMessage('interact',(c)=>this.interact(c));
+     this.onMessage('pickup',(c)=>this.pickup(c));
+     this.onMessage('switch',(c,m)=>this.switchWeapon(c,m));
++    this.onMessage('swapWeaponSlots',(c,m)=>this.swapWeaponSlots(c,m));
++    this.onMessage('dropWeapon',(c,m)=>this.dropWeapon(c,m));
+     this.onMessage('throwPrepare',(c)=>this.prepareThrow(c));
+     this.onMessage('throwCancel',(c)=>this.cancelThrowForClient(c));
+     this.onMessage('throw',(c,m)=>this.throwEquipped(c,m));
++    this.onMessage('selectHeal',(c,m)=>this.selectHeal(c,m));
+     this.onMessage('heal',(c,m)=>this.heal(c,m));
+     this.onMessage('chat',(c,m)=>this.chat(c,m));
+     this.onMessage('kick',(c,m)=>this.kick(c,m));
+@@ -280,6 +306,11 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     this.state.players.set(client.sessionId,p);
+     if(p.host)this.state.hostId=p.id;
+     this.system(`${p.name}?섏씠 ?낆옣?덉뒿?덈떎.`);
++    if(this.state.soloMode&&p.host&&this.state.phase==='LOBBY'){
++      p.ready=true;
++      this.fillAi();
++      this.beginMatch();
++    }
+     this.syncRoomRegistry();
+   }
+ 
+@@ -395,19 +426,24 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+   }
+ 
+   private fillAi(){
+-    let i=1;
+-    while(this.state.players.size<MAX_PLAYERS){
++    let i=[...this.state.players.values()].filter((value)=>value.ai).length+1;
++    const targetCount=this.state.soloMode?SOLO_MODE_BALANCE.totalPlayers:MAX_PLAYERS;
++    while(this.state.players.size<targetCount){
+       const p=new PlayerState();
+       p.id=`ai-${Date.now()}-${i}`;
+       p.name=`AI-${AI_NAMES[(i-1)%AI_NAMES.length]}`;
+       p.ai=true;
+       p.ready=true;
+       p.aiState='PLANE';
++      p.aiProfile=aiProfileForIndex(i-1);
++      p.selectedHealKind='bandage';
+       this.state.players.set(p.id,p);
+       i++;
+     }
+   }
+ 
++  private aiProfile(p:PlayerState){return AI_PROFILES[(p.aiProfile||'balanced') as AiProfileId]??AI_PROFILES.balanced;}
++
+   private beginMatch(){
+     this.clearTransient();
+     this.elapsed=0;
+@@ -430,6 +466,8 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     this.state.zoneProgress=0;
+     this.state.zoneActive=false;
+     this.state.zoneState='FREE';
++    this.state.supplySpawned=false;
++    this.state.supplyDropId='';
+     this.choosePlane();
+ 
+     let aiIndex=0;
+@@ -471,15 +509,21 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+       p.isPreparingThrow=false;
+       p.throwCharge=0;
+       p.aiState=p.ai?'PLANE':'';
++      if(p.ai&&!p.aiProfile)p.aiProfile=aiProfileForIndex(aiIndex);
++      p.selectedHealKind=p.selectedHealKind==='medkit'?'medkit':'bandage';
+       p.magazine=0;
+       p.pistolMagazine=0;
+       p.smgMagazine=0;
+       p.rifleMagazine=0;
+       p.shotgunMagazine=0;
+       p.sniperMagazine=0;
++      p.bazookaMagazine=0;
++      p.flamethrowerMagazine=0;
+       p.pistolAmmo=0;
+       p.standardAmmo=0;
+       p.shotgunAmmo=0;
++      p.rocketAmmo=0;
++      p.fuelAmmo=0;
+       p.bandages=0;
+       p.medkits=0;
+       p.healingKind='';
+@@ -525,8 +569,8 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+ 
+   private lootKindForSpawn(spawn:MapConfig['lootSpawns'][number]):LootKind{
+     const category=spawn.category;
+-    if(category==='weapon')return weightedLootChoice(adjustedLootTableForMap(this.map.id,[{kind:'pistol',weight:26},{kind:'smg',weight:24},{kind:'rifle',weight:20},{kind:'shotgun',weight:20},{kind:'sniper',weight:10}]),this.lootRandom) as LootKind;
+-    if(category==='ammo')return weightedLootChoice(adjustedLootTableForMap(this.map.id,[{kind:'pistol_ammo',weight:28},{kind:'standard_ammo',weight:48},{kind:'shotgun_ammo',weight:24}]),this.lootRandom) as LootKind;
++    if(category==='weapon')return weightedLootChoice(adjustedLootTableForMap(this.map.id,[{kind:'pistol',weight:26},{kind:'smg',weight:24},{kind:'rifle',weight:20},{kind:'shotgun',weight:20},{kind:'sniper',weight:10},{kind:'bazooka',weight:20}]),this.lootRandom) as LootKind;
++    if(category==='ammo')return weightedLootChoice(adjustedLootTableForMap(this.map.id,[{kind:'pistol_ammo',weight:28},{kind:'standard_ammo',weight:48},{kind:'shotgun_ammo',weight:24},{kind:'rocket_ammo',weight:16}]),this.lootRandom) as LootKind;
+     if(category==='heal')return weightedLootChoice([{kind:'bandage',weight:68},{kind:'medkit',weight:32}],this.lootRandom) as LootKind;
+     if(category==='throwable')return weightedLootChoice(adjustedLootTableForMap(this.map.id,[{kind:'fragGrenade',weight:40},{kind:'smokeGrenade',weight:34},{kind:'incendiaryGrenade',weight:26}]),this.lootRandom) as LootKind;
+     const table=REGION_LOOT_TABLES[spawn.regionId as RegionId]??REGION_LOOT_TABLES.residential;
+@@ -616,6 +660,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+ 
+   private clearTransient(){
+     this.state.bullets.clear();
++    this.state.rockets.clear();
+     this.state.loot.clear();
+     this.inputs.clear();
+     this.shotAt.clear();
+@@ -635,6 +680,11 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     this.state.thrownObjects.clear();
+     this.state.smokeFields.clear();
+     this.state.fireFields.clear();
++    this.state.flameJets.clear();
++    this.state.supplyDrops.clear();
++    this.state.supplySpawned=false;
++    this.state.supplyDropId='';
++    this.flameDamageAt.clear();
+     this.throwPrepareAt.clear();
+     this.nextFireTickAt=0;
+     this.vehicleCollisionAt.clear();
+@@ -789,6 +839,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     if(this.healUntil.has(p.id)){this.cancelHeal(p);return;}
+     if(this.reloadUntil.has(p.id))return;
+     const id=p.equipped as WeaponId;
++    if(id==='bazooka'&&p.isDriving){const motorcycle=p.vehicleId?this.state.motorcycles.get(p.vehicleId):undefined;if(!motorcycle||motorcycle.driverId!==p.id||Math.hypot(motorcycle.velocityX,motorcycle.velocityY)>8)return;}
+     const w=WEAPONS[id];
+     if(!w||w.id==='fists')return;
+     const magazine=this.getWeaponMagazine(p,id);
+@@ -796,6 +847,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     const now=this.now();
+     if(now-(this.shotAt.get(p.id)??-99)<w.fireInterval)return;
+     this.shotAt.set(p.id,now);
++    if(id==='flamethrower'){this.fireFlamethrower(p,magazine,now);return;}
+     p.attackSeq++;
+     this.setWeaponMagazine(p,id,magazine-1);
+     this.revealBushPlayer(p,id==='sniper'?2:BUSH_FIRE_REVEAL_SECONDS);
+@@ -803,6 +855,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     this.emitAudioEvent('weapon_fire',{sourceId:p.id,x:p.x,y:p.y,buildingId:p.buildingId,variant:id,sequence:p.attackSeq});
+     const config=PROJECTILE_CONFIGS[id as Exclude<WeaponId,'fists'>];
+     if(!config)return;
++    if(id==='bazooka'){this.spawnBazookaRocket(p,w.spread);return;}
+     while(this.state.bullets.size>=this.state.activeBulletLimit){
+       const oldest=this.state.bullets.keys().next().value as string|undefined;
+       if(!oldest)break;
+@@ -841,13 +894,39 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     }
+   }
+ 
++
++  private fireFlamethrower(p:PlayerState,magazine:number,now:number){
++    const source=p.isDriving&&p.vehicleId?this.state.motorcycles.get(p.vehicleId):p;if(!source)return;
++    const angle=p.angle,originX=source.x+Math.cos(angle)*FLAMETHROWER_BALANCE.muzzleOffset,originY=source.y+Math.sin(angle)*FLAMETHROWER_BALANCE.muzzleOffset;
++    if(this.firstObstacleHitT(source.x,source.y,originX,originY,2)!==null)return;
++    p.attackSeq++;this.setWeaponMagazine(p,'flamethrower',magazine-FLAMETHROWER_BALANCE.fuelPerTick);this.revealBushPlayer(p,BUSH_FIRE_REVEAL_SECONDS);this.noises.push({x:source.x,y:source.y,at:now,owner:p.id});
++    const jet=new FlameJetState();jet.id=`flame-${++this.flameSeq}`;jet.ownerId=p.id;jet.x=originX;jet.y=originY;jet.angle=angle;jet.range=FLAMETHROWER_BALANCE.range;jet.halfAngle=FLAMETHROWER_BALANCE.halfAngleRadians;jet.startedAt=now;jet.expiresAt=now+FLAMETHROWER_BALANCE.visualDurationSeconds;jet.buildingId=p.buildingId;this.state.flameJets.set(jet.id,jet);
++    this.emitAudioEvent('weapon_fire',{sourceId:p.id,x:source.x,y:source.y,buildingId:p.buildingId,variant:'flamethrower',sequence:p.attackSeq});
++    for(const target of this.state.players.values()){
++      if(!target.alive||target.phase!=='landed'||target.id===p.id||!flamethrowerConeContains(originX,originY,angle,target.x,target.y,PLAYER_HIT_RADIUS))continue;
++      if(!traceSpaceVisibility({x:originX,y:originY,roomIndex:p.roomIndex},{x:target.x,y:target.y,roomIndex:target.roomIndex},this.map.portals,this.map.visibilityObstacles,3).visible)continue;
++      if(this.firstObstacleHitT(originX,originY,target.x,target.y,2)!==null)continue;
++      const key=`p:${target.id}`,last=this.flameDamageAt.get(key)??-99;if(now-last<FLAMETHROWER_BALANCE.tickSeconds*.8)continue;this.flameDamageAt.set(key,now);
++      this.damage(target,FLAMETHROWER_BALANCE.playerDamagePerTick,p.id,'?붿뿼諛⑹궗湲?);
++    }
++    for(const vehicle of this.state.motorcycles.values()){
++      if(vehicle.destroyed||vehicle.id===p.vehicleId||!flamethrowerConeContains(originX,originY,angle,vehicle.x,vehicle.y,MOTORCYCLE_RADIUS))continue;
++      if(this.firstObstacleHitT(originX,originY,vehicle.x,vehicle.y,2)!==null)continue;
++      const key=`v:${vehicle.id}`,last=this.flameDamageAt.get(key)??-99;if(now-last<FLAMETHROWER_BALANCE.tickSeconds*.8)continue;this.flameDamageAt.set(key,now);
++      this.damageMotorcycle(vehicle,FLAMETHROWER_BALANCE.vehicleDamagePerTick,p.id,'?붿뿼諛⑹궗湲?);
++    }
++  }
++
++  private updateFlameJets(){const now=this.now();for(const [id,jet] of this.state.flameJets)if(now>=jet.expiresAt)this.state.flameJets.delete(id);for(const [key,at] of this.flameDamageAt)if(now-at>1)this.flameDamageAt.delete(key);}
++
+   private melee(c:Client){const p=this.state.players.get(c.sessionId);if(p)this.meleePlayer(p);}
+ 
+   private meleePlayer(p:PlayerState){
+     if(!p.alive||p.phase!=='landed'||p.isSwimming||p.isVaulting)return;
+     if(this.healUntil.has(p.id)){this.cancelHeal(p);return;}
+-    const melee=p.equipped==='fists'
+-      ?{name:'二쇰㉨',damage:WEAPONS.fists.damage,fireInterval:WEAPONS.fists.fireInterval,range:WEAPONS.fists.range,arc:1.1}
++    const isFists=p.equipped==='fists';
++    const melee=isFists
++      ?{name:'二쇰㉨',damage:FIST_BALANCE.damage,fireInterval:FIST_BALANCE.fireInterval,range:FIST_BALANCE.range,arc:FIST_BALANCE.arcRadians}
+       :MELEE_WEAPONS[p.equipped as MeleeId];
+     if(!melee)return;
+     const now=this.now();
+@@ -862,7 +941,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+       const d=distance(p.x,p.y,other.x,other.y);
+       if(d<best&&this.canSeeTarget(p,other)&&Math.abs(this.angleDiff(Math.atan2(other.y-p.y,other.x-p.x),p.angle))<melee.arc){target=other;best=d;}
+     }
+-    if(target)this.damage(target,melee.damage,p.id,p.equipped==='fists'?'二쇰㉨':melee.name);
++    if(target)this.damage(target,melee.damage,p.id,isFists?'二쇰㉨':melee.name,isFists?FIST_BALANCE.knockback:0);
+   }
+ 
+   private reload(c:Client){
+@@ -904,6 +983,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     const p=this.state.players.get(c.sessionId);
+     if(!p||!p.alive||p.phase!=='landed'||p.isSwimming||p.isVaulting)return;
+     if(p.isDriving){this.dismountMotorcycle(c,p);return;}
++    if(this.openNearbySupplyDrop(p)){c.send('notice',{type:'success',message:'蹂닿툒 ?곸옄瑜??댁뿀?듬땲??'});return;}
+     let nearest:MotorcycleState|undefined;
+     let best=MOTORCYCLE_MOUNT_DISTANCE;
+     for(const motorcycle of this.state.motorcycles.values()){
+@@ -999,9 +1079,12 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     if(isThrowableType(k))return this.applyThrowableLoot(p,k,source);
+     if(k in WEAPONS&&k!=='fists')return this.applyWeaponLoot(p,k as WeaponId,source);
+     if(k in MELEE_WEAPONS){p.melee=k;this.setEquipped(p,k as MeleeId,true);return{success:true};}
+-    if(k==='pistol_ammo')p.pistolAmmo+=30;
+-    else if(k==='standard_ammo')p.standardAmmo+=24;
+-    else if(k==='shotgun_ammo')p.shotgunAmmo+=12;
++    const exactAmmo=source&&source.ammoCount>=0?Math.max(0,Math.floor(source.ammoCount)):undefined;
++    if(k==='pistol_ammo')p.pistolAmmo+=exactAmmo??30;
++    else if(k==='standard_ammo')p.standardAmmo+=exactAmmo??24;
++    else if(k==='shotgun_ammo')p.shotgunAmmo+=exactAmmo??12;
++    else if(k==='rocket_ammo')p.rocketAmmo=Math.min(BAZOOKA_BALANCE.maxRocketReserve,p.rocketAmmo+(exactAmmo??BAZOOKA_BALANCE.rocketPickupAmount));
++    else if(k==='fuel_ammo')p.fuelAmmo=Math.min(FLAMETHROWER_BALANCE.maxFuelReserve,p.fuelAmmo+(exactAmmo??FLAMETHROWER_BALANCE.fuelPickupAmount));
+     else if(k==='vest')p.armor=Math.max(p.armor,100);
+     else if(k==='bandage')p.bandages=Math.min(5,p.bandages+1);
+     else if(k==='medkit')p.medkits=Math.min(2,p.medkits+1);
+@@ -1086,6 +1169,8 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     if(weapon.ammoType==='pistol_ammo')p.pistolAmmo+=weapon.magazine*2;
+     if(weapon.ammoType==='standard_ammo')p.standardAmmo+=weapon.magazine*2;
+     if(weapon.ammoType==='shotgun_ammo')p.shotgunAmmo+=weapon.magazine*2;
++    if(weapon.ammoType==='rocket_ammo')p.rocketAmmo=Math.min(BAZOOKA_BALANCE.maxRocketReserve,p.rocketAmmo+1);
++    if(weapon.ammoType==='fuel_ammo')p.fuelAmmo=Math.min(FLAMETHROWER_BALANCE.maxFuelReserve,p.fuelAmmo+FLAMETHROWER_BALANCE.fuelPickupAmount);
+   }
+ 
+   private findWeaponDropPosition(p:PlayerState,kind:WeaponId,ignoreId=''):Point|undefined{
+@@ -1133,6 +1218,32 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     this.cancelHeal(p);p.isSniperScoped=false;this.setEquipped(p,id,true);
+   }
+ 
++  private swapWeaponSlots(c:Client,m:any){
++    const p=this.state.players.get(c.sessionId);
++    if(!p||!p.alive||p.phase!=='landed'||p.isVaulting)return;
++    const from=Number(m?.from),to=Number(m?.to);
++    if(!((from===1&&to===2)||(from===2&&to===1))){c.send('notice',{type:'warning',message:'援먰솚 媛?ν븳 ?щ’? 1踰덇낵 2踰덉엯?덈떎.'});return;}
++    this.cancelHeal(p);this.cancelReload(p);this.cancelThrow(p);p.isSniperScoped=false;
++    const primary=p.primary; p.primary=p.secondary; p.secondary=primary;
++    this.syncMagazine(p);
++    c.send('slotSwapResult',{primary:p.primary,secondary:p.secondary,equipped:p.equipped});
++  }
++
++  private dropWeapon(c:Client,m:any){
++    const p=this.state.players.get(c.sessionId);
++    const slot=Number(m?.slot);
++    if(!p||!p.alive||p.phase!=='landed'||p.isSwimming||p.isVaulting||p.isDriving||!(slot===1||slot===2))return;
++    const key=slot===1?'primary':'secondary';
++    const id=p[key] as WeaponId|'';
++    if(!id)return;
++    const point=this.findWeaponDropPosition(p,id);
++    if(!point){c.send('notice',{type:'warning',message:'二쇰???臾닿린瑜?踰꾨┫ 怨듦컙???놁뒿?덈떎.'});return;}
++    this.cancelHeal(p);this.cancelReload(p);this.cancelThrow(p);p.isSniperScoped=false;
++    const loot=new LootState();loot.id=`loot-${++this.lootSeq}`;loot.kind=id;loot.x=point.x;loot.y=point.y;loot.buildingId=p.buildingId;loot.roomIndex=p.roomIndex;loot.weaponMagazine=this.getWeaponMagazine(p,id);loot.grantsAmmo=false;loot.pickupLockedForPlayerId=p.id;loot.pickupLockedUntil=this.now()+.85;
++    this.state.loot.set(loot.id,loot);p[key]='';this.setWeaponMagazine(p,id,0,false);
++    if(p.equipped===id)this.setEquipped(p,(p.primary||p.secondary||p.melee||'fists') as EquippedId,true);else this.syncMagazine(p);
++  }
++
+   private setEquipped(p:PlayerState,id:EquippedId,force=false){
+     if(p.equipped!==id)p.isSniperScoped=false;
+     if(p.equipped===id){this.syncMagazine(p);return;}
+@@ -1181,11 +1292,19 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     if(p.throwableCount<=0){p.throwableCount=0;p.throwableType='';const previous=p.previousEquipped as EquippedId;if(previous&&(previous in WEAPONS||previous in MELEE_WEAPONS))this.setEquipped(p,previous,true);else this.setEquipped(p,p.melee as EquippedId||'fists',true);}
+   }
+ 
++  private selectHeal(c:Client,m:any){
++    const p=this.state.players.get(c.sessionId);
++    if(!p||p.ai)return;
++    const kind=m?.kind==='medkit'?'medkit':m?.kind==='bandage'?'bandage':'';
++    if(!kind){c.send('notice',{type:'warning',message:'?좏깮?????녿뒗 ?뚮났 ?꾩씠?쒖엯?덈떎.'});return;}
++    p.selectedHealKind=kind;
++  }
++
+   private heal(c:Client,m:any){
+     const p=this.state.players.get(c.sessionId);
+     if(!p)return;
+-    const requested=m?.kind==='medkit'?'medkit':m?.kind==='bandage'?'bandage':'auto';
+-    if(!this.beginHeal(p,requested))c.send('notice',{type:'warning',message:p.hp>=100?'?대? 泥대젰??媛?앺빀?덈떎.':'?ъ슜???뚮났 ?꾩씠?쒖씠 ?놁뒿?덈떎.'});
++    const requested=m?.kind==='medkit'?'medkit':m?.kind==='bandage'?'bandage':p.selectedHealKind==='medkit'?'medkit':'bandage';
++    if(!this.beginHeal(p,requested))c.send('notice',{type:'warning',message:p.hp>=100?'?대? 泥대젰??媛?앺빀?덈떎.':requested==='medkit'?'?좏깮??援ш툒?곸옄媛 ?놁뒿?덈떎.':'?좏깮??遺뺣?媛 ?놁뒿?덈떎.'});
+   }
+ 
+   private beginHeal(p:PlayerState,requested:'auto'|HealKind='auto'){
+@@ -1201,8 +1320,9 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+       else if(p.medkits>0)kind='medkit';
+     }
+     if(!kind)return false;
+-    const duration=kind==='medkit'?4:2;
+-    const amount=kind==='medkit'?60:25;
++    const config=HEAL_SELECTION_BALANCE[kind];
++    const duration=config.useSeconds;
++    const amount=config.healAmount;
+     const startedAt=this.now();
+     this.cancelReload(p);
+     this.healUntil.set(p.id,{at:startedAt+duration,startedAt,duration,amount,kind});
+@@ -1263,6 +1383,9 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     this.updateReloads();
+     this.updateHeals();
+     this.updateBullets(dt);
++    this.updateRockets(dt);
++    this.updateFlameJets();
++    this.updateSupplyDrops();
+     for(const player of this.state.players.values())if(player.isPreparingThrow){const started=this.throwPrepareAt.get(player.id);player.throwCharge=started===undefined?0:clamp((this.now()-started)*1000/THROWABLE_MAX_CHARGE_MS,0,1);}
+     this.updateThrowables(dt);
+     this.updateThrowableFields();
+@@ -1317,7 +1440,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+ 
+   private explodeFrag(object:ThrownObjectState){
+     const now=this.now(),source={x:object.x,y:object.y,buildingId:object.buildingId};
+-    const explosion=new ExplosionState();explosion.id=`explosion-${++this.explosionSeq}`;explosion.x=object.x;explosion.y=object.y;explosion.radius=THROWABLE_CONFIGS.fragGrenade.effectRadius;explosion.startedAt=now;explosion.duration=.65;explosion.sourceId=object.id;explosion.ownerId=object.ownerId;explosion.kind='fragGrenade';this.state.explosions.set(explosion.id,explosion);
++    const explosion=new ExplosionState();explosion.id=`explosion-${++this.explosionSeq}`;explosion.x=object.x;explosion.y=object.y;explosion.radius=THROWABLE_CONFIGS.fragGrenade.effectRadius;explosion.startedAt=now;explosion.duration=.65;explosion.sourceId=object.id;explosion.ownerId=object.ownerId;explosion.kind='fragGrenade';explosion.attackerId=object.ownerId;explosion.weaponType='fragGrenade';explosion.vehicleDamage=fragVehicleDamage(0);explosion.structureDamage=35;explosion.buildingId=object.buildingId;this.state.explosions.set(explosion.id,explosion);
+     for(const target of this.state.players.values()){
+       if(!target.alive||target.phase!=='landed')continue;const d=distance(object.x,object.y,target.x,target.y);const raw=fragPlayerDamage(d);if(raw<=0)continue;
+       const exposure=explosionExposureMultiplier(source,target,this.map.visibilityObstacles,this.map.buildingVisibilityZones,PLAYER_HIT_RADIUS);if(exposure<=0)continue;
+@@ -1657,6 +1780,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     this.state.explosions.set(explosion.id,explosion);
+     const attackerAt=this.vehicleAttackerAt.get(motorcycle.id)??-Infinity;
+     const attackerId=motorcycle.lastDamagedBy&&now-attackerAt<=MOTORCYCLE_DESTRUCTION_BALANCE.recentAttackerCreditMs/1000?motorcycle.lastDamagedBy:'';
++    explosion.ownerId=attackerId;explosion.attackerId=attackerId;explosion.weaponType='motorcycle_explosion';explosion.vehicleDamage=MOTORCYCLE_DESTRUCTION_BALANCE.maxExplosionDamage;explosion.structureDamage=60;explosion.buildingId=motorcycle.buildingId;
+     const source={x:motorcycle.x,y:motorcycle.y,buildingId:motorcycle.buildingId};
+     for(const target of this.state.players.values()){
+       if(!target.alive||target.phase!=='landed')continue;
+@@ -2013,6 +2137,50 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     }
+   }
+ 
++  private spawnBazookaRocket(p:PlayerState,baseSpread:number){
++    const a=p.angle+(Math.random()*2-1)*baseSpread,muzzleOffset=PLAYER_HIT_RADIUS+18;
++    const muzzleX=p.x+Math.cos(a)*muzzleOffset,muzzleY=p.y+Math.sin(a)*muzzleOffset;
++    if(this.firstObstacleHitT(p.x,p.y,muzzleX,muzzleY,BAZOOKA_BALANCE.projectileRadius)!==null){
++      const blocked=new RocketState();blocked.id=`rocket-${++this.rocketSeq}`;blocked.ownerId=p.id;blocked.x=p.x;blocked.y=p.y;blocked.buildingId=p.buildingId;this.explodeBazookaRocket(blocked);return;
++    }
++    const rocket=new RocketState();rocket.id=`rocket-${++this.rocketSeq}`;rocket.ownerId=p.id;rocket.x=muzzleX;rocket.y=muzzleY;rocket.prevX=muzzleX;rocket.prevY=muzzleY;rocket.vx=Math.cos(a)*WEAPONS.bazooka.projectileSpeed;rocket.vy=Math.sin(a)*WEAPONS.bazooka.projectileSpeed;rocket.life=WEAPONS.bazooka.range/WEAPONS.bazooka.projectileSpeed+.25;rocket.radius=BAZOOKA_BALANCE.projectileRadius;rocket.buildingId=p.buildingId;this.state.rockets.set(rocket.id,rocket);
++  }
++
++  private updateRockets(dt:number){
++    for(const [id,rocket] of [...this.state.rockets]){
++      const ox=rocket.x,oy=rocket.y,nx=ox+rocket.vx*dt,ny=oy+rocket.vy*dt;rocket.prevX=ox;rocket.prevY=oy;rocket.life-=dt;rocket.traveled+=distance(ox,oy,nx,ny);
++      let closest=Number.POSITIVE_INFINITY,hitPlayer:PlayerState|undefined,hitMotorcycle:MotorcycleState|undefined;
++      const obstacle=this.firstObstacleHitT(ox,oy,nx,ny,rocket.radius);if(obstacle!==null)closest=obstacle;
++      for(const player of this.state.players.values()){
++        if(!player.alive||player.phase!=='landed'||(player.id===rocket.ownerId&&rocket.traveled<80))continue;
++        const t=segmentCircleIntersectionT(ox,oy,nx,ny,player.x,player.y,PLAYER_HIT_RADIUS+rocket.radius);if(t!==null&&t<closest){closest=t;hitPlayer=player;hitMotorcycle=undefined;}
++      }
++      for(const motorcycle of this.state.motorcycles.values()){
++        if(motorcycle.destroyed||(motorcycle.driverId===rocket.ownerId&&rocket.traveled<80))continue;
++        const t=segmentCircleIntersectionT(ox,oy,nx,ny,motorcycle.x,motorcycle.y,MOTORCYCLE_RADIUS+rocket.radius);if(t!==null&&t<closest){closest=t;hitMotorcycle=motorcycle;hitPlayer=undefined;}
++      }
++      const terrainHit=nx<0||ny<0||nx>this.worldSize||ny>this.worldSize||this.terrainKindAt(nx,ny)==='deep-water';
++      if(closest<Number.POSITIVE_INFINITY){rocket.x=ox+(nx-ox)*closest;rocket.y=oy+(ny-oy)*closest;this.explodeBazookaRocket(rocket,hitMotorcycle,hitPlayer);this.state.rockets.delete(id);continue;}
++      rocket.x=nx;rocket.y=ny;rocket.buildingId=buildingIdAt(nx,ny,0,this.map.buildingVisibilityZones);
++      if(terrainHit||rocket.life<=0||rocket.traveled>=WEAPONS.bazooka.range){this.explodeBazookaRocket(rocket);this.state.rockets.delete(id);}
++    }
++  }
++
++  private explodeBazookaRocket(rocket:RocketState,directMotorcycle?:MotorcycleState,_directPlayer?:PlayerState){
++    const now=this.now(),buildingId=buildingIdAt(rocket.x,rocket.y,0,this.map.buildingVisibilityZones),source={x:rocket.x,y:rocket.y,buildingId};
++    const explosion=new ExplosionState();explosion.id=`explosion-${++this.explosionSeq}`;explosion.x=rocket.x;explosion.y=rocket.y;explosion.radius=BAZOOKA_BALANCE.explosionRadius;explosion.startedAt=now;explosion.duration=.74;explosion.sourceId=rocket.id;explosion.ownerId=rocket.ownerId;explosion.kind='bazooka';explosion.attackerId=rocket.ownerId;explosion.weaponType='bazooka';explosion.vehicleDamage=BAZOOKA_BALANCE.directVehicleDamage;explosion.structureDamage=BAZOOKA_BALANCE.structureDamage;explosion.buildingId=buildingId;this.state.explosions.set(explosion.id,explosion);
++    for(const target of this.state.players.values()){
++      if(!target.alive||target.phase!=='landed')continue;const d=distance(rocket.x,rocket.y,target.x,target.y);const raw=bazookaPlayerDamage(d,target.id===rocket.ownerId);if(raw<=0)continue;
++      const exposure=explosionExposureMultiplier(source,target,this.map.visibilityObstacles,this.map.buildingVisibilityZones,PLAYER_HIT_RADIUS);const applied=Math.round(raw*exposure);if(applied<=0)continue;
++      this.damage(target,applied,rocket.ownerId,'諛붿＜移댄룷',Math.max(0,310*(1-d/BAZOOKA_BALANCE.explosionRadius)),Math.atan2(target.y-rocket.y,target.x-rocket.x));
++    }
++    for(const vehicle of this.state.motorcycles.values()){
++      if(vehicle.destroyed)continue;const d=distance(rocket.x,rocket.y,vehicle.x,vehicle.y),direct=vehicle.id===directMotorcycle?.id;const raw=bazookaVehicleDamage(d,direct);if(raw<=0)continue;
++      const exposure=direct?1:explosionExposureMultiplier(source,vehicle,this.map.visibilityObstacles,this.map.buildingVisibilityZones,MOTORCYCLE_RADIUS);const applied=Math.round(raw*exposure);if(applied>0)this.damageMotorcycle(vehicle,applied,rocket.ownerId,'諛붿＜移댄룷');
++    }
++    this.emitAudioEvent('bazooka_explosion',{sourceId:rocket.id,ownerId:rocket.ownerId,x:rocket.x,y:rocket.y,buildingId,radius:BAZOOKA_BALANCE.explosionRadius,weaponType:'bazooka',vehicleDamage:BAZOOKA_BALANCE.directVehicleDamage,structureDamage:BAZOOKA_BALANCE.structureDamage});
++  }
++
+   private updateBullets(dt:number){
+     this.bulletRemoveQueue.clear();
+     for(const [id,b] of this.state.bullets){
+@@ -2072,6 +2240,51 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     for(const id of this.bulletRemoveQueue)this.state.bullets.delete(id);
+   }
+ 
++
++  private updateSupplyDrops(){
++    const now=this.now();for(const drop of this.state.supplyDrops.values()){
++      if(!drop.landed){const remaining=Math.max(0,drop.landedAt-now),progress=1-remaining/SUPPLY_DROP_BALANCE.descentSeconds;drop.altitude=Math.max(0,SUPPLY_DROP_BALANCE.initialAltitude*(1-progress));if(now>=drop.landedAt){drop.altitude=0;drop.landed=true;this.emitAudioEvent('supply_land',{sourceId:drop.id,x:drop.x,y:drop.y,buildingId:'',variant:drop.specialWeapon});this.system('蹂닿툒 ?곸옄媛 李⑹??덉뒿?덈떎.');}}
++      if(drop.opened&&now-drop.openedAt>SUPPLY_DROP_BALANCE.openCleanupSeconds)this.state.supplyDrops.delete(drop.id);
++    }
++  }
++
++  private isSupplyPositionValid(x:number,y:number,requirePlayerClearance=true){
++    const b=SUPPLY_DROP_BALANCE;if(x<b.edgeMargin||y<b.edgeMargin||x>this.worldSize-b.edgeMargin||y>this.worldSize-b.edgeMargin)return false;
++    const terrain=this.terrainKindAt(x,y);if(!['land','bridge','ford','shore'].includes(terrain))return false;
++    if(buildingIdAt(x,y,0,this.map.buildingVisibilityZones))return false;
++    if(distance(x,y,this.state.zoneX,this.state.zoneY)>Math.max(0,this.state.zoneRadius-b.edgeMargin))return false;
++    if(this.map.collisionObstacles.some((rect)=>circleHitsRect(x,y,b.obstacleClearance,rect)))return false;
++    if(requirePlayerClearance)for(const player of this.state.players.values())if(player.alive&&player.phase==='landed'&&distance(x,y,player.x,player.y)<b.playerClearance)return false;
++    for(const drop of this.state.supplyDrops.values())if(distance(x,y,drop.x,drop.y)<b.playerClearance)return false;
++    return true;
++  }
++
++  private findSupplyPosition(){
++    const b=SUPPLY_DROP_BALANCE,radius=Math.max(120,this.state.zoneRadius-b.edgeMargin),candidate=(requirePlayerClearance:boolean)=>{
++      for(let i=0;i<b.maxPlacementAttempts;i++){const a=this.lootRandom()*Math.PI*2,r=Math.sqrt(this.lootRandom())*radius,x=clamp(this.state.zoneX+Math.cos(a)*r,b.edgeMargin,this.worldSize-b.edgeMargin),y=clamp(this.state.zoneY+Math.sin(a)*r,b.edgeMargin,this.worldSize-b.edgeMargin);if(this.isSupplyPositionValid(x,y,requirePlayerClearance))return{x,y};}
++      for(const point of this.map.emergencySpawnPoints)if(this.isSupplyPositionValid(point.x,point.y,requirePlayerClearance))return{x:point.x,y:point.y};
++      for(const region of this.map.regions){const x=region.x+region.w/2,y=region.y+region.h/2;if(this.isSupplyPositionValid(x,y,requirePlayerClearance))return{x,y};}
++      return undefined;
++    };
++    return candidate(true)??candidate(false);
++  }
++
++  private spawnSupplyDrop(){
++    if(this.state.supplySpawned)return false;const pos=this.findSupplyPosition();if(!pos)return false;const now=this.now(),drop=new SupplyDropState();drop.id=`supply-${++this.supplySeq}`;drop.x=pos.x;drop.y=pos.y;drop.altitude=SUPPLY_DROP_BALANCE.initialAltitude;drop.spawnedAt=now;drop.landedAt=now+SUPPLY_DROP_BALANCE.descentSeconds;drop.landed=false;drop.opened=false;drop.specialWeapon=this.lootRandom()*100<SUPPLY_DROP_BALANCE.flamethrowerWeight?'flamethrower':'bazooka';drop.mapId=this.map.id;drop.zoneStage=this.state.zoneStage;this.state.supplyDrops.set(drop.id,drop);this.state.supplySpawned=true;this.state.supplyDropId=drop.id;this.emitAudioEvent('supply_incoming',{sourceId:drop.id,x:drop.x,y:drop.y,buildingId:'',variant:drop.specialWeapon});this.system('蹂닿툒 ?곸옄媛 ?ы븯?섏뿀?듬땲??');return true;
++  }
++
++  private openNearbySupplyDrop(p:PlayerState){
++    let nearest:SupplyDropState|undefined,best:number=SUPPLY_DROP_BALANCE.interactionDistance;for(const drop of this.state.supplyDrops.values()){if(!drop.landed||drop.opened)continue;const d=distance(p.x,p.y,drop.x,drop.y);if(d<best){best=d;nearest=drop;}}
++    if(!nearest)return false;nearest.opened=true;nearest.openedAt=this.now();nearest.openedBy=p.id;this.spawnSupplyContents(nearest);this.emitAudioEvent('supply_open',{sourceId:nearest.id,x:nearest.x,y:nearest.y,buildingId:'',variant:nearest.specialWeapon});return true;
++  }
++
++  private spawnSupplyContents(drop:SupplyDropState){
++    const weapon=drop.specialWeapon==='flamethrower'?'flamethrower':'bazooka',ammo:LootKind=weapon==='flamethrower'?'fuel_ammo':'rocket_ammo';
++    const items:Array<{kind:LootKind;ammoCount?:number;weaponMagazine?:number;grantsAmmo?:boolean}>=[{kind:weapon,weaponMagazine:WEAPONS[weapon].magazine,grantsAmmo:false}];
++    for(let i=0;i<SUPPLY_DROP_BALANCE.weaponAmmoBundles;i++)items.push({kind:ammo,ammoCount:weapon==='flamethrower'?FLAMETHROWER_BALANCE.fuelPickupAmount:BAZOOKA_BALANCE.rocketPickupAmount});items.push({kind:this.lootRandom()<.5?'medkit':'bandage'},{kind:'standard_ammo',ammoCount:24});
++    items.forEach((item,index)=>{const a=index/items.length*Math.PI*2,r=56+(index%2)*24,baseX=drop.x+Math.cos(a)*r,baseY=drop.y+Math.sin(a)*r,pos=this.findSeparatedLootPosition(baseX,baseY,item.kind,'',0)??{x:baseX,y:baseY};const loot=new LootState();loot.id=`loot-${++this.lootSeq}`;loot.kind=item.kind;loot.x=pos.x;loot.y=pos.y;loot.buildingId='';loot.roomIndex=0;if(item.ammoCount!==undefined)loot.ammoCount=item.ammoCount;if(item.weaponMagazine!==undefined)loot.weaponMagazine=item.weaponMagazine;if(item.grantsAmmo!==undefined)loot.grantsAmmo=item.grantsAmmo;this.state.loot.set(loot.id,loot);});
++  }
++
+   private prepareInitialZone(){
+     const requiredCrossings=this.map.id==='dock8'?this.map.landCrossings.filter((crossing)=>crossing.allowsPlayer).map((crossing)=>({x:crossing.rect.x+crossing.rect.w/2,y:crossing.rect.y+crossing.rect.h/2})):[];
+     const target=createInitialZone(this.lootRandom,this.map.initialZoneRadius,this.worldSize,28,requiredCrossings);
+@@ -2145,6 +2358,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+         this.zoneShrinkDuration=this.zoneShrinkSeconds();
+         this.state.zoneTimer=this.zoneShrinkDuration;
+         this.state.zoneState='SHRINKING';
++        if(this.state.zoneStage===SUPPLY_DROP_BALANCE.triggerZoneStage&&!this.state.supplySpawned)this.spawnSupplyDrop();
+       }
+     }else if(this.state.zoneState==='SHRINKING'){
+       this.state.zoneTimer-=dt*mult;
+@@ -2189,7 +2403,9 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+       if(!intent){intent=this.newAiIntent(p);this.aiIntent.set(p.id,intent);}
+       if(!this.aiLandedAt.has(p.id))this.aiLandedAt.set(p.id,now);
+       if(now>=(this.aiThinkAt.get(p.id)??0)){
+-        this.aiThinkAt.set(p.id,now+(this.state.difficulty==='hard'?.14:this.state.difficulty==='easy'?.34:.22));
++        const profile=this.aiProfile(p);
++        const difficultyMultiplier=this.state.difficulty==='hard'?.78:this.state.difficulty==='easy'?1.35:1;
++        this.aiThinkAt.set(p.id,now+profile.reactionSeconds*difficultyMultiplier);
+         this.planAi(p,intent);
+       }
+       this.runAi(p,intent,dt);
+@@ -2305,7 +2521,8 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     }
+ 
+     if(p.hp<=55&&(p.bandages>0||p.medkits>0)&&!danger){
+-      if(this.beginHeal(p,'auto')){
++      const preferredHeal=p.hp<=HEAL_SELECTION_BALANCE.aiMedkitHpThreshold&&p.medkits>0?'medkit':p.bandages>0?'bandage':'medkit';
++      if(this.beginHeal(p,preferredHeal)){
+         this.releaseLootReservation(p.id,previousLoot);
+         intent.lootId='';intent.state='HEAL';intent.mode='hold';return;
+       }
+@@ -2353,9 +2570,10 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+         }
+         this.chooseAiWeapon(p,targetDistance,true);
+       }
+-      p.aiState=p.hp<30?'RETREAT':'ENGAGE';intent.state=p.aiState;
+-      const desired=this.desiredRange(p.equipped as EquippedId);
+-      if(p.hp<30||targetDistance<desired*.48){intent.mode='retreat';this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));}
++      const retreatHp=this.aiProfile(p).retreatHp;
++      p.aiState=p.hp<retreatHp?'RETREAT':'ENGAGE';intent.state=p.aiState;
++      const desired=this.desiredRange(p.equipped as EquippedId)*this.aiProfile(p).preferredRangeMultiplier;
++      if(p.hp<retreatHp||targetDistance<desired*.48){intent.mode='retreat';this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));}
+       else if(targetDistance>desired*1.12){intent.mode='move';this.setAiDestination(p,intent,target.x,target.y);}
+       else{intent.mode='hold';intent.route=[];intent.tx=target.x;intent.ty=target.y;}
+       return;
+@@ -2382,14 +2600,18 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+       const clear=!this.map.bulletObstacles.some((r)=>this.segmentRect(p.x,p.y,target.x,target.y,r));
+       if(clear){
+         const d=distance(p.x,p.y,target.x,target.y);
+-        p.angle=Math.atan2(target.y-p.y,target.x-p.x);
++        const profile=this.aiProfile(p);
++        const baseAngle=Math.atan2(target.y-p.y,target.x-p.x);
++        const moving=intent.mode!=='hold';
++        p.angle=baseAngle+deterministicAiAimOffset(profile.id,p.attackSeq+Math.floor(this.now()*5),d,moving,p.isDriving);
+         this.chooseAiWeapon(p,d);
+         if(p.equipped==='fists'||p.equipped in MELEE_WEAPONS){
+           const melee=p.equipped==='fists'?WEAPONS.fists:MELEE_WEAPONS[p.equipped as MeleeId];
+           if(d<=melee.range+4)this.meleePlayer(p);
+         }else{
+           const weapon=WEAPONS[p.equipped as WeaponId]!;
+-          if(this.getWeaponMagazine(p,weapon.id)>0)this.firePlayer(p);
++          if(weapon.id==='bazooka'&&d<BAZOOKA_BALANCE.aiMinimumRange){intent.mode='retreat';p.aiState='BAZOOKA_SAFE_DISTANCE';}
++          else if(this.getWeaponMagazine(p,weapon.id)>0)this.firePlayer(p);
+           else if(this.getAmmo(p,weapon.ammoType)>0)this.beginReload(p,weapon.id);
+         }
+       }
+@@ -2409,8 +2631,10 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+ 
+     if(intent.mode==='hold'){
+       if(target){
++        const profile=this.aiProfile(p);
+         const side=p.angle+Math.PI/2*intent.avoidSign;
+-        this.tryMove(p,Math.cos(side)*72*dt,Math.sin(side)*72*dt);
++        const cadence=(Math.sin(this.now()*3+p.id.length)+1)/2;
++        if(cadence<profile.strafeChance)this.tryMove(p,Math.cos(side)*72*profile.speedMultiplier*dt,Math.sin(side)*72*profile.speedMultiplier*dt);
+       }
+       return;
+     }
+@@ -2420,7 +2644,8 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     let angle=Math.atan2(waypoint.y-p.y,waypoint.x-p.x);
+     if(intent.mode==='retreat'&&target)angle=Math.atan2(p.y-target.y,p.x-target.x);
+     if(!target)p.angle=angle;
+-    const landSpeed=this.state.difficulty==='hard'?235:this.state.difficulty==='easy'?175:205;
++    const baseLandSpeed=this.state.difficulty==='hard'?235:this.state.difficulty==='easy'?175:205;
++    const landSpeed=baseLandSpeed*this.aiProfile(p).speedMultiplier;
+     const speed=p.isSwimming?landSpeed*(SWIM_SPEED/PLAYER_SPEED):landSpeed*movementMultiplierAt(p.x,p.y,this.map.shallowWaterZones,this.map.landCrossings);
+     const moved=this.moveAiWithAvoidance(p,intent,waypoint,angle,speed,dt);
+     this.updateSwimmingState(p);
+@@ -2535,7 +2760,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+         if(enemyDistance<180)enemyRisk=Math.max(enemyRisk,55);
+         else if(enemyDistance<360)enemyRisk=Math.max(enemyRisk,22);
+       }
+-      const score=this.aiLootScore(p,l.kind as LootKind)-d*.035-zoneRisk-enemyRisk;
++      const score=this.aiLootScore(p,l.kind as LootKind)*this.aiProfile(p).lootPriority-d*.035-zoneRisk-enemyRisk;
+       if(score>best){best=score;selected=l;}
+     }
+     return selected;
+@@ -2556,6 +2781,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     if(k==='pistol_ammo')return [p.primary,p.secondary].includes('pistol')&&p.pistolAmmo<90?62-p.pistolAmmo*.25:0;
+     if(k==='standard_ammo')return [p.primary,p.secondary].some((id)=>['smg','rifle','sniper'].includes(id))&&p.standardAmmo<96?70-p.standardAmmo*.3:0;
+     if(k==='shotgun_ammo')return [p.primary,p.secondary].includes('shotgun')&&p.shotgunAmmo<28?64-p.shotgunAmmo*.8:0;
++    if(k==='rocket_ammo')return [p.primary,p.secondary].includes('bazooka')&&p.rocketAmmo<4?78-p.rocketAmmo*14:0;
+     if(k==='vest')return p.armor<70?72-p.armor*.4:0;
+     if(k==='bandage')return p.bandages<3?55-p.bandages*12:0;
+     if(k==='medkit')return p.medkits<2?68-p.medkits*20:0;
+@@ -2564,7 +2790,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+ 
+   private aiLootState(k:LootKind){
+     if(k in WEAPONS)return'SEEK_WEAPON';
+-    if(k==='pistol_ammo'||k==='standard_ammo'||k==='shotgun_ammo')return'SEEK_AMMO';
++    if(k==='pistol_ammo'||k==='standard_ammo'||k==='shotgun_ammo'||k==='rocket_ammo'||k==='fuel_ammo')return'SEEK_AMMO';
+     if(k==='vest')return'SEEK_ARMOR';
+     if(k==='bandage'||k==='medkit')return'SEEK_HEAL';
+     return'LOOT';
+@@ -2599,6 +2825,8 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     if(w.id==='smg')score+=d>=90&&d<=420?38:d>650?-35:5;
+     if(w.id==='rifle')score+=d>260?44:d<120?-28:12;
+     if(w.id==='sniper')score+=d>620?72:d<240?-70:18;
++    if(w.id==='bazooka')score+=d>=BAZOOKA_BALANCE.aiMinimumRange&&d<=900?84:-140;
++    if(w.id==='flamethrower')score+=d<=FLAMETHROWER_BALANCE.range?78:-180;
+     if(w.id==='pistol')score+=d>650?12:4;
+     if(this.getWeaponMagazine(p,w.id)<=0)score-=18;
+     return score;
+@@ -2611,10 +2839,12 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     if(id==='smg')return 260;
+     if(id==='rifle')return 410;
+     if(id==='sniper')return 780;
++    if(id==='bazooka')return 620;
++    if(id==='flamethrower')return 230;
+     return 330;
+   }
+ 
+-  private weaponBaseScore(id:WeaponId):number{return id==='sniper'?98:id==='rifle'?90:id==='smg'?82:id==='shotgun'?78:id==='pistol'?52:0;}
++  private weaponBaseScore(id:WeaponId):number{return id==='bazooka'?104:id==='flamethrower'?96:id==='sniper'?98:id==='rifle'?90:id==='smg'?82:id==='shotgun'?78:id==='pistol'?52:0;}
+   private meleeScore(id:MeleeId):number{return id==='pan'?30:id==='bat'?27:id==='pipe'?24:19;}
+ 
+   private setAiDestination(p:PlayerState,intent:AiIntent,x:number,y:number,force=false){
+@@ -2943,7 +3173,7 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+   }
+ 
+   private knockbackPower(attacker:PlayerState,reason:string):number{
+-    if(reason==='二쇰㉨')return 230;
++    if(reason==='二쇰㉨')return FIST_BALANCE.knockback;
+     if(reason==='?쇨뎄諛⑸쭩??)return 320;
+     if(reason==='?꾨씪?댄뙩')return 360;
+     if(reason==='?좏뙆?댄봽')return 285;
+@@ -2953,27 +3183,24 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+   }
+ 
+   private dropInventory(p:PlayerState){
+-    const kinds:LootKind[]=[];
+-    if(p.primary)kinds.push(p.primary as LootKind);
+-    if(p.secondary)kinds.push(p.secondary as LootKind);
+-    if(p.melee!=='fists')kinds.push(p.melee as LootKind);
+-    if(p.throwableType&&p.throwableCount>0&&isThrowableType(p.throwableType))kinds.push(p.throwableType);
+-    if(p.pistolAmmo>0)kinds.push('pistol_ammo');
+-    if(p.standardAmmo>0)kinds.push('standard_ammo');
+-    if(p.shotgunAmmo>0)kinds.push('shotgun_ammo');
+-    if(p.armor>0)kinds.push('vest');
+-    if(p.bandages>0)kinds.push('bandage');
+-    if(p.medkits>0)kinds.push('medkit');
+-    const total=Math.max(1,kinds.length);
+-    kinds.forEach((kind,index)=>{
+-      const ring=kind==='vest'?70:kind==='bandage'||kind==='medkit'?58:kind.includes('ammo')||kind==='shotgun_ammo'?45:kind in WEAPONS?30:38;
+-      const angle=index/total*Math.PI*2;
+-      const baseX=p.x+Math.cos(angle)*ring;
+-      const baseY=p.y+Math.sin(angle)*ring;
+-      const pos=this.findSeparatedLootPosition(baseX,baseY,kind,p.buildingId,p.roomIndex)??this.findNearestFreePoint(baseX,baseY,180);
+-      if(!pos)return;
+-      const loot=new LootState();
+-      loot.id=`loot-${++this.lootSeq}`;loot.kind=kind;loot.x=pos.x;loot.y=pos.y;const lootSpace=spaceAt(loot.x,loot.y,this.map.buildingVisibilityZones,this.map.rooms,0);loot.buildingId=lootSpace.buildingId;loot.roomIndex=lootSpace.roomIndex;if(isThrowableType(kind))loot.stackCount=p.throwableCount;
++    const drops:Array<{kind:LootKind;weaponMagazine?:number;ammoCount?:number;stackCount?:number}>=[];
++    if(p.primary)drops.push({kind:p.primary as LootKind,weaponMagazine:this.getWeaponMagazine(p,p.primary as WeaponId)});
++    if(p.secondary)drops.push({kind:p.secondary as LootKind,weaponMagazine:this.getWeaponMagazine(p,p.secondary as WeaponId)});
++    if(p.melee!=='fists')drops.push({kind:p.melee as LootKind});
++    if(p.throwableType&&p.throwableCount>0&&isThrowableType(p.throwableType))drops.push({kind:p.throwableType,stackCount:p.throwableCount});
++    if(p.pistolAmmo>0)drops.push({kind:'pistol_ammo',ammoCount:p.pistolAmmo});
++    if(p.standardAmmo>0)drops.push({kind:'standard_ammo',ammoCount:p.standardAmmo});
++    if(p.shotgunAmmo>0)drops.push({kind:'shotgun_ammo',ammoCount:p.shotgunAmmo});
++    if(p.rocketAmmo>0)drops.push({kind:'rocket_ammo',ammoCount:p.rocketAmmo});
++    if(p.fuelAmmo>0)drops.push({kind:'fuel_ammo',ammoCount:p.fuelAmmo});
++    if(p.armor>0)drops.push({kind:'vest'});if(p.bandages>0)drops.push({kind:'bandage'});if(p.medkits>0)drops.push({kind:'medkit'});
++    const total=Math.max(1,drops.length);
++    drops.forEach((drop,index)=>{
++      const kind=drop.kind,ring=kind==='vest'?70:kind==='bandage'||kind==='medkit'?58:kind.includes('ammo')?45:kind in WEAPONS?30:38;
++      const angle=index/total*Math.PI*2,baseX=p.x+Math.cos(angle)*ring,baseY=p.y+Math.sin(angle)*ring;
++      const pos=this.findSeparatedLootPosition(baseX,baseY,kind,p.buildingId,p.roomIndex)??this.findNearestFreePoint(baseX,baseY,180);if(!pos)return;
++      const loot=new LootState();loot.id=`loot-${++this.lootSeq}`;loot.kind=kind;loot.x=pos.x;loot.y=pos.y;const lootSpace=spaceAt(loot.x,loot.y,this.map.buildingVisibilityZones,this.map.rooms,0);loot.buildingId=lootSpace.buildingId;loot.roomIndex=lootSpace.roomIndex;
++      if(drop.weaponMagazine!==undefined){loot.weaponMagazine=drop.weaponMagazine;loot.grantsAmmo=false;}if(drop.stackCount!==undefined)loot.stackCount=drop.stackCount;if(drop.ammoCount!==undefined)loot.ammoCount=drop.ammoCount;
+       this.state.loot.set(loot.id,loot);
+     });
+   }
+@@ -3008,9 +3235,13 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+         p.rifleMagazine=0;
+         p.shotgunMagazine=0;
+         p.sniperMagazine=0;
++        p.bazookaMagazine=0;
++        p.flamethrowerMagazine=0;
+         p.pistolAmmo=0;
+         p.standardAmmo=0;
+         p.shotgunAmmo=0;
++        p.rocketAmmo=0;
++        p.fuelAmmo=0;
+         p.bandages=0;
+         p.medkits=0;
+         p.healingKind='';
+@@ -3098,6 +3329,8 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     if(id==='rifle')return p.rifleMagazine;
+     if(id==='shotgun')return p.shotgunMagazine;
+     if(id==='sniper')return p.sniperMagazine;
++    if(id==='bazooka')return p.bazookaMagazine;
++    if(id==='flamethrower')return p.flamethrowerMagazine;
+     return 0;
+   }
+ 
+@@ -3108,6 +3341,8 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     else if(id==='rifle')p.rifleMagazine=amount;
+     else if(id==='shotgun')p.shotgunMagazine=amount;
+     else if(id==='sniper')p.sniperMagazine=amount;
++    else if(id==='bazooka')p.bazookaMagazine=amount;
++    else if(id==='flamethrower')p.flamethrowerMagazine=amount;
+     if(sync&&p.equipped===id)p.magazine=amount;
+   }
+ 
+@@ -3116,8 +3351,8 @@ export class Drop8Room extends Room<{ state: Drop8State }> {
+     p.magazine=id in WEAPONS&&id!=='fists'?this.getWeaponMagazine(p,id):0;
+   }
+ 
+-  private getAmmo(p:PlayerState,t:AmmoType){return t==='pistol_ammo'?p.pistolAmmo:t==='standard_ammo'?p.standardAmmo:t==='shotgun_ammo'?p.shotgunAmmo:0;}
+-  private setAmmo(p:PlayerState,t:AmmoType,v:number){if(t==='pistol_ammo')p.pistolAmmo=v;else if(t==='standard_ammo')p.standardAmmo=v;else if(t==='shotgun_ammo')p.shotgunAmmo=v;}
++  private getAmmo(p:PlayerState,t:AmmoType){return t==='pistol_ammo'?p.pistolAmmo:t==='standard_ammo'?p.standardAmmo:t==='shotgun_ammo'?p.shotgunAmmo:t==='rocket_ammo'?p.rocketAmmo:t==='fuel_ammo'?p.fuelAmmo:0;}
++  private setAmmo(p:PlayerState,t:AmmoType,v:number){const amount=Math.max(0,Math.floor(v));if(t==='pistol_ammo')p.pistolAmmo=amount;else if(t==='standard_ammo')p.standardAmmo=amount;else if(t==='shotgun_ammo')p.shotgunAmmo=amount;else if(t==='rocket_ammo')p.rocketAmmo=Math.min(BAZOOKA_BALANCE.maxRocketReserve,amount);else if(t==='fuel_ammo')p.fuelAmmo=Math.min(FLAMETHROWER_BALANCE.maxFuelReserve,amount);}
+   private now(){return this.clock.elapsedTime/1000;}
+   private angleDiff(a:number,b:number){return Math.atan2(Math.sin(a-b),Math.cos(a-b));}
+ 
+diff --git a/server/src/rooms/schema.ts b/server/src/rooms/schema.ts
+index 390df8a..fe58e2a 100644
+--- a/server/src/rooms/schema.ts
++++ b/server/src/rooms/schema.ts
+@@ -1,3 +1,6 @@
++// DROP8_REFACTOR_016_SOLO_AI_ITEM_INTERFACE_FIST
++// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
++// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
+ // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
+ // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
+ import { ArraySchema, MapSchema, Schema, type } from '@colyseus/schema';
+@@ -40,6 +43,8 @@ export class PlayerState extends Schema {
+   @type('string') melee='fists';
+   @type('string') equipped='fists';
+   @type('string') aiState='LOBBY';
++  @type('string') aiProfile='';
++  @type('string') selectedHealKind='bandage';
+   @type('string') buildingId='';
+   @type('uint16') roomIndex=0;
+   @type('string') vehicleId='';
+@@ -56,9 +61,13 @@ export class PlayerState extends Schema {
+   @type('number') rifleMagazine=0;
+   @type('number') shotgunMagazine=0;
+   @type('number') sniperMagazine=0;
++  @type('number') bazookaMagazine=0;
++  @type('number') flamethrowerMagazine=0;
+   @type('number') pistolAmmo=0;
+   @type('number') standardAmmo=0;
+   @type('number') shotgunAmmo=0;
++  @type('number') rocketAmmo=0;
++  @type('number') fuelAmmo=0;
+   @type('number') bandages=0;
+   @type('number') medkits=0;
+ 
+@@ -90,6 +99,21 @@ export class BulletState extends Schema {
+   @type('number') shotSeq=0;
+ }
+ 
++export class RocketState extends Schema {
++  @type('string') id='';
++  @type('string') ownerId='';
++  @type('number') x=0;
++  @type('number') y=0;
++  @type('number') prevX=0;
++  @type('number') prevY=0;
++  @type('number') vx=0;
++  @type('number') vy=0;
++  @type('number') life=0;
++  @type('number') traveled=0;
++  @type('number') radius=7;
++  @type('string') buildingId='';
++}
++
+ export class ThrownObjectState extends Schema {
+   @type('string') id='';
+   @type('string') ownerId='';
+@@ -131,6 +155,36 @@ export class FireFieldState extends Schema {
+   @type('string') buildingId='';
+ }
+ 
++
++export class FlameJetState extends Schema {
++  @type('string') id='';
++  @type('string') ownerId='';
++  @type('number') x=0;
++  @type('number') y=0;
++  @type('number') angle=0;
++  @type('number') range=320;
++  @type('number') halfAngle=0;
++  @type('number') startedAt=0;
++  @type('number') expiresAt=0;
++  @type('string') buildingId='';
++}
++
++export class SupplyDropState extends Schema {
++  @type('string') id='';
++  @type('number') x=0;
++  @type('number') y=0;
++  @type('number') altitude=0;
++  @type('number') spawnedAt=0;
++  @type('number') landedAt=0;
++  @type('boolean') landed=false;
++  @type('boolean') opened=false;
++  @type('number') openedAt=0;
++  @type('string') openedBy='';
++  @type('string') specialWeapon='';
++  @type('string') mapId='';
++  @type('number') zoneStage=0;
++}
++
+ export class ExplosionState extends Schema {
+   @type('string') id='';
+   @type('number') x=0;
+@@ -141,6 +195,11 @@ export class ExplosionState extends Schema {
+   @type('string') sourceId='';
+   @type('string') ownerId='';
+   @type('string') kind='motorcycle';
++  @type('string') attackerId='';
++  @type('string') weaponType='';
++  @type('number') vehicleDamage=0;
++  @type('number') structureDamage=0;
++  @type('string') buildingId='';
+ }
+ 
+ export class MotorcycleState extends Schema {
+@@ -179,6 +238,7 @@ export class LootState extends Schema {
+   @type('string') vaultWindowId='';
+   @type('number') weaponMagazine=-1;
+   @type('number') stackCount=1;
++  @type('number') ammoCount=-1;
+   @type('boolean') grantsAmmo=true;
+   @type('string') pickupLockedForPlayerId='';
+   @type('number') pickupLockedUntil=0;
+@@ -190,6 +250,7 @@ export class Drop8State extends Schema {
+   @type('string') hostId='';
+   @type('boolean') fillAi=true;
+   @type('boolean') publicRoom=true;
++  @type('boolean') soloMode=false;
+   @type('string') difficulty='normal';
+   @type('string') zoneSpeed='normal';
+   @type('string') mapId='small';
+@@ -199,12 +260,15 @@ export class Drop8State extends Schema {
+ 
+   @type({map:PlayerState}) players=new MapSchema<PlayerState>();
+   @type({map:BulletState}) bullets=new MapSchema<BulletState>();
++  @type({map:RocketState}) rockets=new MapSchema<RocketState>();
+   @type({map:LootState}) loot=new MapSchema<LootState>();
+   @type({map:MotorcycleState}) motorcycles=new MapSchema<MotorcycleState>();
+   @type({map:ExplosionState}) explosions=new MapSchema<ExplosionState>();
+   @type({map:ThrownObjectState}) thrownObjects=new MapSchema<ThrownObjectState>();
+   @type({map:SmokeFieldState}) smokeFields=new MapSchema<SmokeFieldState>();
+   @type({map:FireFieldState}) fireFields=new MapSchema<FireFieldState>();
++  @type({map:FlameJetState}) flameJets=new MapSchema<FlameJetState>();
++  @type({map:SupplyDropState}) supplyDrops=new MapSchema<SupplyDropState>();
+ 
+   @type('number') zoneX=2048;
+   @type('number') zoneY=2048;
+@@ -220,6 +284,8 @@ export class Drop8State extends Schema {
+   @type('number') zoneProgress=0;
+   @type('boolean') zoneActive=false;
+   @type('string') zoneState='FREE';
++  @type('boolean') supplySpawned=false;
++  @type('string') supplyDropId='';
+ 
+   @type('number') planeStartX=0;
+   @type('number') planeStartY=0;
+diff --git a/shared/src/index.ts b/shared/src/index.ts
+index 59869f6..2d1a592 100644
+--- a/shared/src/index.ts
++++ b/shared/src/index.ts
+@@ -1,3 +1,6 @@
++// DROP8_REFACTOR_016_SOLO_AI_ITEM_INTERFACE_FIST
++// DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
++// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
+ // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
+ // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
+ // DROP8_REFACTOR_013G_DOCK8_RECOVERY
+@@ -74,12 +77,15 @@ export type GamePhase = 'LOBBY' | 'PLANE' | 'DROP' | 'ACTIVE' | 'FINISHED';
+ export type PlayerPhase = 'lobby' | 'plane' | 'falling' | 'parachute' | 'landed' | 'dead';
+ export type Difficulty = 'easy' | 'normal' | 'hard';
+ export type ZoneSpeed = 'slow' | 'normal' | 'fast';
+-export type WeaponId = 'fists' | 'pistol' | 'smg' | 'rifle' | 'shotgun' | 'sniper';
++export type AiProfileId = 'aggressive'|'cautious'|'sniper'|'rusher'|'looter'|'driver'|'evasive'|'balanced';
++export type AiAccuracyTier = 'low'|'normal'|'high'|'elite';
++export type WeaponId = 'fists' | 'pistol' | 'smg' | 'rifle' | 'shotgun' | 'sniper' | 'bazooka' | 'flamethrower';
+ export type MeleeId = 'bat' | 'pan' | 'pipe' | 'knife';
+ export type ThrowableType = import('./throwables.js').ThrowableType;
+ export type EquippedId = WeaponId | MeleeId | ThrowableType;
+-export type AmmoType = 'none' | 'shotgun_ammo' | 'standard_ammo' | 'pistol_ammo';
+-export type LootKind = WeaponId | MeleeId | ThrowableType | 'shotgun_ammo' | 'standard_ammo' | 'pistol_ammo' | 'vest' | 'bandage' | 'medkit';
++export type AmmoType = 'none' | 'shotgun_ammo' | 'standard_ammo' | 'pistol_ammo' | 'rocket_ammo' | 'fuel_ammo';
++export type LootKind = WeaponId | MeleeId | ThrowableType | 'shotgun_ammo' | 'standard_ammo' | 'pistol_ammo' | 'rocket_ammo' | 'fuel_ammo' | 'vest' | 'bandage' | 'medkit';
++export type ExplosionWeaponType = 'motorcycle_explosion' | 'fragGrenade' | 'bazooka';
+ export type { MapId, RoomZone, SpacePortal, LootAnchor, RiverBand, WaterZone, LandCrossing, ShoreExit, AiMacroNode, AiMacroEdge, SpaceDescriptor, SpaceVisibilityTrace };
+ export type MapSizeMode = MapId;
+ export type RegionId = 'factory' | 'residential' | 'hospital' | 'warehouse' | 'military' | 'forestCamp';
+@@ -124,14 +130,75 @@ export interface MeleeData {
+ }
+ 
+ export const WEAPONS: Record<WeaponId, WeaponData> = {
+-  fists: { id:'fists', name:'二쇰㉨', damage:10, fireInterval:.55, magazine:0, reloadSeconds:0, spread:0, projectileSpeed:0, range:65, pellets:1, moveMultiplier:1, ammoType:'none', slot:'melee' },
++  fists: { id:'fists', name:'二쇰㉨', damage:20, fireInterval:.47, magazine:0, reloadSeconds:0, spread:0, projectileSpeed:0, range:73, pellets:1, moveMultiplier:1, ammoType:'none', slot:'melee' },
+   pistol:{ id:'pistol', name:'沅뚯킑', damage:18, fireInterval:.28, magazine:12, reloadSeconds:1.35, spread:.025, projectileSpeed:1050, range:850, pellets:1, moveMultiplier:1, ammoType:'pistol_ammo', slot:'secondary' },
+   smg:{ id:'smg', name:'湲곌??⑥킑', damage:11, fireInterval:.085, magazine:30, reloadSeconds:1.55, spread:.08, projectileSpeed:1120, range:760, pellets:1, moveMultiplier:1.05, ammoType:'standard_ammo', slot:'primary' },
+   rifle:{ id:'rifle', name:'?뚭꺽?뚯킑', damage:17, fireInterval:.13, magazine:24, reloadSeconds:1.7, spread:.038, projectileSpeed:1320, range:1050, pellets:1, moveMultiplier:.98, ammoType:'standard_ammo', slot:'primary' },
+   shotgun:{ id:'shotgun', name:'?룰굔', damage:10, fireInterval:.72, magazine:5, reloadSeconds:2.0, spread:.24, projectileSpeed:860, range:440, pellets:7, moveMultiplier:.96, ammoType:'shotgun_ammo', slot:'primary' },
+-  sniper:{ id:'sniper', name:'?寃⑹냼珥?, damage:72, fireInterval:1.2, magazine:4, reloadSeconds:2.8, spread:.006, projectileSpeed:2900, range:2300, pellets:1, moveMultiplier:.84, ammoType:'standard_ammo', slot:'primary' }
++  sniper:{ id:'sniper', name:'?寃⑹냼珥?, damage:72, fireInterval:1.2, magazine:4, reloadSeconds:2.8, spread:.006, projectileSpeed:2900, range:2300, pellets:1, moveMultiplier:.84, ammoType:'standard_ammo', slot:'primary' },
++  bazooka:{ id:'bazooka', name:'諛붿＜移댄룷', damage:0, fireInterval:1.65, magazine:1, reloadSeconds:4.2, spread:.012, projectileSpeed:900, range:1250, pellets:1, moveMultiplier:.78, ammoType:'rocket_ammo', slot:'primary' },
++  flamethrower:{ id:'flamethrower', name:'?붿뿼諛⑹궗湲?, damage:9, fireInterval:.10, magazine:100, reloadSeconds:4.5, spread:0, projectileSpeed:1, range:420, pellets:1, moveMultiplier:.88, ammoType:'fuel_ammo', slot:'primary' }
+ };
+ 
++
++export const SUPPLY_DROP_BALANCE={
++  triggerZoneStage:0,descentSeconds:5,initialAltitude:620,interactionDistance:88,
++  edgeMargin:150,playerClearance:240,obstacleClearance:58,maxPlacementAttempts:96,
++  bazookaWeight:0,flamethrowerWeight:100,weaponAmmoBundles:2,openCleanupSeconds:90,
++} as const;
++export const FLAMETHROWER_BALANCE={
++  range:420,halfAngleRadians:16*Math.PI/180,tickSeconds:.10,
++  playerDamagePerTick:9,vehicleDamagePerTick:6,fuelPerTick:1,
++  fuelPickupAmount:50,maxFuelReserve:200,visualDurationSeconds:.18,muzzleOffset:34,
++} as const;
++export function flamethrowerConeContains(sourceX:number,sourceY:number,angle:number,targetX:number,targetY:number,targetRadius=0){
++  const dx=targetX-sourceX,dy=targetY-sourceY,d=Math.hypot(dx,dy);if(d>FLAMETHROWER_BALANCE.range+targetRadius)return false;if(d<=targetRadius+FLAMETHROWER_BALANCE.muzzleOffset)return true;
++  const delta=Math.abs(Math.atan2(Math.sin(Math.atan2(dy,dx)-angle),Math.cos(Math.atan2(dy,dx)-angle)));
++  return delta<=FLAMETHROWER_BALANCE.halfAngleRadians+Math.asin(Math.min(1,targetRadius/Math.max(1,d)));
++}
++
++
++export const SOLO_MODE_BALANCE={humanPlayers:1,totalPlayers:MAX_PLAYERS} as const;
++export const FIST_BALANCE={damage:20,range:73,fireInterval:.47,knockback:265,arcRadians:1.18} as const;
++export const HEAL_SELECTION_BALANCE={
++  bandage:{healAmount:25,useSeconds:2},
++  medkit:{healAmount:60,useSeconds:4},
++  aiMedkitHpThreshold:45,
++} as const;
++export interface AiProfileConfig{
++  id:AiProfileId;label:string;accuracyTier:AiAccuracyTier;speedMultiplier:number;reactionSeconds:number;
++  aimErrorRadians:number;distanceErrorRadians:number;movingErrorMultiplier:number;drivingErrorMultiplier:number;
++  strafeChance:number;preferredRangeMultiplier:number;lootPriority:number;vehiclePreference:number;retreatHp:number;
++}
++export const AI_PROFILE_ORDER:AiProfileId[]=['aggressive','cautious','sniper','rusher','looter','driver','evasive','balanced'];
++export const AI_PROFILES:Record<AiProfileId,AiProfileConfig>={
++  aggressive:{id:'aggressive',label:'怨듦꺽??,accuracyTier:'high',speedMultiplier:1.02,reactionSeconds:.17,aimErrorRadians:.030,distanceErrorRadians:.030,movingErrorMultiplier:1.25,drivingErrorMultiplier:2.2,strafeChance:.56,preferredRangeMultiplier:.82,lootPriority:.88,vehiclePreference:.55,retreatHp:22},
++  cautious:{id:'cautious',label:'?좎쨷??,accuracyTier:'normal',speedMultiplier:.90,reactionSeconds:.29,aimErrorRadians:.048,distanceErrorRadians:.040,movingErrorMultiplier:1.18,drivingErrorMultiplier:2.4,strafeChance:.30,preferredRangeMultiplier:1.18,lootPriority:1.05,vehiclePreference:.25,retreatHp:42},
++  sniper:{id:'sniper',label:'?寃⑺삎',accuracyTier:'elite',speedMultiplier:.88,reactionSeconds:.24,aimErrorRadians:.016,distanceErrorRadians:.018,movingErrorMultiplier:1.55,drivingErrorMultiplier:3.0,strafeChance:.22,preferredRangeMultiplier:1.42,lootPriority:.96,vehiclePreference:.15,retreatHp:34},
++  rusher:{id:'rusher',label:'?뚭꺽??,accuracyTier:'low',speedMultiplier:1.05,reactionSeconds:.15,aimErrorRadians:.075,distanceErrorRadians:.052,movingErrorMultiplier:1.36,drivingErrorMultiplier:2.4,strafeChance:.64,preferredRangeMultiplier:.62,lootPriority:.80,vehiclePreference:.48,retreatHp:18},
++  looter:{id:'looter',label:'?뚮컢??,accuracyTier:'normal',speedMultiplier:.94,reactionSeconds:.27,aimErrorRadians:.052,distanceErrorRadians:.043,movingErrorMultiplier:1.22,drivingErrorMultiplier:2.5,strafeChance:.28,preferredRangeMultiplier:1.02,lootPriority:1.34,vehiclePreference:.32,retreatHp:38},
++  driver:{id:'driver',label:'李⑤웾 ?좏샇??,accuracyTier:'normal',speedMultiplier:.98,reactionSeconds:.22,aimErrorRadians:.045,distanceErrorRadians:.038,movingErrorMultiplier:1.20,drivingErrorMultiplier:1.65,strafeChance:.34,preferredRangeMultiplier:.96,lootPriority:.94,vehiclePreference:1.0,retreatHp:30},
++  evasive:{id:'evasive',label:'?뚰뵾??,accuracyTier:'high',speedMultiplier:1.03,reactionSeconds:.19,aimErrorRadians:.036,distanceErrorRadians:.032,movingErrorMultiplier:1.28,drivingErrorMultiplier:2.1,strafeChance:.82,preferredRangeMultiplier:1.08,lootPriority:.91,vehiclePreference:.40,retreatHp:46},
++  balanced:{id:'balanced',label:'洹좏삎??,accuracyTier:'normal',speedMultiplier:.97,reactionSeconds:.22,aimErrorRadians:.043,distanceErrorRadians:.036,movingErrorMultiplier:1.25,drivingErrorMultiplier:2.2,strafeChance:.48,preferredRangeMultiplier:1.0,lootPriority:1.0,vehiclePreference:.45,retreatHp:32},
++};
++export const AMMO_PRESENTATION:Record<Exclude<AmmoType,'none'>,{label:string;shortLabel:string;glyph:string;color:number;cssClass:string}>={
++  pistol_ammo:{label:'沅뚯킑??,shortLabel:'沅뚯킑',glyph:'??,color:0xffdc65,cssClass:'ammo-pistol'},
++  standard_ammo:{label:'?쇰컲??,shortLabel:'?쇰컲',glyph:'??,color:0xb98748,cssClass:'ammo-standard'},
++  shotgun_ammo:{label:'?고깂',shortLabel:'?고깂',glyph:'??,color:0xe45151,cssClass:'ammo-shotgun'},
++  rocket_ammo:{label:'濡쒖폆??,shortLabel:'濡쒖폆',glyph:'??,color:0x8fd46b,cssClass:'ammo-rocket'},
++  fuel_ammo:{label:'?곕즺',shortLabel:'?곕즺',glyph:'??,color:0xff713d,cssClass:'ammo-fuel'},
++};
++export function aiProfileForIndex(index:number):AiProfileId{return AI_PROFILE_ORDER[Math.abs(Math.trunc(index))%AI_PROFILE_ORDER.length]!;}
++export function deterministicAiAimOffset(profileId:AiProfileId,seed:number,distanceValue:number,moving=false,driving=false):number{
++  const profile=AI_PROFILES[profileId]??AI_PROFILES.balanced;
++  const normalizedDistance=clamp(distanceValue/900,0,1);
++  const wave=Math.sin((seed+1)*12.9898+profileId.length*78.233);
++  let error=profile.aimErrorRadians+profile.distanceErrorRadians*normalizedDistance;
++  if(moving)error*=profile.movingErrorMultiplier;
++  if(driving)error*=profile.drivingErrorMultiplier;
++  return wave*error;
++}
++
+ export const MELEE_WEAPONS: Record<MeleeId, MeleeData> = {
+   bat:{id:'bat',name:'?쇨뎄諛⑸쭩??,damage:24,fireInterval:.72,range:88,arc:1.15,moveMultiplier:1},
+   pan:{id:'pan',name:'?꾨씪?댄뙩',damage:29,fireInterval:.88,range:72,arc:1.05,moveMultiplier:.97},
+@@ -140,16 +207,16 @@ export const MELEE_WEAPONS: Record<MeleeId, MeleeData> = {
+ };
+ 
+ export const LOOT_LABELS: Record<LootKind,string> = {
+-  fists:'二쇰㉨', pistol:'沅뚯킑', smg:'湲곌??⑥킑', rifle:'?뚭꺽?뚯킑', shotgun:'?룰굔', sniper:'?寃⑹냼珥?,
++  fists:'二쇰㉨', pistol:'沅뚯킑', smg:'湲곌??⑥킑', rifle:'?뚭꺽?뚯킑', shotgun:'?룰굔', sniper:'?寃⑹냼珥?, bazooka:'諛붿＜移댄룷', flamethrower:'?붿뿼諛⑹궗湲?,
+   bat:'?쇨뎄諛⑸쭩??, pan:'?꾨씪?댄뙩', pipe:'?좏뙆?댄봽', knife:'?앹뭡',
+-  pistol_ammo:'沅뚯킑??, standard_ammo:'?쇰컲 珥앹븣', shotgun_ammo:'?룰굔??, vest:'諛⑺깂議곕겮', bandage:'遺뺣?', medkit:'援ш툒?곸옄',
++  pistol_ammo:'沅뚯킑??, standard_ammo:'?쇰컲 珥앹븣', shotgun_ammo:'?룰굔??, rocket_ammo:'濡쒖폆??, fuel_ammo:'?곕즺??, vest:'諛⑺깂議곕겮', bandage:'遺뺣?', medkit:'援ш툒?곸옄',
+   fragGrenade:'?뚰렪 ?섎쪟??, smokeGrenade:'?곕쭑??, incendiaryGrenade:'?붿뿼??
+ };
+ 
+ export const LOOT_COLORS: Record<LootKind,number> = {
+-  fists:0xf6f7f8, pistol:0xffd451, smg:0xffb84d, rifle:0xff8f4d, shotgun:0xff6b55, sniper:0x88d7ff,
++  fists:0xf6f7f8, pistol:0xffd451, smg:0xffb84d, rifle:0xff8f4d, shotgun:0xff6b55, sniper:0x88d7ff, bazooka:0x9de27d, flamethrower:0xff6b2d,
+   bat:0xc98b55, pan:0xaeb9c2, pipe:0x8da0ad, knife:0xdde7ee,
+-  pistol_ammo:0xffe88a, standard_ammo:0xff9f64, shotgun_ammo:0xff6f7a, vest:0x73b9ff, bandage:0x58e49d, medkit:0x2ecf78,
++  pistol_ammo:0xffe88a, standard_ammo:0xff9f64, shotgun_ammo:0xff6f7a, rocket_ammo:0xa7e883, fuel_ammo:0xc84d32, vest:0x73b9ff, bandage:0x58e49d, medkit:0x2ecf78,
+   fragGrenade:0x455b39, smokeGrenade:0xb9c0c6, incendiaryGrenade:0xd64a37
+ };
+ 
+@@ -180,7 +247,7 @@ export interface MapConfig {
+   rooms:RoomZone[]; portals:SpacePortal[]; rivers:RiverBand[]; shallowWaterZones:WaterZone[]; landCrossings:LandCrossing[]; shoreExits:ShoreExit[]; aiMacroNodes:AiMacroNode[]; aiMacroEdges:AiMacroEdge[];
+ }
+ 
+-export const AMMO_DISPLAY_NAMES:Record<Exclude<AmmoType,'none'>,string>={shotgun_ammo:'?룰굔??,standard_ammo:'?쇰컲 珥앹븣',pistol_ammo:'沅뚯킑??};
++export const AMMO_DISPLAY_NAMES:Record<Exclude<AmmoType,'none'>,string>={shotgun_ammo:'?룰굔??,standard_ammo:'?쇰컲 珥앹븣',pistol_ammo:'沅뚯킑??,rocket_ammo:'濡쒖폆??,fuel_ammo:'?곕즺'};
+ export const RENDER_DEPTH={GROUND:0,FLOOR_DECORATION:5,GROUND_ITEM:10,WORLD_PROP:20,VEHICLE:27,PLAYER:30,PLAYER_OVERLAY:35,BUILDING_ROOF:50,PLANE_SHADOW:80,TRANSPORT_PLANE:100,PLANE_EFFECT:105,WORLD_EFFECT:120,HUD:1000,MODAL:2000} as const;
+ 
+ export { buildingZonesAt, createDefaultRoomZones, createExternalSpacePortals, findPortalVaultCandidate, portalBuildingIdForSide, roomAt, roomByIndex, sameRoom, spaceAt, spaceInteractionAllowed, traceSpacePortals, traceSpaceVisibility, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt };
+@@ -223,11 +290,11 @@ export const REGION_LOOT_TABLES: Record<RegionId, WeightedLoot[]> = {
+     {kind:'smg',weight:7},{kind:'rifle',weight:2},{kind:'shotgun',weight:1},{kind:'fragGrenade',weight:2},{kind:'smokeGrenade',weight:7},{kind:'incendiaryGrenade',weight:2},
+   ],
+   warehouse:[
+-    {kind:'shotgun',weight:20},{kind:'shotgun_ammo',weight:22},{kind:'smg',weight:15},{kind:'pan',weight:12},
++    {kind:'shotgun',weight:20},{kind:'shotgun_ammo',weight:22},{kind:'bazooka',weight:18},{kind:'rocket_ammo',weight:14},{kind:'smg',weight:15},{kind:'pan',weight:12},
+     {kind:'vest',weight:10},{kind:'pistol_ammo',weight:9},{kind:'bandage',weight:7},{kind:'rifle',weight:3},{kind:'medkit',weight:2},{kind:'fragGrenade',weight:5},{kind:'smokeGrenade',weight:3},{kind:'incendiaryGrenade',weight:6},
+   ],
+   military:[
+-    {kind:'rifle',weight:20},{kind:'sniper',weight:7},{kind:'standard_ammo',weight:24},{kind:'vest',weight:18},{kind:'smg',weight:12},{kind:'medkit',weight:9},
++    {kind:'rifle',weight:20},{kind:'sniper',weight:7},{kind:'bazooka',weight:24},{kind:'rocket_ammo',weight:18},{kind:'standard_ammo',weight:24},{kind:'vest',weight:18},{kind:'smg',weight:12},{kind:'medkit',weight:9},
+     {kind:'pistol_ammo',weight:7},{kind:'shotgun',weight:3},{kind:'pistol',weight:3},{kind:'fragGrenade',weight:7},{kind:'smokeGrenade',weight:4},{kind:'incendiaryGrenade',weight:5},
+   ],
+   forestCamp:[
+@@ -1209,7 +1276,7 @@ export const MAP_CONFIGS:Record<MapId,MapConfig>={
+ ALL_BUILDING_VISIBILITY_ZONES=[...BUILDING_VISIBILITY_ZONES,...LARGE_BUILDING_VISIBILITY_ZONES,...DOCK8_BUILDING_VISIBILITY_ZONES];
+ export function normalizeMapId(value:unknown):MapId{return value==='large'?'large':value==='dock8'?'dock8':'small';}
+ export function getMapConfig(mode:MapId|string='small'):MapConfig{return MAP_CONFIGS[normalizeMapId(mode)];}
+-export function normalizeAmmoType(value:unknown):Exclude<AmmoType,'none'>|undefined{const raw=String(value??'').toLowerCase();if(['shotgun_ammo','shotgun_shell','shell','shells'].includes(raw))return'shotgun_ammo';if(['pistol_ammo','pistol_round','handgun_ammo','small','small_ammo'].includes(raw))return'pistol_ammo';if(['standard_ammo','rifle','rifle_ammo','smg_ammo','sniper_ammo','assault_ammo','machinegun_ammo'].includes(raw))return'standard_ammo';return undefined;}
++export function normalizeAmmoType(value:unknown):Exclude<AmmoType,'none'>|undefined{const raw=String(value??'').toLowerCase();if(['fuel_ammo','fuel','fuel_canister','flamethrower_fuel'].includes(raw))return'fuel_ammo';if(['rocket_ammo','rocket','rockets','bazooka_ammo'].includes(raw))return'rocket_ammo';if(['shotgun_ammo','shotgun_shell','shell','shells'].includes(raw))return'shotgun_ammo';if(['pistol_ammo','pistol_round','handgun_ammo','small','small_ammo'].includes(raw))return'pistol_ammo';if(['standard_ammo','rifle','rifle_ammo','smg_ammo','sniper_ammo','assault_ammo','machinegun_ammo'].includes(raw))return'standard_ammo';return undefined;}
+ export function segmentCircleIntersectionT(x1:number,y1:number,x2:number,y2:number,cx:number,cy:number,radius:number):number|null{const dx=x2-x1,dy=y2-y1,fx=x1-cx,fy=y1-cy;const a=dx*dx+dy*dy;if(a<=1e-9)return fx*fx+fy*fy<=radius*radius?0:null;const b=2*(fx*dx+fy*dy),c=fx*fx+fy*fy-radius*radius,disc=b*b-4*a*c;if(disc<0)return null;const root=Math.sqrt(disc),t1=(-b-root)/(2*a),t2=(-b+root)/(2*a);if(t1>=0&&t1<=1)return t1;if(t2>=0&&t2<=1)return t2;return null;}
+ export function segmentRectIntersectionT(x1:number,y1:number,x2:number,y2:number,rect:Rect,padding=0):number|null{const minX=rect.x-padding,maxX=rect.x+rect.w+padding,minY=rect.y-padding,maxY=rect.y+rect.h+padding,dx=x2-x1,dy=y2-y1;let tMin=0,tMax=1;for(const [start,delta,min,max] of [[x1,dx,minX,maxX],[y1,dy,minY,maxY]] as const){if(Math.abs(delta)<1e-9){if(start<min||start>max)return null;continue;}let a=(min-start)/delta,b=(max-start)/delta;if(a>b)[a,b]=[b,a];tMin=Math.max(tMin,a);tMax=Math.min(tMax,b);if(tMin>tMax)return null;}return tMin;}
+ 
+@@ -1259,12 +1326,21 @@ export function motorcyclePlayerCollisionDamage(speed:number,maxSpeed=MOTORCYCLE
+   return Math.round(lerpNumber(8,14,(ratio-.7)/.3));
+ }
+ 
++export const BAZOOKA_BALANCE={
++  projectileRadius:7,explosionRadius:190,maxPlayerDamage:112,minPlayerDamage:12,selfDamageMultiplier:.82,
++  directVehicleDamage:170,maxSplashVehicleDamage:128,minSplashVehicleDamage:14,structureDamage:120,
++  aiMinimumRange:285,rocketPickupAmount:2,maxRocketReserve:8,
++} as const;
++
+ export function radialExplosionDamage(distanceFromCenter:number,radius:number,maxDamage:number,minDamage:number):number{
+   if(!Number.isFinite(distanceFromCenter)||distanceFromCenter<0||radius<=0||distanceFromCenter>radius)return 0;
+   const ratio=smoothstep(distanceFromCenter/radius);
+   return Math.max(0,Math.round(lerpNumber(maxDamage,minDamage,ratio)));
+ }
+ 
++export function bazookaPlayerDamage(distanceFromCenter:number,self=false):number{const base=radialExplosionDamage(distanceFromCenter,BAZOOKA_BALANCE.explosionRadius,BAZOOKA_BALANCE.maxPlayerDamage,BAZOOKA_BALANCE.minPlayerDamage);return self?base*BAZOOKA_BALANCE.selfDamageMultiplier:base;}
++export function bazookaVehicleDamage(distanceFromCenter:number,directHit=false):number{return directHit?BAZOOKA_BALANCE.directVehicleDamage:radialExplosionDamage(distanceFromCenter,BAZOOKA_BALANCE.explosionRadius,BAZOOKA_BALANCE.maxSplashVehicleDamage,BAZOOKA_BALANCE.minSplashVehicleDamage);}
++
+ export function motorcycleExplosionDamage(distanceFromCenter:number):number{
+   const radius=MOTORCYCLE_DESTRUCTION_BALANCE.explosionRadius;
+   if(!Number.isFinite(distanceFromCenter)||distanceFromCenter<0||distanceFromCenter>radius)return 0;
+

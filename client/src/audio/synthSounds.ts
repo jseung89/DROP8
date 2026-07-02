@@ -1,3 +1,6 @@
+// DROP8_REFACTOR_018_WEREWOLF_SEASON
+// DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
+// DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP
 import type { SoundId } from './audioTypes';
 
 function tone(context:AudioContext,destination:AudioNode,frequency:number,start:number,duration:number,volume:number,type:OscillatorType='sine',endFrequency?:number){
@@ -43,6 +46,10 @@ export function playSynthSound(context:AudioContext,id:SoundId,destination:Audio
     case'weapon_rifle_fire':noise(context,destination,noiseBuffer,now,.075,.58,5000,250);tone(context,destination,f(135),now,.12,.52,'sawtooth',f(58));return .17;
     case'weapon_shotgun_fire':noise(context,destination,noiseBuffer,now,.18,.85,3600,80);tone(context,destination,f(92),now,.25,.72,'sawtooth',f(35));return .32;
     case'weapon_sniper_fire':noise(context,destination,noiseBuffer,now,.12,.92,4800,80);tone(context,destination,f(118),now,.42,.78,'sawtooth',f(32));return .5;
+    case'weapon_bazooka_fire':noise(context,destination,noiseBuffer,now,.24,.88,3200,45);tone(context,destination,f(92),now,.34,.74,'sawtooth',f(28));return .42;
+    case'weapon_flamethrower_fire':noise(context,destination,noiseBuffer,now,.16,.56,5200,180);tone(context,destination,f(74),now,.18,.24,'sawtooth',f(48));return .20;
+    case'weapon_adhesive_sprayer_fire':noise(context,destination,noiseBuffer,now,.14,.42,3600,240);tone(context,destination,f(118),now,.14,.18,'triangle',f(76));return .18;
+    case'weapon_silver_crossbow_fire':noise(context,destination,noiseBuffer,now,.07,.28,4200,400);tone(context,destination,f(780),now,.11,.3,'triangle',f(260));return .16;
     case'weapon_dry_fire':tone(context,destination,f(920),now,.025,.25,'square',f(610));tone(context,destination,f(430),now+.032,.04,.18,'square');return .09;
     case'reload_start':noise(context,destination,noiseBuffer,now,.055,.2,2400,500);tone(context,destination,f(300),now+.025,.05,.2,'square');return .12;
     case'reload_complete':tone(context,destination,f(340),now,.05,.26,'square');tone(context,destination,f(670),now+.045,.06,.24,'square');return .14;
@@ -83,10 +90,20 @@ export function playSynthSound(context:AudioContext,id:SoundId,destination:Audio
     case'throwable_throw':noise(context,destination,noiseBuffer,now,.11,.34,2700,100);tone(context,destination,f(165),now,.14,.25,'sine',f(90));return .2;
     case'throwable_bounce':noise(context,destination,noiseBuffer,now,.075,.38,3300,420);tone(context,destination,f(410),now,.09,.28,'triangle',f(180));return .14;
     case'frag_explosion':noise(context,destination,noiseBuffer,now,.46,1,3500,18);tone(context,destination,f(96),now,.58,.9,'sawtooth',f(24));tone(context,destination,f(560),now+.025,.14,.34,'square',f(130));return .66;
+    case'bazooka_explosion':noise(context,destination,noiseBuffer,now,.52,1,3000,14);tone(context,destination,f(78),now,.66,.95,'sawtooth',f(20));tone(context,destination,f(440),now+.03,.18,.4,'square',f(95));return .74;
     case'smoke_deploy':noise(context,destination,noiseBuffer,now,.55,.7,5200,220);tone(context,destination,f(118),now,.28,.22,'sine',f(72));return .62;
     case'fire_ignite':noise(context,destination,noiseBuffer,now,.34,.74,6800,180);tone(context,destination,f(130),now,.26,.36,'sawtooth',f(64));return .42;
     case'throwable_pickup':chord(context,destination,[f(420),f(590),f(760)],now,.13,.32,'sine');return .22;
     case'throwable_swap':noise(context,destination,noiseBuffer,now,.08,.24,2500,280);chord(context,destination,[f(330),f(510)],now+.04,.12,.28,'square');return .22;
+    case'strip_trap_place':noise(context,destination,noiseBuffer,now,.08,.24,2600,500);tone(context,destination,f(310),now,.08,.18,'triangle',f(220));return .13;
+    case'strip_trap_trigger':noise(context,destination,noiseBuffer,now,.18,.68,5200,650);tone(context,destination,f(190),now,.2,.46,'square',f(72));return .28;
+    case'strip_trap_break':noise(context,destination,noiseBuffer,now,.13,.5,6200,900);tone(context,destination,f(520),now,.12,.25,'square',f(160));return .20;
+    case'werewolf_altar_wake':chord(context,destination,[f(72),f(108),f(144)],now,.75,.55,'sawtooth');tone(context,destination,f(340),now+.18,.55,.3,'sine',f(90));return .9;
+    case'werewolf_transform':noise(context,destination,noiseBuffer,now,.38,.72,1800,50);tone(context,destination,f(180),now,.65,.65,'sawtooth',f(48));return .74;
+    case'werewolf_claw':noise(context,destination,noiseBuffer,now,.12,.54,5200,700);tone(context,destination,f(160),now,.16,.32,'sawtooth',f(70));return .22;
+    case'supply_incoming':tone(context,destination,f(520),now,.18,.5,'sine',f(780));tone(context,destination,f(660),now+.2,.22,.5,'sine',f(920));return .46;
+    case'supply_land':noise(context,destination,noiseBuffer,now,.42,.82,1800,24);tone(context,destination,f(92),now,.4,.65,'sawtooth',f(42));return .52;
+    case'supply_open':tone(context,destination,f(330),now,.10,.38,'square',f(430));tone(context,destination,f(520),now+.08,.14,.42,'sine',f(720));return .30;
     case'water_enter':noise(context,destination,noiseBuffer,now,.22,.38,4200,150);tone(context,destination,f(150),now,.16,.2,'sine',f(82));return .28;
     case'water_exit':noise(context,destination,noiseBuffer,now,.16,.3,3600,180);tone(context,destination,f(190),now,.12,.16,'sine',f(260));return .22;
     case'water_steam':noise(context,destination,noiseBuffer,now,.3,.35,7200,1200);return .35;
