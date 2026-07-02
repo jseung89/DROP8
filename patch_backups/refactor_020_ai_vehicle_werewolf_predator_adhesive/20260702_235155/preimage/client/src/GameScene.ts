@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_020_WEREWOLF_PREDATOR_ADHESIVE_BALANCE
 // DROP8_REFACTOR_019_AI_HUMANIZATION
 // DROP8_REFACTOR_018_WEREWOLF_SEASON
 // DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
@@ -12,7 +11,7 @@ import Phaser from 'phaser';
 import {
 // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
   AI_DIALOGUE_LINES, BUSH_HIDE_DISTANCE, LOOT_COLORS, LOOT_LABELS, MELEE_WEAPONS, THROWABLE_CONFIGS, THROWABLE_MAX_CHARGE_MS, MOTORCYCLE_BALANCE, MOTORCYCLE_DESTRUCTION_BALANCE, MOTORCYCLE_DIRECT_ACCELERATION, MOTORCYCLE_DIRECT_DECELERATION, MOTORCYCLE_LAUNCH_SPEED, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_MOUNT_DISTANCE, MOTORCYCLE_RADIUS, MOTORCYCLE_ROTATION_RESPONSE, MOTORCYCLE_MAX_TURN_RATE, MOTORCYCLE_SCOPE_SPEED_RATIO, PLAYER_BODY_RADIUS, PLAYER_HIT_RADIUS, PLAYER_SEPARATION_RADIUS, PLAYER_SPEED, SNIPER_SCOPE_MOVE_MULTIPLIER,
-  REGION_THEMES, RENDER_DEPTH, WEAPONS, WEREWOLF_BALANCE, adhesivePlayerSpeedMultiplier, werewolfSpeed, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_FEATHER, angleAwarePortalPolygon, buildingIdAt, buildingSpacesInteractable, buildingZoneById, buildingZonesAt, circleHitsRect, clamp, createThrowableMotion, crossSpaceOpening, distance, doorPortalOpening, findPortalVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, isThrowableType, motorcycleSpreadRadians, normalizeAimVector, predictThrowableTrajectory, normalizeMovementInput, pointInDirectionalScope, regionAt, segmentClearOfRects, selectActivePortal, smokeVisibilityBetween, spaceAt, spaceInteractionAllowed, traceSpaceVisibility, movementMultiplierAt, terrainAt, SWIM_SPEED, soundOcclusionBetween, targetVisibilitySamples, throwableEffectRadius,
+  REGION_THEMES, RENDER_DEPTH, WEAPONS, WEREWOLF_BALANCE, werewolfSpeed, PORTAL_SELECTION_BALANCE, WINDOW_PORTAL_FEATHER, angleAwarePortalPolygon, buildingIdAt, buildingSpacesInteractable, buildingZoneById, buildingZonesAt, circleHitsRect, clamp, createThrowableMotion, crossSpaceOpening, distance, doorPortalOpening, findPortalVaultCandidate, getMapConfig, motorcycleDirectionRetention, motorcycleSpeedMultiplier, isThrowableType, motorcycleSpreadRadians, normalizeAimVector, predictThrowableTrajectory, normalizeMovementInput, pointInDirectionalScope, regionAt, segmentClearOfRects, selectActivePortal, smokeVisibilityBetween, spaceAt, spaceInteractionAllowed, traceSpaceVisibility, movementMultiplierAt, terrainAt, SWIM_SPEED, soundOcclusionBetween, targetVisibilitySamples, throwableEffectRadius,
   type DecorKind, type EquippedId, type LootKind, type MapConfig, type MapId, type WeaponId, type MeleeId, type ThrowableType, type WindowOpening
 } from '@drop8/shared';
 import type { Network } from './network';
@@ -1417,7 +1416,7 @@ export class GameScene extends Phaser.Scene {
     const multiplier=me.isSwimming?1:(ranged?.moveMultiplier??melee?.moveMultiplier??1)*aimingPenalty;
     const terrain=movementMultiplierAt(this.predictedLocal.x,this.predictedLocal.y,this.mapConfig.shallowWaterZones,this.mapConfig.landCrossings);
     const wolf=me.werewolf??{};
-    const serverNow=Number(this.net.snapshot?.serverTime??0),playerMovementSlowed=serverNow<Number(wolf.silverSlowUntil??0),adhesiveMultiplier=adhesivePlayerSpeedMultiplier(Number(wolf.adhesiveSlowStage??0),serverNow,Number(wolf.adhesiveSlowUntil??0),Number(wolf.adhesiveRecoveryUntil??0));const baseSpeed=wolf.transformed?werewolfSpeed(MOTORCYCLE_MAX_SPEED,Boolean(wolf.sprinting),Boolean(me.insideBuilding),playerMovementSlowed,adhesiveMultiplier):(me.isSwimming?SWIM_SPEED:PLAYER_SPEED)*multiplier*terrain*(playerMovementSlowed ? .6 : 1)*adhesiveMultiplier;
+    const playerMovementSlowed=Number(this.net.snapshot?.serverTime??0)<Number(wolf.silverSlowUntil??0);const baseSpeed=wolf.transformed?werewolfSpeed(MOTORCYCLE_MAX_SPEED,Boolean(wolf.sprinting),Boolean(me.insideBuilding),playerMovementSlowed):(me.isSwimming?SWIM_SPEED:PLAYER_SPEED)*multiplier*terrain*(playerMovementSlowed ? .6 : 1);
     const safeDt=Math.min(.04,Math.max(0,dt));
     let moveX=x,moveY=y;
     if(wolf.transformed){
@@ -1501,7 +1500,6 @@ export class GameScene extends Phaser.Scene {
       if(wolfPrevious===undefined)this.lastAttackSeq.set(p.id,wolfAttackSeq);
       else if(wolfPrevious!==wolfAttackSeq){this.lastAttackSeq.set(p.id,wolfAttackSeq);this.attackStartedAt.set(p.id,time);}
       const wolfAttackStarted=this.attackStartedAt.get(p.id)??-999,wolfAttackProgress=Math.max(0,Math.min(1,(time-wolfAttackStarted)/260)),wolfAttackActive=wolfAttackProgress<1,wolfAttackPulse=wolfAttackActive?Math.sin(wolfAttackProgress*Math.PI):0,wolfAttackSide=wolfAttackSeq%2===0?1:-1,wolfWindup=wolfAttackActive?Math.min(1,wolfAttackProgress/.28):0,wolfSweepT=wolfAttackActive?Math.max(0,Math.min(1,(wolfAttackProgress-.22)/.58)):0,wolfRecover=wolfAttackActive?Math.max(0,1-Math.max(0,(wolfAttackProgress-.8)/.2)):0;
-      const auraPulse=.5+.5*Math.sin(time*.009+Number(p.x||0)*.004);g.fillStyle(0x6d1522,.10*alpha).fillCircle(x,y,WEREWOLF_BALANCE.auraRadius*(.92+auraPulse*.08));g.lineStyle(4,0xff5c45,(.28+auraPulse*.24)*alpha).strokeCircle(x,y,WEREWOLF_BALANCE.auraRadius*(.92+auraPulse*.08));
       g.fillStyle(0x08090c,.25*alpha).fillEllipse(x,y+25,56+pulse*2,22);
       g.fillStyle(0x242832,.98*alpha).fillEllipse(x,y,44,50);
       g.fillStyle(0x303640,.98*alpha).fillCircle(x+fx*13,y+fy*13,20);
@@ -1512,7 +1510,6 @@ export class GameScene extends Phaser.Scene {
       for(const side of [-1,1]){const striking=side===wolfAttackSide,restSide=side*24,attackSide=wolfAttackSide*(32-64*wolfSweepT),handSide=striking?attackSide*wolfRecover+restSide*(1-wolfRecover):restSide,handForward=34+pulse+(striking?15*wolfWindup*wolfRecover:0),hx=x+fx*10+sx*side*18,hy=y+fy*10+sy*side*18,ex=x+fx*handForward+sx*handSide,ey=y+fy*handForward+sy*handSide;g.lineStyle(8,0x303640,.95*alpha).lineBetween(hx,hy,ex,ey);for(let claw=-1;claw<=1;claw++)g.lineStyle(2,0xe2e5e8,.8*alpha).lineBetween(ex,ey,ex+fx*10+sx*claw*3,ey+fy*10+sy*claw*3);}
       if(wolfAttackActive&&wolfSweepT>0){const slashStartSide=wolfAttackSide*38,slashEndSide=wolfAttackSide*(38-76*wolfSweepT),slashAlpha=Math.sin(Math.min(1,wolfSweepT)*Math.PI);for(let claw=-1;claw<=1;claw++){const slashForward=53+claw*7,startX=x+fx*slashForward+sx*(slashStartSide+claw*2),startY=y+fy*slashForward+sy*(slashStartSide+claw*2),endX=x+fx*slashForward+sx*(slashEndSide+claw*2),endY=y+fy*slashForward+sy*(slashEndSide+claw*2);g.lineStyle(14,0x7b1625,.22*slashAlpha*alpha).lineBetween(startX,startY,endX,endY);g.lineStyle(6,0xffd7dc,(.4+.55*slashAlpha)*alpha).lineBetween(startX,startY,endX,endY);}}
       if(p.werewolf.silverSlowUntil>Number(this.net.snapshot?.serverTime??0))g.lineStyle(4,0xd8edf7,.7*alpha).strokeCircle(x,y,32+2*Math.sin(time*.01));
-      const wolfAdhesiveStage=Number(p.werewolf.adhesiveSlowStage??0);if(wolfAdhesiveStage>0&&Number(p.werewolf.adhesiveRecoveryUntil??0)>Number(this.net.snapshot?.serverTime??0)){g.lineStyle(3+wolfAdhesiveStage,0xdde1e3,.72*alpha).strokeEllipse(x,y+8,52+wolfAdhesiveStage*6,34+wolfAdhesiveStage*4);}
       if(p.inBush)g.lineStyle(3,p.bushRevealed?0xffd45a:0x7ddf7f,(p.id===this.net.sessionId ? .88 : .45)*alpha).strokeCircle(x,y,30);
       if(hitPulse>0)g.lineStyle(4,0xff4c57,hitPulse*alpha).strokeCircle(x,y,34+8*(1-hitPulse));
       g.fillStyle(p.hp>40?0x55dd8c:0xff5f67,alpha).fillRect(x-25,y-42,50*Math.max(0,p.hp)/100,5);
@@ -1520,8 +1517,8 @@ export class GameScene extends Phaser.Scene {
     }
     const concealAlpha=p.inBush&&!p.bushRevealed&&p.id!==this.net.sessionId ? .72 : 1;
     g.fillStyle(bodyColor,concealAlpha*alpha).fillCircle(x,y,20*scale);
-    const adhesiveStage=Number(p.werewolf?.adhesiveSlowStage??0),adhesiveSlowActive=adhesiveStage>0&&Number(p.werewolf?.adhesiveRecoveryUntil??0)>Number(this.net.snapshot?.serverTime??0);
-    if(adhesiveSlowActive){const adhesivePulse=.5+.18*Math.sin(time*.012+Number(p.x||0)*.01),blobCount=4+adhesiveStage*3;g.lineStyle(3+adhesiveStage,0xdde1e3,(.48+adhesivePulse*.28)*alpha).strokeEllipse(x,y+9,(46+adhesiveStage*5)*scale,(29+adhesiveStage*3)*scale);for(let i=0;i<blobCount;i++){const a=i/blobCount*Math.PI*2+time*.0014,r=17+(i%2)*5;g.fillStyle(0xcbd1d6,(.28+adhesivePulse*.3)*alpha).fillCircle(x+Math.cos(a)*r,y+9+Math.sin(a)*r*.55,3+(i%3));}}
+    const adhesiveSlowActive=Number(p.werewolf?.silverSlowUntil??0)>Number(this.net.snapshot?.serverTime??0);
+    if(adhesiveSlowActive){const adhesivePulse=.5+.18*Math.sin(time*.012+Number(p.x||0)*.01);g.lineStyle(4,0xdde1e3,(.48+adhesivePulse*.28)*alpha).strokeEllipse(x,y+9,50*scale,32*scale);for(let i=0;i<7;i++){const a=i/7*Math.PI*2+time*.0014,r=17+(i%2)*5;g.fillStyle(0xcbd1d6,(.28+adhesivePulse*.3)*alpha).fillCircle(x+Math.cos(a)*r,y+9+Math.sin(a)*r*.55,3+(i%3));}}
     if(p.inBush)g.lineStyle(3,p.bushRevealed?0xffd45a:0x7ddf7f,(p.id===this.net.sessionId ? .88 : .45)*alpha).strokeCircle(x,y,25*scale);
     if(hitPulse>0)g.lineStyle(4,0xff4c57,hitPulse*alpha).strokeCircle(x,y,27+8*(1-hitPulse));
     g.lineStyle(4,0xffffff,(p.id===this.net.sessionId?1:.38)*alpha).strokeCircle(x,y,20*scale);

@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_020_WEREWOLF_PREDATOR_ADHESIVE_BALANCE
 // DROP8_REFACTOR_018_WEREWOLF_SEASON
 // DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
 // DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
@@ -25,9 +24,6 @@ export class WerewolfPlayerState extends Schema {
   @type('boolean') sprinting=false;
   @type('number') sprintRechargeAt=0;
   @type('number') silverSlowUntil=0;
-  @type('number') adhesiveSlowStage=0;
-  @type('number') adhesiveSlowUntil=0;
-  @type('number') adhesiveRecoveryUntil=0;
   @type('number') actionLockedUntil=0;
   @type('number') attackRecoveryUntil=0;
   @type('number') huntDismountImmuneUntil=0;

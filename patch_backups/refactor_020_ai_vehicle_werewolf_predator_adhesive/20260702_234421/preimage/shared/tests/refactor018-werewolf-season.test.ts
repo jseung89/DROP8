@@ -5,21 +5,16 @@ import { MOTORCYCLE_MAX_SPEED, SILVER_CROSSBOW_BALANCE, WEREWOLF_BALANCE, WEAPON
 describe('Refactor 018 werewolf season rules',()=>{
   it('derives werewolf pursuit speed without changing motorcycle balance',()=>{
     expect(MOTORCYCLE_MAX_SPEED).toBe(481);
-    expect(werewolfSpeed(MOTORCYCLE_MAX_SPEED,false,false,false)).toBeCloseTo(567.58,5);
-    expect(werewolfSpeed(MOTORCYCLE_MAX_SPEED,true,false,false)).toBeCloseTo(745.55,5);
+    expect(werewolfSpeed(MOTORCYCLE_MAX_SPEED,false,false,false)).toBeCloseTo(529.1,5);
+    expect(werewolfSpeed(MOTORCYCLE_MAX_SPEED,true,false,false)).toBeCloseTo(673.4,5);
     expect(werewolfSpeed(MOTORCYCLE_MAX_SPEED,true,true,false)).toBe(WEREWOLF_BALANCE.indoorSpeedCap);
-    expect(werewolfSpeed(MOTORCYCLE_MAX_SPEED,true,false,true)).toBeCloseTo(410.0525,4);
-    expect(werewolfSpeed(MOTORCYCLE_MAX_SPEED,true,false,false,.38)).toBeCloseTo(283.309,4);
+    expect(werewolfSpeed(MOTORCYCLE_MAX_SPEED,true,false,true)).toBeCloseTo(370.37,4);
   });
   it('keeps the three-claw, bazooka survival and silver shotgun pellet rules',()=>{
     expect(WEREWOLF_BALANCE.clawDamage*3).toBeGreaterThanOrEqual(100);
-    expect(werewolfDamage(112,'explosion')).toBeCloseTo(39.2,5);
-    expect(werewolfDamage(18,'bullet')).toBeCloseTo(3.6,5);
+    expect(werewolfDamage(112,'explosion')).toBeCloseTo(44.8,5);
+    expect(werewolfDamage(18,'bullet')).toBeCloseTo(4.5,5);
     expect(werewolfDamage(45,'other')).toBeCloseTo(9,5);
-    expect(werewolfDamage(45,'melee')).toBeCloseTo(8.1,5);
-    expect(werewolfDamage(45,'fire')).toBeCloseTo(9.9,5);
-    expect(werewolfDamage(45,'vehicle')).toBeCloseTo(11.25,5);
-    expect(werewolfDamage(12,'zone')).toBe(12);
     expect(werewolfDamage(999,'silver')).toBe(20);
   });
   it('defines an independent crossbow and limited silver ammunition',()=>{

@@ -1,6 +1,6 @@
 // DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
 import { describe, expect, it } from 'vitest';
-import { ADHESIVE_PLAYER_BALANCE, ADHESIVE_SPRAYER_BALANCE, STRIP_TRAP_VEHICLE_PROFILE, adhesivePlayerHoldSeconds, adhesivePlayerSpeedMultiplier, adhesivePlayerStage, aggregateVehicleSlowEffects, coneContains, normalizeAmmoType, type VehicleSlowEffect } from '../src/index.js';
+import { ADHESIVE_SPRAYER_BALANCE, STRIP_TRAP_VEHICLE_PROFILE, aggregateVehicleSlowEffects, coneContains, normalizeAmmoType, type VehicleSlowEffect } from '../src/index.js';
 
 function effect(kind:'adhesive'|'strip_trap',expiresAt:number):VehicleSlowEffect{
   const profile=kind==='adhesive'?ADHESIVE_SPRAYER_BALANCE.motorcycle:STRIP_TRAP_VEHICLE_PROFILE.motorcycle;
@@ -19,20 +19,6 @@ describe('Refactor 017 adhesive and vehicle status rules',()=>{
 
   it('drops expired effects and restores exact neutral multipliers',()=>{
     expect(aggregateVehicleSlowEffects([effect('adhesive',1)],2)).toEqual({kind:'',speedMultiplier:1,accelerationMultiplier:1,steeringMultiplier:1,expiresAt:0});
-  });
-
-
-  it('builds three player slow stages and recovers gradually after spraying stops',()=>{
-    expect(adhesivePlayerStage(.1)).toBe(1);
-    expect(adhesivePlayerStage(.5)).toBe(2);
-    expect(adhesivePlayerStage(1.1)).toBe(3);
-    expect(adhesivePlayerHoldSeconds(3)).toBe(4.5);
-    const active=adhesivePlayerSpeedMultiplier(3,4,5,8);
-    const recovering=adhesivePlayerSpeedMultiplier(3,6.5,5,8);
-    expect(active).toBe(ADHESIVE_PLAYER_BALANCE.stage3SpeedMultiplier);
-    expect(recovering).toBeGreaterThan(active);
-    expect(recovering).toBeLessThan(1);
-    expect(adhesivePlayerSpeedMultiplier(3,8,5,8)).toBe(1);
   });
 
   it('normalizes adhesive charge aliases without changing existing ammunition mappings',()=>{

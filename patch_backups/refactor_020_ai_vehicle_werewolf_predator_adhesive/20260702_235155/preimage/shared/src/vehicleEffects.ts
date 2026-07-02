@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_020_WEREWOLF_PREDATOR_ADHESIVE_BALANCE
 // DROP8_REFACTOR_018_WEREWOLF_SEASON
 // DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
 export type VehicleSlowKind='adhesive'|'strip_trap'|'werewolf_hunt';
@@ -30,51 +29,17 @@ export const ADHESIVE_SPRAYER_BALANCE={
   range:315,
   halfAngleRadians:21*Math.PI/180,
   tickSeconds:.10,
-  exposureThresholdSeconds:.25,
-  exposureBreakSeconds:.35,
+  exposureThresholdSeconds:.35,
+  exposureBreakSeconds:.20,
   magazine:80,
   chargePerTick:1,
   chargePickupAmount:40,
   maxChargeReserve:160,
   visualDurationSeconds:.18,
   muzzleOffset:34,
-  motorcycle:{speedMultiplier:.45,accelerationMultiplier:.30,steeringMultiplier:.65,durationSeconds:5,maxDurationSeconds:7},
-  otherVehicle:{speedMultiplier:.65,accelerationMultiplier:.50,steeringMultiplier:.82,durationSeconds:4,maxDurationSeconds:6},
+  motorcycle:{speedMultiplier:.55,accelerationMultiplier:.40,steeringMultiplier:.75,durationSeconds:4,maxDurationSeconds:6},
+  otherVehicle:{speedMultiplier:.75,accelerationMultiplier:.65,steeringMultiplier:.90,durationSeconds:3,maxDurationSeconds:4.5},
 } as const;
-
-
-export const ADHESIVE_PLAYER_BALANCE={
-  exposureBreakSeconds:.35,
-  stage2ExposureSeconds:.45,
-  stage3ExposureSeconds:1.0,
-  stage1SpeedMultiplier:.72,
-  stage2SpeedMultiplier:.55,
-  stage3SpeedMultiplier:.38,
-  stage1HoldSeconds:2.5,
-  stage2HoldSeconds:3.5,
-  stage3HoldSeconds:4.5,
-  recoverySeconds:3,
-} as const;
-
-export function adhesivePlayerStage(exposureSeconds:number){
-  if(exposureSeconds>=ADHESIVE_PLAYER_BALANCE.stage3ExposureSeconds)return 3;
-  if(exposureSeconds>=ADHESIVE_PLAYER_BALANCE.stage2ExposureSeconds)return 2;
-  return exposureSeconds>0?1:0;
-}
-
-export function adhesivePlayerHoldSeconds(stage:number){
-  if(stage>=3)return ADHESIVE_PLAYER_BALANCE.stage3HoldSeconds;
-  if(stage===2)return ADHESIVE_PLAYER_BALANCE.stage2HoldSeconds;
-  return stage===1?ADHESIVE_PLAYER_BALANCE.stage1HoldSeconds:0;
-}
-
-export function adhesivePlayerSpeedMultiplier(stage:number,now:number,slowUntil:number,recoveryUntil:number){
-  if(stage<=0||now>=recoveryUntil)return 1;
-  const base=stage>=3?ADHESIVE_PLAYER_BALANCE.stage3SpeedMultiplier:stage===2?ADHESIVE_PLAYER_BALANCE.stage2SpeedMultiplier:ADHESIVE_PLAYER_BALANCE.stage1SpeedMultiplier;
-  if(now<=slowUntil)return base;
-  const span=Math.max(.001,recoveryUntil-slowUntil),progress=Math.max(0,Math.min(1,(now-slowUntil)/span));
-  return base+(1-base)*progress;
-}
 
 export const STRIP_TRAP_VEHICLE_PROFILE={
   motorcycle:{speedMultiplier:.38,accelerationMultiplier:.28,steeringMultiplier:.60,durationSeconds:5.5},

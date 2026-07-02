@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_020_WEREWOLF_PREDATOR_ADHESIVE_BALANCE
 // DROP8_REFACTOR_018_WEREWOLF_SEASON
 import type { MapConfig, MapId, Rect } from './index.js';
 
@@ -10,10 +9,9 @@ export type SeasonPoint={x:number;y:number};
 export const WEREWOLF_BALANCE={
   altarWakeSeconds:15,ritualSeconds:3,ritualRadius:86,ritualMoveTolerance:10,
   curseUseSeconds:30,curseMinimumTransferSeconds:10,transformPrepareSeconds:1.2,transformDurationSeconds:30,
-  baseSpeedMultiplier:1.18,sprintSpeedMultiplier:1.55,indoorSpeedCap:440,sprintSeconds:4.5,sprintRechargeSeconds:4.4,sprintRechargeDelaySeconds:.55,sprintSteeringMultiplier:.86,
+  baseSpeedMultiplier:1.10,sprintSpeedMultiplier:1.40,indoorSpeedCap:410,sprintSeconds:4,sprintRechargeSeconds:5,sprintRechargeDelaySeconds:.6,sprintSteeringMultiplier:.80,
   clawDamage:34,clawCooldownSeconds:.65,clawRange:92,clawHalfAngleRadians:50*Math.PI/180,
-  bulletDamageMultiplier:.20,explosionDamageMultiplier:.35,meleeDamageMultiplier:.18,fireDamageMultiplier:.22,vehicleDamageMultiplier:.25,otherDamageMultiplier:.20,explosionKnockbackMultiplier:.50,
-  auraRadius:60,auraTickSeconds:.40,auraDamage:3,auraVehicleDamage:2,auraDismountSeconds:.80,auraDismountImmunitySeconds:2,
+  bulletDamageMultiplier:.25,explosionDamageMultiplier:.40,otherDamageMultiplier:.20,explosionKnockbackMultiplier:.50,
   huntVehicleDamage:8,huntMarkSeconds:2.5,huntDismountImmunitySeconds:2,huntDriverLockSeconds:.6,huntAttackRecoverySeconds:.4,
   silverBoltDamage:20,silverBoltHumanDamage:14,silverSlowSeconds:2.5,silverSlowMultiplier:.55,
   rechargeSeconds:10,initialSilverBolts:6,rechargeSilverBolts:3,maxWorldSilverBolts:12,
@@ -60,20 +58,14 @@ export function chooseWerewolfSeasonPoints(mapId:MapId,random:()=>number,valid:(
   return{altar,armory};
 }
 
-export function werewolfSpeed(baseMotorcycleSpeed:number,sprinting:boolean,indoors:boolean,silverSlowed:boolean,adhesiveMultiplier=1){
-  const raw=baseMotorcycleSpeed*(sprinting?WEREWOLF_BALANCE.sprintSpeedMultiplier:WEREWOLF_BALANCE.baseSpeedMultiplier)*(silverSlowed?WEREWOLF_BALANCE.silverSlowMultiplier:1)*Math.max(.25,Math.min(1,adhesiveMultiplier));
+export function werewolfSpeed(baseMotorcycleSpeed:number,sprinting:boolean,indoors:boolean,silverSlowed:boolean){
+  const raw=baseMotorcycleSpeed*(sprinting?WEREWOLF_BALANCE.sprintSpeedMultiplier:WEREWOLF_BALANCE.baseSpeedMultiplier)*(silverSlowed?WEREWOLF_BALANCE.silverSlowMultiplier:1);
   return indoors?Math.min(WEREWOLF_BALANCE.indoorSpeedCap,raw):raw;
 }
 
-export type WerewolfDamageKind='bullet'|'explosion'|'silver'|'melee'|'fire'|'vehicle'|'zone'|'other';
-
-export function werewolfDamage(amount:number,kind:WerewolfDamageKind){
+export function werewolfDamage(amount:number,kind:'bullet'|'explosion'|'silver'|'other'){
   if(kind==='silver')return WEREWOLF_BALANCE.silverBoltDamage;
-  if(kind==='zone')return amount;
   if(kind==='bullet')return amount*WEREWOLF_BALANCE.bulletDamageMultiplier;
   if(kind==='explosion')return amount*WEREWOLF_BALANCE.explosionDamageMultiplier;
-  if(kind==='melee')return amount*WEREWOLF_BALANCE.meleeDamageMultiplier;
-  if(kind==='fire')return amount*WEREWOLF_BALANCE.fireDamageMultiplier;
-  if(kind==='vehicle')return amount*WEREWOLF_BALANCE.vehicleDamageMultiplier;
   return amount*WEREWOLF_BALANCE.otherDamageMultiplier;
 }

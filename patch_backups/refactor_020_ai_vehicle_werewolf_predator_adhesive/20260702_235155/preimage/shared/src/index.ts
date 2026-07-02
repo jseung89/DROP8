@@ -11,7 +11,7 @@ import { DOCK8_AI_MACRO_EDGES, DOCK8_AI_MACRO_NODES, DOCK8_BUILDINGS, DOCK8_CROS
 import { LARGE_CUSTOM_ROOMS, LARGE_INTERNAL_PORTALS, LARGE_INTERNAL_WALLS } from './maps/large.js';
 import { SWIM_ENTER_MARGIN, SWIM_EXIT_MARGIN, SWIM_SPEED, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt } from './maps/water.js';
 import type { AiMacroEdge, AiMacroNode, LandCrossing, LootAnchor, MapId, RiverBand, RoomZone, ShoreExit, SpaceDescriptor, SpacePortal, SpaceVisibilityTrace, TerrainKind, WaterZone } from './maps/types.js';
-export { ADHESIVE_PLAYER_BALANCE, ADHESIVE_SPRAYER_BALANCE, STRIP_TRAP_VEHICLE_PROFILE, WEREWOLF_HUNT_VEHICLE_PROFILE, VEHICLE_MIN_SPEED_MULTIPLIER, adhesivePlayerHoldSeconds, adhesivePlayerSpeedMultiplier, adhesivePlayerStage, aggregateVehicleSlowEffects, coneContains } from './vehicleEffects.js';
+export { ADHESIVE_SPRAYER_BALANCE, STRIP_TRAP_VEHICLE_PROFILE, WEREWOLF_HUNT_VEHICLE_PROFILE, VEHICLE_MIN_SPEED_MULTIPLIER, aggregateVehicleSlowEffects, coneContains } from './vehicleEffects.js';
 export type { VehicleSlowAggregate, VehicleSlowEffect, VehicleSlowKind, VehicleSlowProfile } from './vehicleEffects.js';
 export { STRIP_TRAP_BALANCE, circleHitsStripTrap, pointSegmentDistanceSquared, stripTrapEndpoints, stripTrapsOverlap } from './stripTrap.js';
 export type { StripTrapGeometry } from './stripTrap.js';

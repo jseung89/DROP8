@@ -1,0 +1,55 @@
+{
+  "patchId": "DROP8 Refactor 020 AI Vehicle Supply Werewolf Objective FIXED v1",
+  "patchFile": "DROP8_refactor_020_ai_vehicle_supply_werewolf_objective_patch_FIXED_v1.ts",
+  "createdAt": "2026-07-02T08:34:22.273Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "684e5458867ec00ef5d1ae15db947ec42064cef7fdd8cb05e4e4b074e903e903",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor020-ai-vehicle-objective.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "7f31b81a5971e4896fb5f4fb35145c66e4dca775d9f7bfca92b9643f2666ab9d",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/tests/refactor020-ai-vehicle-objective.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ],
+  "protectedSnapshot": {
+    "aiNames": "const AI_NAMES=['준희커','대성(빅뱅)','양정횬','페이커','케리아','윤석10','손흥민'];",
+    "shotgun": "shotgun:{ id:'shotgun', name:'샷건', damage:15, fireInterval:.72, magazine:5, reloadSeconds:2.0, spread:.18, projectileSpeed:860, range:440, pellets:8, moveMultiplier:.96, ammoType:'shotgun_ammo', slot:'primary' },",
+    "flamethrower": "flamethrower:{ id:'flamethrower', name:'화염방사기', damage:9, fireInterval:.10, magazine:100, reloadSeconds:4.5, spread:0, projectileSpeed:1, range:420, pellets:1, moveMultiplier:.88, ammoType:'fuel_ammo', slot:'primary' },",
+    "bazooka": "bazooka:{ id:'bazooka', name:'바주카포', damage:0, fireInterval:1.65, magazine:1, reloadSeconds:4.2, spread:.012, projectileSpeed:900, range:1250, pellets:1, moveMultiplier:.78, ammoType:'rocket_ammo', slot:'primary' },",
+    "silverCrossbow": "silver_crossbow:{ id:'silver_crossbow', name:'은화살 쇠뇌', damage:14, fireInterval:.42, magazine:4, reloadSeconds:1.35, spread:.16, projectileSpeed:2100, range:1050, pellets:5, moveMultiplier:.96, ammoType:'silver_bolt', slot:'primary' }",
+    "werewolfDefense": "bulletDamageMultiplier:.25,explosionDamageMultiplier:.40,otherDamageMultiplier:.20,explosionKnockbackMultiplier:.50,",
+    "aiMarkers": "// DROP8_REFACTOR_019_AI_HUMANIZATION | // DROP8_AI_PATROL_STABILITY_HOTFIX | // DROP8_AI_LARGE_BUILDING_PERIMETER_HOTFIX"
+  }
+}

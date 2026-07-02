@@ -1,5 +1,3 @@
-// DROP8_REFACTOR_020_WEREWOLF_PREDATOR_ADHESIVE_BALANCE
-// DROP8_REFACTOR_020_AI_VEHICLE_OBJECTIVE_RIVALRY
 // DROP8_REFACTOR_019_AI_HUMANIZATION
 // DROP8_AI_PATROL_STABILITY_HOTFIX
 // DROP8_AI_LARGE_BUILDING_PERIMETER_HOTFIX
@@ -15,7 +13,6 @@ import { Client, CloseCode, Room } from '@colyseus/core';
 import { AdhesiveJetState, BulletState, Drop8State, ExplosionState, FireFieldState, FlameJetState, LootState, MotorcycleState, PlayerState, RocketState, SmokeFieldState, StripTrapState, SupplyDropState, TacticalInventoryState, ThrownObjectState } from './schema.js';
 import {
 // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
-  ADHESIVE_PLAYER_BALANCE,
   ADHESIVE_SPRAYER_BALANCE,
   AI_DIALOGUE_LINES,
   AI_HUMANIZATION,
@@ -68,9 +65,6 @@ import {
   SERVER_TICK_RATE,
   SNIPER_SCOPE_MOVE_MULTIPLIER,
   WEAPONS,
-  adhesivePlayerHoldSeconds,
-  adhesivePlayerSpeedMultiplier,
-  adhesivePlayerStage,
   adjustedLootTableForMap,
   chooseWerewolfSeasonPoints,
   bazookaPlayerDamage,
@@ -164,25 +158,6 @@ type Point = { x:number; y:number };
 type AiRoutePoint = Point & { kind?:'window'; windowId?:string; targetX?:number; targetY?:number; targetBuildingId?:string; targetRoomIndex?:number };
 type AiRouteEdge = { to:number; cost:number; kind:'move'|'window'; windowId?:string; targetBuildingId?:string; targetRoomIndex?:number };
 type AiMode = 'move'|'retreat'|'hold';
-type AiObjectiveKind='loot'|'supply'|'altar'|'zone'|'patrol';
-type AiVehiclePhase='seek'|'drive'|'walk'|'return'|'ritual';
-type AiWorldObjective={kind:'supply'|'altar';id:string;x:number;y:number;expiresAt:number};
-type AiVehiclePlan={
-  vehicleId:string;
-  preferredVehicleId:string;
-  phase:AiVehiclePhase;
-  objectiveKind:AiObjectiveKind;
-  objectiveId:string;
-  targetX:number;
-  targetY:number;
-  startedAt:number;
-  expiresAt:number;
-  avoidSign:number;
-  stuckFor:number;
-  reverseUntil:number;
-  lastX:number;
-  lastY:number;
-};
 type AiIntent = {
   tx:number;
   ty:number;
@@ -216,7 +191,6 @@ type StuckState={lastX:number;lastY:number;movingSince:number;lastRecoveryAt:num
 type VehicleStuckState={lastX:number;lastY:number;stuckFor:number;lastRecoveryAt:number};
 type VehicleMotionState={movementHeldMs:number;previousInputX:number;previousInputY:number;mountedAt:number;directionPenaltyUntil:number};
 type AdhesiveExposure={ownerId:string;accumulated:number;lastHitAt:number};
-type WerewolfAuraContact={startedAt:number;lastAt:number};
 type DamageKind='bullet'|'explosion'|'silver'|'melee'|'fire'|'zone'|'vehicle'|'other';
 type Drop8RoomMetadata={roomCode:string;hostName:string;players:number;humans:number;phase:'LOBBY'|'PLANE'|'DROP'|'ACTIVE'|'FINISHED';fillAi:boolean;publicRoom:boolean;mapSizeMode:MapSizeMode;mapDisplayName:string;createdAt:number;updatedAt:number};
 type VaultJob={startX:number;startY:number;targetX:number;targetY:number;startedAt:number;duration:number;windowId:string;targetBuildingId:string;targetRoomIndex:number;startBuildingId:string;startRoomIndex:number;transitioned:boolean};
@@ -257,9 +231,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private aiGlobalDialogueAt=-99;
   private aiMovementSamples=new Map<string,{x:number;y:number;at:number}>();
   private aiMovementNoiseAt=0;
-  private aiVehiclePlans=new Map<string,AiVehiclePlan>();
-  private aiWorldObjectives=new Map<string,AiWorldObjective>();
-  private aiObjectiveCooldown=new Map<string,number>();
   private aiNoiseSeq=0;
   private lootReservations=new Map<string,LootReservation>();
   private bushRevealUntil=new Map<string,number>();
@@ -304,9 +275,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private supplySeq=0;
   private flameDamageAt=new Map<string,number>();
   private adhesiveExposure=new Map<string,AdhesiveExposure>();
-  private adhesivePlayerExposure=new Map<string,AdhesiveExposure>();
-  private werewolfAuraDamageAt=new Map<string,number>();
-  private werewolfAuraVehicleContact=new Map<string,WerewolfAuraContact>();
   private vehicleStatus=new VehicleStatusManager();
   private throwPrepareAt=new Map<string,number>();
   private nextFireTickAt=0;
@@ -421,9 +389,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.aiProfiles.delete(playerId);
     this.aiMemories.delete(playerId);
     this.aiMovementSamples.delete(playerId);
-    this.aiVehiclePlans.delete(playerId);
-    this.aiWorldObjectives.delete(playerId);
-    this.aiObjectiveCooldown.delete(playerId);
     this.bushRevealUntil.delete(playerId);
     this.knockback.delete(playerId);
     this.chatAt.delete(playerId);
@@ -458,7 +423,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     targetClient.leave(CloseCode.CONSENTED,'kicked');
   }
 
-  onDispose(){for(const p of this.state.players.values())if(p.werewolf.transformed)this.endWerewolfCycle(p,'round_end');this.clearCountermeasureState();this.werewolfMoveVectors.clear();this.aiProfiles.clear();this.aiMemories.clear();this.aiLineCooldown.clear();this.aiMovementSamples.clear();this.aiVehiclePlans.clear();this.aiWorldObjectives.clear();this.aiObjectiveCooldown.clear();void this.presence.del(`drop8:${this.roomId}`);}
+  onDispose(){for(const p of this.state.players.values())if(p.werewolf.transformed)this.endWerewolfCycle(p,'round_end');this.clearCountermeasureState();this.werewolfMoveVectors.clear();this.aiProfiles.clear();this.aiMemories.clear();this.aiLineCooldown.clear();this.aiMovementSamples.clear();void this.presence.del(`drop8:${this.roomId}`);}
 
   private system(text:string){const now=Date.now();this.broadcast('chat',{channel:'system',sender:'시스템',nickname:'시스템',text,time:now,sentAt:now});}
   private emitAudioEvent(type:string,data:Record<string,unknown>={},target?:Client){
@@ -765,9 +730,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.aiGlobalDialogueAt=-99;
     this.aiMovementSamples.clear();
     this.aiMovementNoiseAt=0;
-    this.aiVehiclePlans.clear();
-    this.aiWorldObjectives.clear();
-    this.aiObjectiveCooldown.clear();
     this.lootReservations.clear();
     this.bushRevealUntil.clear();
     this.lastSafePositions.clear();
@@ -797,9 +759,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.knockback.clear();
     this.noises=[];
     this.werewolfMoveVectors.clear();
-    this.adhesivePlayerExposure.clear();
-    this.werewolfAuraDamageAt.clear();
-    this.werewolfAuraVehicleContact.clear();
     const season=this.state.werewolfSeason;season.enabled=false;season.altarPhase='disabled';season.curseOwnerId='';season.werewolfPlayerId='';season.curseDropActive=false;season.armoryActive=false;season.armoryOpened=false;season.disabledForEndgame=false;
     for(const p of this.state.players.values())this.resetWerewolfPlayer(p);
     this.tickSamples=[];
@@ -938,7 +897,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   }
 
   private resetWerewolfPlayer(p:PlayerState){
-    const w=p.werewolf;w.hasCurse=false;w.curseExpiresAt=0;w.ritualizing=false;w.ritualStartedAt=0;w.ritualCompletesAt=0;w.ritualOriginX=0;w.ritualOriginY=0;w.transformPreparing=false;w.transformReadyAt=0;w.transformed=false;w.transformEndsAt=0;w.sprintGauge=1;w.sprinting=false;w.sprintRechargeAt=0;w.silverSlowUntil=0;w.adhesiveSlowStage=0;w.adhesiveSlowUntil=0;w.adhesiveRecoveryUntil=0;w.actionLockedUntil=0;w.attackRecoveryUntil=0;w.huntDismountImmuneUntil=0;
+    const w=p.werewolf;w.hasCurse=false;w.curseExpiresAt=0;w.ritualizing=false;w.ritualStartedAt=0;w.ritualCompletesAt=0;w.ritualOriginX=0;w.ritualOriginY=0;w.transformPreparing=false;w.transformReadyAt=0;w.transformed=false;w.transformEndsAt=0;w.sprintGauge=1;w.sprinting=false;w.sprintRechargeAt=0;w.silverSlowUntil=0;w.actionLockedUntil=0;w.attackRecoveryUntil=0;w.huntDismountImmuneUntil=0;
     this.werewolfMoveVectors.delete(p.id);
   }
 
@@ -1044,50 +1003,12 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       if(w.transformed){
         if(!p.alive){this.endWerewolfCycle(p,'death');continue;}
         if(now>=w.transformEndsAt){this.endWerewolfCycle(p,'expired');continue;}
-        const input=this.inputs.get(p.id);const canSprint=Boolean(input?.huntSprint)&&now>=w.silverSlowUntil&&now>=w.adhesiveSlowUntil&&now>=w.actionLockedUntil&&now>=w.attackRecoveryUntil&&w.sprintGauge>0;
+        const input=this.inputs.get(p.id);const canSprint=Boolean(input?.huntSprint)&&now>=w.silverSlowUntil&&now>=w.actionLockedUntil&&now>=w.attackRecoveryUntil&&w.sprintGauge>0;
         if(canSprint){w.sprinting=true;w.sprintGauge=Math.max(0,w.sprintGauge-dt/WEREWOLF_BALANCE.sprintSeconds);w.sprintRechargeAt=now+WEREWOLF_BALANCE.sprintRechargeDelaySeconds;if(w.sprintGauge<=0)w.sprinting=false;}
         else{w.sprinting=false;if(now>=w.sprintRechargeAt)w.sprintGauge=Math.min(1,w.sprintGauge+dt/WEREWOLF_BALANCE.sprintRechargeSeconds);}
       }
     }
-    this.updateWerewolfAura();
     if(season.curseDropActive){for(const p of this.state.players.values())if(p.alive&&!p.ai&&!p.werewolf.hasCurse&&!p.werewolf.transformed&&distance(p.x,p.y,season.curseDropX,season.curseDropY)<=62){const remaining=season.curseDropRemaining;season.curseDropActive=false;this.grantWerewolfCurse(p,remaining);break;}}
-  }
-
-
-  private updateWerewolfAura(){
-    const now=this.now(),activeContacts=new Set<string>();
-    for(const wolf of this.state.players.values()){
-      if(!wolf.alive||wolf.phase!=='landed'||!wolf.werewolf.transformed)continue;
-      for(const target of this.state.players.values()){
-        if(!target.alive||target.phase!=='landed'||target.id===wolf.id||target.isDriving)continue;
-        if(distance(wolf.x,wolf.y,target.x,target.y)>WEREWOLF_BALANCE.auraRadius+PLAYER_HIT_RADIUS)continue;
-        if(this.firstObstacleHitT(wolf.x,wolf.y,target.x,target.y,2)!==null)continue;
-        const key=`player:${wolf.id}:${target.id}`,last=this.werewolfAuraDamageAt.get(key)??-99;
-        if(now-last<WEREWOLF_BALANCE.auraTickSeconds)continue;
-        this.werewolfAuraDamageAt.set(key,now);
-        this.damage(target,WEREWOLF_BALANCE.auraDamage,wolf.id,'늑대 열기',0,undefined,'fire');
-      }
-      for(const vehicle of this.state.motorcycles.values()){
-        if(vehicle.destroyed||vehicle.exploding||distance(wolf.x,wolf.y,vehicle.x,vehicle.y)>WEREWOLF_BALANCE.auraRadius+MOTORCYCLE_RADIUS)continue;
-        if(this.firstObstacleHitT(wolf.x,wolf.y,vehicle.x,vehicle.y,2)!==null)continue;
-        const contactKey=`vehicle:${wolf.id}:${vehicle.id}`;activeContacts.add(contactKey);
-        const contact=this.werewolfAuraVehicleContact.get(contactKey)??{startedAt:now,lastAt:now};contact.lastAt=now;this.werewolfAuraVehicleContact.set(contactKey,contact);
-        const damageKey=`bike:${wolf.id}:${vehicle.id}`,last=this.werewolfAuraDamageAt.get(damageKey)??-99;
-        if(now-last>=WEREWOLF_BALANCE.auraTickSeconds){this.werewolfAuraDamageAt.set(damageKey,now);this.damageMotorcycle(vehicle,WEREWOLF_BALANCE.auraVehicleDamage,wolf.id,'늑대 열기');}
-        if(vehicle.driverId&&now-contact.startedAt>=WEREWOLF_BALANCE.auraDismountSeconds){
-          const driver=this.state.players.get(vehicle.driverId);
-          if(driver&&now>=driver.werewolf.huntDismountImmuneUntil){
-            this.forceDismountMotorcycle(driver,vehicle);
-            driver.werewolf.actionLockedUntil=Math.max(driver.werewolf.actionLockedUntil,now+.35);
-            driver.werewolf.huntDismountImmuneUntil=now+WEREWOLF_BALANCE.auraDismountImmunitySeconds;
-            this.werewolfAuraVehicleContact.delete(contactKey);
-            if(AI_HUMAN_DEBUG)console.debug('[DROP8 WEREWOLF AURA] dismount',{wolf:wolf.id,driver:driver.id,vehicle:vehicle.id});
-          }
-        }
-      }
-    }
-    for(const [key,contact] of this.werewolfAuraVehicleContact)if(!activeContacts.has(key)&&now-contact.lastAt>WEREWOLF_BALANCE.auraTickSeconds*1.5)this.werewolfAuraVehicleContact.delete(key);
-    for(const [key,last] of this.werewolfAuraDamageAt)if(now-last>2)this.werewolfAuraDamageAt.delete(key);
   }
 
   private werewolfClaw(p:PlayerState){
@@ -1209,17 +1130,8 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       if(target.id===p.id||!target.alive||target.phase!=='landed')continue;
       if(!coneContains(originX,originY,angle,ADHESIVE_SPRAYER_BALANCE.range,ADHESIVE_SPRAYER_BALANCE.halfAngleRadians,target.x,target.y,18))continue;
       if(this.firstObstacleHitT(originX,originY,target.x,target.y,2)!==null)continue;
-      const previous=this.adhesivePlayerExposure.get(target.id);
-      const continuous=Boolean(previous&&previous.ownerId===p.id&&now-previous.lastHitAt<=ADHESIVE_PLAYER_BALANCE.exposureBreakSeconds);
-      const exposure:AdhesiveExposure=continuous?previous!:{ownerId:p.id,accumulated:0,lastHitAt:now};
-      const elapsed=continuous?Math.max(.001,now-exposure.lastHitAt):ADHESIVE_SPRAYER_BALANCE.tickSeconds;
-      exposure.accumulated+=Math.min(ADHESIVE_SPRAYER_BALANCE.tickSeconds*1.5,elapsed);
-      exposure.lastHitAt=now;this.adhesivePlayerExposure.set(target.id,exposure);
-      const stage=adhesivePlayerStage(exposure.accumulated),w=target.werewolf;
-      w.adhesiveSlowStage=Math.max(w.adhesiveSlowStage,stage);
-      w.adhesiveSlowUntil=Math.max(w.adhesiveSlowUntil,now+adhesivePlayerHoldSeconds(w.adhesiveSlowStage));
-      w.adhesiveRecoveryUntil=Math.max(w.adhesiveRecoveryUntil,w.adhesiveSlowUntil+ADHESIVE_PLAYER_BALANCE.recoverySeconds);
-      if(w.transformed){w.sprinting=false;w.sprintRechargeAt=Math.max(w.sprintRechargeAt,now+1.1);}
+      target.werewolf.silverSlowUntil=Math.max(target.werewolf.silverSlowUntil,now+4);
+      if(target.werewolf.transformed){target.werewolf.sprinting=false;target.werewolf.sprintRechargeAt=Math.max(target.werewolf.sprintRechargeAt,now+.9);}
     }
   }
 
@@ -1227,8 +1139,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     const now=this.now();
     for(const [id,jet] of this.state.adhesiveJets)if(now>=jet.expiresAt)this.state.adhesiveJets.delete(id);
     for(const [vehicleId,exposure] of this.adhesiveExposure)if(now-exposure.lastHitAt>ADHESIVE_SPRAYER_BALANCE.exposureBreakSeconds)this.adhesiveExposure.delete(vehicleId);
-    for(const [playerId,exposure] of this.adhesivePlayerExposure)if(now-exposure.lastHitAt>ADHESIVE_PLAYER_BALANCE.exposureBreakSeconds)this.adhesivePlayerExposure.delete(playerId);
-    for(const player of this.state.players.values())if(player.werewolf.adhesiveSlowStage>0&&now>=player.werewolf.adhesiveRecoveryUntil){player.werewolf.adhesiveSlowStage=0;player.werewolf.adhesiveSlowUntil=0;player.werewolf.adhesiveRecoveryUntil=0;}
   }
 
   private applyVehicleSlow(vehicle:MotorcycleState,kind:VehicleSlowKind,sourceId:string,profile:VehicleSlowProfile,maxDurationSeconds?:number){
@@ -2298,8 +2208,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       const equipmentMultiplier=p.isSwimming?1:(ranged?.moveMultiplier??melee?.moveMultiplier??1)*(p.isSniperScoped?SNIPER_SCOPE_MOVE_MULTIPLIER:1);
       const terrainMultiplier=movementMultiplierAt(p.x,p.y,this.map.shallowWaterZones,this.map.landCrossings);
       const movementSlowed=this.now()<p.werewolf.silverSlowUntil;
-      const adhesiveMultiplier=adhesivePlayerSpeedMultiplier(p.werewolf.adhesiveSlowStage,this.now(),p.werewolf.adhesiveSlowUntil,p.werewolf.adhesiveRecoveryUntil);
-      const movementSpeed=p.werewolf.transformed?werewolfSpeed(MOTORCYCLE_MAX_SPEED,p.werewolf.sprinting,p.insideBuilding,movementSlowed,adhesiveMultiplier):(p.isSwimming?SWIM_SPEED:PLAYER_SPEED)*equipmentMultiplier*terrainMultiplier*(movementSlowed?.6:1)*adhesiveMultiplier;
+      const movementSpeed=p.werewolf.transformed?werewolfSpeed(MOTORCYCLE_MAX_SPEED,p.werewolf.sprinting,p.insideBuilding,movementSlowed):(p.isSwimming?SWIM_SPEED:PLAYER_SPEED)*equipmentMultiplier*terrainMultiplier*(movementSlowed?.6:1);
       const rawMagnitude=Math.hypot(input.x,input.y);
       const wantsMove=rawMagnitude>.08;
       let moveX=wantsMove?input.x/Math.max(1,rawMagnitude):0;
@@ -2862,280 +2771,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
 
   private findAiCoverPoint(p:PlayerState,target:PlayerState){let selected:Point|undefined,best=-Infinity;const away=Math.atan2(p.y-target.y,p.x-target.x);for(const radius of [100,150,210])for(let i=-3;i<=3;i++){const angle=away+i*Math.PI/8,x=clamp(p.x+Math.cos(angle)*radius,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS),y=clamp(p.y+Math.sin(angle)*radius,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);if(!this.isPositionFree(x,y)||this.segmentBlocked(p.x,p.y,x,y,PLAYER_BODY_RADIUS))continue;const trace=traceSpaceVisibility({x,y,roomIndex:spaceAt(x,y,this.map.buildingVisibilityZones,this.map.rooms,12).roomIndex},{x:target.x,y:target.y,roomIndex:target.roomIndex},this.map.portals,this.map.visibilityObstacles,3);const blocked=!trace.visible||!visibilitySampleResult(x,y,target.x,target.y,this.map.visibilityObstacles,PLAYER_HIT_RADIUS,2).characterVisible;const score=(blocked?500:0)+distance(x,y,target.x,target.y)*.2-distance(p.x,p.y,x,y);if(score>best){best=score;selected={x,y};}}return selected;}
 
-  private aiObjectiveRoll(id:string,salt:string){
-    let hash=2166136261;
-    for(const char of `${id}:${salt}`){hash^=char.charCodeAt(0);hash=Math.imul(hash,16777619);}
-    return (hash>>>0)/0xffffffff;
-  }
-
-  private setAiNeutralInput(p:PlayerState,moveX=0,moveY=0,angle=p.angle){
-    this.inputs.set(p.id,{x:moveX,y:moveY,aimX:Math.cos(angle),aimY:Math.sin(angle),angle,seq:0,aiming:false,huntSprint:false,accelerate:false,brake:false,turnLeft:false,turnRight:false});
-  }
-
-  private currentAiWorldObjective(p:PlayerState){
-    const objective=this.aiWorldObjectives.get(p.id);
-    if(!objective)return undefined;
-    if(this.now()>=objective.expiresAt){this.aiWorldObjectives.delete(p.id);return undefined;}
-    if(objective.kind==='supply'){
-      const drop=this.state.supplyDrops.get(objective.id);
-      if(!drop?.landed||drop.opened){this.aiWorldObjectives.delete(p.id);return undefined;}
-      objective.x=drop.x;objective.y=drop.y;
-    }else{
-      const season=this.state.werewolfSeason;
-      if(season.altarPhase!=='active'||season.curseOwnerId||season.werewolfPlayerId){this.aiWorldObjectives.delete(p.id);return undefined;}
-      objective.x=season.altarX;objective.y=season.altarY;
-    }
-    return objective;
-  }
-
-  private tryAssignAiWorldObjective(p:PlayerState,intent:AiIntent,profile:AiPersonalityProfile){
-    const now=this.now(),existing=this.currentAiWorldObjective(p);
-    if(existing){
-      p.aiState=existing.kind==='altar'?'SEEK_ALTAR':'SEEK_SUPPLY';
-      intent.state=p.aiState;intent.mode='move';intent.targetId='';intent.lootId='';
-      if(intent.route.length===0||distance(intent.routeGoalX,intent.routeGoalY,existing.x,existing.y)>90)this.setAiDestination(p,intent,existing.x,existing.y);
-      return true;
-    }
-    if(now<(this.aiObjectiveCooldown.get(p.id)??0)||p.hp<42||p.werewolf.hasCurse||p.werewolf.transformed||p.werewolf.transformPreparing)return false;
-    this.aiObjectiveCooldown.set(p.id,now+2.4+this.lootRandom()*1.8);
-    const candidates:Array<{score:number;objective:AiWorldObjective}>=[];
-    for(const drop of this.state.supplyDrops.values()){
-      if(!drop.landed||drop.opened)continue;
-      const d=distance(p.x,p.y,drop.x,drop.y);
-      if(d>1850)continue;
-      const equipmentNeed=this.aiHasUsableGun(p)?0:48;
-      const dangerPenalty=this.state.zoneActive&&distance(drop.x,drop.y,this.state.zoneX,this.state.zoneY)>this.state.zoneRadius-100?90:0;
-      const competition=[...this.state.players.values()].filter((other)=>other.ai&&other.id!==p.id&&other.alive&&distance(other.x,other.y,drop.x,drop.y)<520).length;
-      const score=145+equipmentNeed-d*.055-dangerPenalty-competition*8+profile.lootPreference*32;
-      if(score>35)candidates.push({score,objective:{kind:'supply',id:drop.id,x:drop.x,y:drop.y,expiresAt:now+22}});
-    }
-    const season=this.state.werewolfSeason;
-    if(season.altarPhase==='active'&&!season.curseOwnerId&&!season.werewolfPlayerId){
-      const d=distance(p.x,p.y,season.altarX,season.altarY);
-      const threshold=.22+profile.aggression*.26+(1-profile.riskAvoidance)*.08;
-      const interested=this.aiObjectiveRoll(p.id,`altar-${season.cycle}`)<threshold;
-      if(interested&&d<2100){
-        const score=126+profile.aggression*42-profile.riskAvoidance*25-d*.045;
-        if(score>35)candidates.push({score,objective:{kind:'altar',id:`altar-${season.cycle}`,x:season.altarX,y:season.altarY,expiresAt:now+24}});
-      }
-    }
-    candidates.sort((a,b)=>b.score-a.score);
-    const selected=candidates[0];
-    if(!selected)return false;
-    this.aiWorldObjectives.set(p.id,selected.objective);
-    p.aiState=selected.objective.kind==='altar'?'SEEK_ALTAR':'SEEK_SUPPLY';
-    intent.state=p.aiState;intent.mode='move';intent.targetId='';intent.lootId='';
-    this.setAiDestination(p,intent,selected.objective.x,selected.objective.y,true);
-    if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI OBJECTIVE] select',{ai:p.id,kind:selected.objective.kind,id:selected.objective.id,score:Math.round(selected.score)});
-    return true;
-  }
-
-  private beginAiWerewolfRitual(p:PlayerState){
-    const season=this.state.werewolfSeason,w=p.werewolf;
-    if(!p.ai||!p.alive||p.phase!=='landed'||p.isDriving||p.isSwimming||p.isVaulting||w.hasCurse||w.transformed||w.transformPreparing||w.ritualizing)return false;
-    if(season.altarPhase!=='active'||season.curseOwnerId||season.werewolfPlayerId||distance(p.x,p.y,season.altarX,season.altarY)>WEREWOLF_BALANCE.ritualRadius)return false;
-    this.cancelHeal(p);this.cancelReload(p);this.cancelThrow(p);p.isSniperScoped=false;
-    const now=this.now();w.ritualizing=true;w.ritualStartedAt=now;w.ritualCompletesAt=now+WEREWOLF_BALANCE.ritualSeconds;w.ritualOriginX=p.x;w.ritualOriginY=p.y;
-    p.aiState='ALTAR_RITUAL';this.setAiNeutralInput(p);
-    if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI OBJECTIVE] altar-ritual',{ai:p.id,completesAt:w.ritualCompletesAt});
-    return true;
-  }
-
-  private handleAiWorldObjectiveAtPosition(p:PlayerState,intent:AiIntent){
-    const objective=this.currentAiWorldObjective(p);
-    if(!objective)return false;
-    const d=distance(p.x,p.y,objective.x,objective.y);
-    if(objective.kind==='altar'){
-      if(d<=WEREWOLF_BALANCE.ritualRadius&&this.beginAiWerewolfRitual(p)){
-        const plan=this.aiVehiclePlans.get(p.id);if(plan)plan.phase='ritual';
-        return true;
-      }
-      return false;
-    }
-    if(d<=SUPPLY_DROP_BALANCE.interactionDistance&&this.openNearbySupplyDrop(p)){
-      if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI OBJECTIVE] supply-open',{ai:p.id,id:objective.id});
-      this.aiWorldObjectives.delete(p.id);
-      const nearby=this.findBestLoot(p);
-      if(nearby&&distance(p.x,p.y,nearby.x,nearby.y)<360){
-        const plan=this.aiVehiclePlans.get(p.id);
-        if(plan){plan.phase='walk';plan.objectiveKind='loot';plan.objectiveId=nearby.id;plan.targetX=nearby.x;plan.targetY=nearby.y;plan.expiresAt=this.now()+10;}
-        this.assignLootIntent(p,intent,nearby,false);
-      }else this.finishAiVehicleObjective(p,intent);
-      return false;
-    }
-    return false;
-  }
-
-  private aiVehicleObjectiveFor(p:PlayerState,intent:AiIntent):{kind:AiObjectiveKind;id:string;x:number;y:number}|undefined{
-    const world=this.currentAiWorldObjective(p);
-    if(world)return{kind:world.kind,id:world.id,x:world.x,y:world.y};
-    if(intent.lootId){
-      const loot=this.state.loot.get(intent.lootId);
-      if(loot)return{kind:'loot',id:loot.id,x:loot.x,y:loot.y};
-    }
-    if(intent.state==='ZONE_ESCAPE')return{kind:'zone',id:'zone',x:intent.routeGoalX,y:intent.routeGoalY};
-    if(intent.state==='PATROL'||intent.state==='COMBAT_READY')return{kind:'patrol',id:'patrol',x:intent.routeGoalX,y:intent.routeGoalY};
-    return undefined;
-  }
-
-  private maybeStartAiVehiclePlan(p:PlayerState,intent:AiIntent){
-    if(this.aiVehiclePlans.has(p.id)||p.isDriving||p.insideBuilding||p.isSwimming||p.isVaulting||p.hp<35||p.werewolf.hasCurse||p.werewolf.transformed||p.werewolf.transformPreparing||p.werewolf.ritualizing)return false;
-    const objective=this.aiVehicleObjectiveFor(p,intent);
-    if(!objective||distance(p.x,p.y,objective.x,objective.y)<620)return false;
-    let selected:MotorcycleState|undefined,best=Number.POSITIVE_INFINITY;
-    for(const bike of this.state.motorcycles.values()){
-      if(bike.driverId||bike.destroyed||bike.exploding||bike.critical||bike.hp<bike.maxHp*.35)continue;
-      const toBike=distance(p.x,p.y,bike.x,bike.y);
-      if(toBike>760||buildingIdAt(bike.x,bike.y,0,this.map.buildingVisibilityZones))continue;
-      const score=toBike+distance(bike.x,bike.y,objective.x,objective.y)*.42;
-      if(score<best){best=score;selected=bike;}
-    }
-    if(!selected)return false;
-    const now=this.now();
-    const plan:AiVehiclePlan={vehicleId:selected.id,preferredVehicleId:selected.id,phase:'seek',objectiveKind:objective.kind,objectiveId:objective.id,targetX:objective.x,targetY:objective.y,startedAt:now,expiresAt:now+28,avoidSign:this.aiObjectiveRoll(p.id,selected.id)<.5?-1:1,stuckFor:0,reverseUntil:0,lastX:p.x,lastY:p.y};
-    this.aiVehiclePlans.set(p.id,plan);
-    p.aiState='SEEK_VEHICLE';intent.state='SEEK_VEHICLE';intent.mode='move';intent.targetId='';
-    this.setAiDestination(p,intent,selected.x,selected.y,true);
-    if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI VEHICLE] seek',{ai:p.id,vehicle:selected.id,objective:objective.kind,objectiveId:objective.id});
-    return true;
-  }
-
-  private refreshAiVehicleTarget(p:PlayerState,plan:AiVehiclePlan){
-    if(plan.objectiveKind==='loot'){
-      const loot=this.state.loot.get(plan.objectiveId);if(!loot)return false;plan.targetX=loot.x;plan.targetY=loot.y;return true;
-    }
-    if(plan.objectiveKind==='supply'){
-      const drop=this.state.supplyDrops.get(plan.objectiveId);if(!drop?.landed||drop.opened)return false;plan.targetX=drop.x;plan.targetY=drop.y;return true;
-    }
-    if(plan.objectiveKind==='altar'){
-      const objective=this.currentAiWorldObjective(p);if(!objective||objective.kind!=='altar')return false;plan.targetX=objective.x;plan.targetY=objective.y;return true;
-    }
-    return true;
-  }
-
-  private finishAiVehicleObjective(p:PlayerState,intent:AiIntent){
-    const plan=this.aiVehiclePlans.get(p.id);
-    if(!plan)return;
-    const bike=this.state.motorcycles.get(plan.preferredVehicleId);
-    if(bike&&!bike.driverId&&!bike.destroyed&&!bike.exploding&&distance(p.x,p.y,bike.x,bike.y)<900){
-      plan.phase='return';plan.vehicleId=bike.id;plan.targetX=bike.x;plan.targetY=bike.y;plan.expiresAt=this.now()+12;
-      p.aiState='RETURN_TO_VEHICLE';intent.state='RETURN_TO_VEHICLE';intent.mode='move';intent.lootId='';
-      this.setAiDestination(p,intent,bike.x,bike.y,true);
-      if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI VEHICLE] return',{ai:p.id,vehicle:bike.id});
-      return;
-    }
-    this.aiVehiclePlans.delete(p.id);this.aiThinkAt.set(p.id,0);
-  }
-
-  private aiVehicleDriveInput(p:PlayerState,plan:AiVehiclePlan,dt:number){
-    const bike=this.state.motorcycles.get(plan.vehicleId);
-    if(!bike)return false;
-    const now=this.now(),progress=distance(bike.x,bike.y,plan.lastX,plan.lastY);
-    plan.stuckFor=progress<.45?plan.stuckFor+dt:Math.max(0,plan.stuckFor-dt*2.5);
-    plan.lastX=bike.x;plan.lastY=bike.y;
-    if(plan.stuckFor>.75&&now>=plan.reverseUntil){plan.reverseUntil=now+.55;plan.avoidSign*=-1;plan.stuckFor=0;if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI VEHICLE] reverse-recovery',{ai:p.id,vehicle:bike.id});}
-    if(now<plan.reverseUntil){
-      const reverse=bike.rotation+Math.PI;
-      this.setAiNeutralInput(p,Math.cos(reverse),Math.sin(reverse),reverse);
-      return true;
-    }
-    const desired=Math.atan2(plan.targetY-bike.y,plan.targetX-bike.x),probe=100+Math.min(150,bike.speed*.32),sign=plan.avoidSign||1;
-    const offsets=[0,sign*.34,sign*.68,sign*1.04,-sign*.34,-sign*.68,-sign*1.04,Math.PI];
-    let chosen:number|undefined,best=Number.NEGATIVE_INFINITY;
-    for(const offset of offsets){
-      const angle=desired+offset,x=clamp(bike.x+Math.cos(angle)*probe,MOTORCYCLE_RADIUS,this.worldSize-MOTORCYCLE_RADIUS),y=clamp(bike.y+Math.sin(angle)*probe,MOTORCYCLE_RADIUS,this.worldSize-MOTORCYCLE_RADIUS);
-      if(!this.isVehiclePositionFree(x,y,bike.id)||this.segmentBlocked(bike.x,bike.y,x,y,MOTORCYCLE_RADIUS+4))continue;
-      const gain=distance(bike.x,bike.y,plan.targetX,plan.targetY)-distance(x,y,plan.targetX,plan.targetY);
-      const score=gain*4-Math.abs(offset)*28-(offset===Math.PI?150:0);
-      if(score>best){best=score;chosen=angle;}
-    }
-    if(chosen===undefined){plan.reverseUntil=now+.55;this.setAiNeutralInput(p,-Math.cos(bike.rotation),-Math.sin(bike.rotation),bike.rotation+Math.PI);return true;}
-    p.angle=chosen;this.setAiNeutralInput(p,Math.cos(chosen),Math.sin(chosen),chosen);
-    return true;
-  }
-
-  private updateAiVehiclePlan(p:PlayerState,intent:AiIntent,dt:number){
-    const plan=this.aiVehiclePlans.get(p.id);
-    if(!plan)return false;
-    const now=this.now();
-    if(now>=plan.expiresAt){if(p.isDriving){const bike=this.state.motorcycles.get(p.vehicleId);if(bike)this.dismountMotorcycle(undefined,p);}this.aiVehiclePlans.delete(p.id);this.aiThinkAt.set(p.id,0);return false;}
-    if(plan.phase==='ritual'){
-      this.setAiNeutralInput(p);
-      if(p.werewolf.hasCurse){this.aiVehiclePlans.delete(p.id);this.aiWorldObjectives.delete(p.id);this.beginWerewolfTransform(p);}
-      else if(!p.werewolf.ritualizing){this.aiVehiclePlans.delete(p.id);this.aiThinkAt.set(p.id,0);}
-      return true;
-    }
-    const objectiveValid=this.refreshAiVehicleTarget(p,plan);
-    if(!objectiveValid&&plan.phase!=='return'){this.finishAiVehicleObjective(p,intent);return false;}
-    if(plan.phase==='seek'){
-      const bike=this.state.motorcycles.get(plan.vehicleId);
-      if(!bike||bike.destroyed||bike.exploding||bike.driverId&&bike.driverId!==p.id){
-        if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI RIVALRY] vehicle-lost',{ai:p.id,vehicle:plan.vehicleId,driver:bike?.driverId??''});
-        this.aiVehiclePlans.delete(p.id);this.aiThinkAt.set(p.id,0);return false;
-      }
-      if(distance(p.x,p.y,bike.x,bike.y)<=MOTORCYCLE_MOUNT_DISTANCE&&this.mountMotorcycle(p,bike)){
-        plan.phase='drive';plan.lastX=bike.x;plan.lastY=bike.y;plan.stuckFor=0;p.aiState='DRIVE_TO_OBJECTIVE';intent.state='DRIVE_TO_OBJECTIVE';this.setAiNeutralInput(p);
-        if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI VEHICLE] mounted',{ai:p.id,vehicle:bike.id,objective:plan.objectiveKind});
-        return true;
-      }
-      p.aiState='SEEK_VEHICLE';intent.state='SEEK_VEHICLE';intent.mode='move';
-      if(intent.route.length===0||distance(intent.routeGoalX,intent.routeGoalY,bike.x,bike.y)>55)this.setAiDestination(p,intent,bike.x,bike.y);
-      return false;
-    }
-    if(plan.phase==='drive'){
-      const bike=this.state.motorcycles.get(plan.vehicleId);
-      if(!bike||!p.isDriving||p.vehicleId!==bike.id||bike.driverId!==p.id){this.aiVehiclePlans.delete(p.id);this.aiThinkAt.set(p.id,0);return false;}
-      const target=this.findVisibleTarget(p,intent);
-      const motion=this.vehicleMotionStates.get(bike.id),mountGrace=Boolean(motion&&now-motion.mountedAt<1.8);
-      if(!mountGrace&&target&&distance(p.x,p.y,target.x,target.y)<310){
-        if(this.dismountMotorcycle(undefined,p)){this.aiVehiclePlans.delete(p.id);this.aiThinkAt.set(p.id,0);if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI VEHICLE] dismount-combat',{ai:p.id,target:target.id});return false;}
-      }
-      if(bike.critical||bike.hp<bike.maxHp*.25){
-        this.dismountMotorcycle(undefined,p);this.aiVehiclePlans.delete(p.id);this.aiThinkAt.set(p.id,0);return false;
-      }
-      const stoppingDistance=plan.objectiveKind==='altar'?210:plan.objectiveKind==='supply'||plan.objectiveKind==='loot'?185:140;
-      if(distance(bike.x,bike.y,plan.targetX,plan.targetY)<=stoppingDistance){
-        if(this.dismountMotorcycle(undefined,p)){
-          plan.phase='walk';plan.lastX=p.x;plan.lastY=p.y;p.aiState='DISMOUNT_FOR_OBJECTIVE';intent.state='DISMOUNT_FOR_OBJECTIVE';intent.mode='move';
-          this.setAiDestination(p,intent,plan.targetX,plan.targetY,true);
-          if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI VEHICLE] dismount-objective',{ai:p.id,kind:plan.objectiveKind,id:plan.objectiveId});
-          return false;
-        }
-      }
-      p.aiState='DRIVE_TO_OBJECTIVE';intent.state='DRIVE_TO_OBJECTIVE';
-      return this.aiVehicleDriveInput(p,plan,dt);
-    }
-    if(plan.phase==='walk'){
-      if((plan.objectiveKind==='zone'||plan.objectiveKind==='patrol')&&distance(p.x,p.y,plan.targetX,plan.targetY)<90){
-        this.aiVehiclePlans.delete(p.id);this.aiThinkAt.set(p.id,0);return false;
-      }
-      p.aiState=plan.objectiveKind==='altar'?'SEEK_ALTAR':plan.objectiveKind==='supply'?'SEEK_SUPPLY':plan.objectiveKind==='loot'?'LOOT_ON_FOOT':'PATROL';
-      intent.state=p.aiState;intent.mode='move';
-      if(plan.objectiveKind==='loot'){
-        const loot=this.state.loot.get(plan.objectiveId);
-        if(!loot){this.finishAiVehicleObjective(p,intent);return false;}
-        intent.lootId=loot.id;
-      }
-      if(intent.route.length===0||distance(intent.routeGoalX,intent.routeGoalY,plan.targetX,plan.targetY)>55)this.setAiDestination(p,intent,plan.targetX,plan.targetY);
-      return false;
-    }
-    if(plan.phase==='return'){
-      const bike=this.state.motorcycles.get(plan.vehicleId);
-      if(!bike||bike.driverId||bike.destroyed||bike.exploding){this.aiVehiclePlans.delete(p.id);this.aiThinkAt.set(p.id,0);return false;}
-      plan.targetX=bike.x;plan.targetY=bike.y;
-      if(distance(p.x,p.y,bike.x,bike.y)<=MOTORCYCLE_MOUNT_DISTANCE&&this.mountMotorcycle(p,bike)){
-        const patrol=this.state.zoneActive?this.aiZoneTarget(p,this.state.zoneX,this.state.zoneY,this.state.zoneRadius):this.aiPatrolPoint();
-        plan.phase='drive';plan.objectiveKind='patrol';plan.objectiveId='post-objective';plan.targetX=patrol.x;plan.targetY=patrol.y;plan.expiresAt=now+18;plan.lastX=bike.x;plan.lastY=bike.y;
-        this.aiWorldObjectives.delete(p.id);p.aiState='DRIVE_TO_OBJECTIVE';intent.state='DRIVE_TO_OBJECTIVE';this.setAiNeutralInput(p);
-        return true;
-      }
-      p.aiState='RETURN_TO_VEHICLE';intent.state='RETURN_TO_VEHICLE';intent.mode='move';
-      if(intent.route.length===0||distance(intent.routeGoalX,intent.routeGoalY,bike.x,bike.y)>55)this.setAiDestination(p,intent,bike.x,bike.y);
-      return false;
-    }
-    return false;
-  }
-
   private updateAi(dt:number){
     const now=this.now();
     this.cleanupLootReservations(now);
@@ -3149,22 +2784,10 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       if(!intent){intent=this.newAiIntent(p);this.aiIntent.set(p.id,intent);}
       const memory=this.ensureAiMemory(p);this.ensureAiProfile(p);this.updateAiRoomMemory(p,memory);
       if(!this.aiLandedAt.has(p.id))this.aiLandedAt.set(p.id,now);
-      if(p.werewolf.ritualizing){
-        const plan=this.aiVehiclePlans.get(p.id);if(plan)plan.phase='ritual';
-        this.setAiNeutralInput(p);continue;
-      }
-      if(p.werewolf.hasCurse&&!p.werewolf.transformPreparing&&!p.werewolf.transformed){
-        if(p.isDriving){const bike=this.state.motorcycles.get(p.vehicleId);if(bike)this.forceDismountMotorcycle(p,bike);}
-        this.aiVehiclePlans.delete(p.id);this.aiWorldObjectives.delete(p.id);this.beginWerewolfTransform(p);this.setAiNeutralInput(p);continue;
-      }
-      const activePlan=this.aiVehiclePlans.get(p.id);
-      if(!activePlan&&now>=(this.aiThinkAt.get(p.id)??0)){
+      if(now>=(this.aiThinkAt.get(p.id)??0)){
         this.aiThinkAt.set(p.id,now+(this.state.difficulty==='hard'?.14:this.state.difficulty==='easy'?.34:.22));
         this.planAi(p,intent);
-        this.maybeStartAiVehiclePlan(p,intent);
       }
-      if(this.updateAiVehiclePlan(p,intent,dt))continue;
-      if(this.handleAiWorldObjectiveAtPosition(p,intent))continue;
       this.runAi(p,intent,dt);
     }
   }
@@ -3259,7 +2882,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     if(memory.searchUntil>now&&memory.confidence>10){memory.confidence=Math.max(0,memory.confidence-(now-memory.lastSeenAt)*.6);p.aiState='SEARCH_LAST_SEEN';intent.state='SEARCH_LAST_SEEN';this.setAiDestination(p,intent,memory.lastSeenX,memory.lastSeenY);return;}
     const noise=this.findRecentNoise(p);if(noise){p.aiState='INVESTIGATE_SOUND';intent.state='INVESTIGATE_SOUND';this.setAiDestination(p,intent,noise.x,noise.y);this.emitAiDialogue(p,noise.kind==='vehicle'?'vehicle_heard':noise.kind==='footstep'||noise.kind==='running'?'uncertain_steps':'uncertain_sound',noise.kind==='vehicle'?'vehicle':'uncertain');return;}
     if(p.insideBuilding&&(now-memory.buildingEnteredAt>(AI_HUMANIZATION.buildingDwellSeconds[0]+(1-profile.lootPreference)*(AI_HUMANIZATION.buildingDwellSeconds[1]-AI_HUMANIZATION.buildingDwellSeconds[0]))||now-memory.roomEnteredAt>AI_HUMANIZATION.roomIdleSeconds&&intent.stuckCount>=2)){const exit=this.findAiBuildingExitPoint(p,memory);if(exit){p.aiState='EXIT_BUILDING';intent.state='EXIT_BUILDING';intent.mode='move';memory.exitRequestedAt=now;this.setAiDestination(p,intent,exit.x,exit.y,true);this.emitAiDialogue(p,pickDialogue('exit',p.id,Math.floor(now*5)),'exit',true);return;}}
-    if(this.tryAssignAiWorldObjective(p,intent,profile))return;
     this.chooseAiWeapon(p);const current=WEAPONS[p.equipped as WeaponId];if(current&&current.id!=='fists'&&this.getWeaponMagazine(p,current.id)<=0&&this.getAmmo(p,current.ammoType)>0)this.beginReload(p,current.id);const loot=this.findBestLoot(p);if(loot){this.assignLootIntent(p,intent,loot,false);return;}p.aiState='PATROL';intent.state='PATROL';const patrol=this.state.zoneActive?{x:this.state.zoneX+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45),y:this.state.zoneY+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45)}:this.aiPatrolPoint();this.setAiDestination(p,intent,patrol.x,patrol.y);
   }
 
@@ -3270,22 +2892,13 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
 
     const loot=intent.lootId?this.state.loot.get(intent.lootId):undefined;
     if(loot&&distance(p.x,p.y,loot.x,loot.y)<72&&spaceInteractionAllowed(p,loot,this.map.portals)){
-      const completedLootId=loot.id;
-      let picked=false;
       if(this.aiLootScore(p,loot.kind as LootKind)>0){
         const result=this.applyLoot(p,loot.kind as LootKind,loot);
-        if(result.success){picked=true;this.state.loot.delete(loot.id);this.lootReservations.delete(loot.id);}
+        if(result.success){this.state.loot.delete(loot.id);this.lootReservations.delete(loot.id);}
       }
-      this.releaseLootReservation(p.id,completedLootId);
+      this.releaseLootReservation(p.id,intent.lootId);
       intent.lootId='';
-      const vehiclePlan=this.aiVehiclePlans.get(p.id);
-      if(picked&&vehiclePlan?.objectiveKind==='loot'&&vehiclePlan.objectiveId===completedLootId){
-        const nextLoot=this.findBestLoot(p);
-        if(nextLoot&&distance(p.x,p.y,nextLoot.x,nextLoot.y)<360){
-          vehiclePlan.phase='walk';vehiclePlan.objectiveId=nextLoot.id;vehiclePlan.targetX=nextLoot.x;vehiclePlan.targetY=nextLoot.y;vehiclePlan.expiresAt=now+10;
-          this.assignLootIntent(p,intent,nextLoot,false);
-        }else this.finishAiVehicleObjective(p,intent);
-      }else if(!this.aiVehiclePlans.has(p.id)||this.aiVehiclePlans.get(p.id)?.phase!=='return')intent.route=[];
+      intent.route=[];
       this.aiThinkAt.set(p.id,0);
     }
 
@@ -3316,7 +2929,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     if(intent.mode==='retreat'&&target)angle=Math.atan2(p.y-target.y,p.x-target.x);
     if(!target)p.angle=angle;
     const movementProfile=this.ensureAiProfile(p),baseLandSpeed=this.state.difficulty==='hard'?235:this.state.difficulty==='easy'?175:205,landSpeed=baseLandSpeed*(.93+movementProfile.aggression*.1);
-    const aiMovementSlowed=this.now()<p.werewolf.silverSlowUntil,aiAdhesiveMultiplier=adhesivePlayerSpeedMultiplier(p.werewolf.adhesiveSlowStage,this.now(),p.werewolf.adhesiveSlowUntil,p.werewolf.adhesiveRecoveryUntil);const speed=(p.isSwimming?landSpeed*(SWIM_SPEED/PLAYER_SPEED):landSpeed*movementMultiplierAt(p.x,p.y,this.map.shallowWaterZones,this.map.landCrossings))*(aiMovementSlowed?.6:1)*aiAdhesiveMultiplier;
+    const aiMovementSlowed=this.now()<p.werewolf.silverSlowUntil;const speed=(p.isSwimming?landSpeed*(SWIM_SPEED/PLAYER_SPEED):landSpeed*movementMultiplierAt(p.x,p.y,this.map.shallowWaterZones,this.map.landCrossings))*(aiMovementSlowed?.6:1);
     const moved=this.moveAiWithAvoidance(p,intent,waypoint,angle,speed,dt);
     this.updateSwimmingState(p);
 
@@ -3795,7 +3408,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     }
     let actual=amount;
     const resolvedKind:DamageKind=kind!=='other'?kind:reason==='총기'?'bullet':reason==='바주카포'||reason==='파편 수류탄'||reason==='오토바이 폭발'?'explosion':reason==='화염방사기'||reason==='화염탄'?'fire':reason==='자기장'?'zone':reason==='오토바이'?'vehicle':reason==='늑대 할퀴기'?'melee':'other';
-    if(p.werewolf.transformed)actual=werewolfDamage(actual,resolvedKind);
+    if(p.werewolf.transformed)actual=werewolfDamage(actual,resolvedKind==='silver'?'silver':resolvedKind==='bullet'?'bullet':resolvedKind==='explosion'?'explosion':'other');
     if(p.armor>0&&resolvedKind==='bullet'&&kind!=='silver'){
       const absorbed=actual*.3;
       actual-=absorbed;

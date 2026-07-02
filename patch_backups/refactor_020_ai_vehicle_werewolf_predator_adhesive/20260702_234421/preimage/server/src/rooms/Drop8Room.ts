@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_020_WEREWOLF_PREDATOR_ADHESIVE_BALANCE
 // DROP8_REFACTOR_020_AI_VEHICLE_OBJECTIVE_RIVALRY
 // DROP8_REFACTOR_019_AI_HUMANIZATION
 // DROP8_AI_PATROL_STABILITY_HOTFIX
@@ -15,7 +14,6 @@ import { Client, CloseCode, Room } from '@colyseus/core';
 import { AdhesiveJetState, BulletState, Drop8State, ExplosionState, FireFieldState, FlameJetState, LootState, MotorcycleState, PlayerState, RocketState, SmokeFieldState, StripTrapState, SupplyDropState, TacticalInventoryState, ThrownObjectState } from './schema.js';
 import {
 // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
-  ADHESIVE_PLAYER_BALANCE,
   ADHESIVE_SPRAYER_BALANCE,
   AI_DIALOGUE_LINES,
   AI_HUMANIZATION,
@@ -68,9 +66,6 @@ import {
   SERVER_TICK_RATE,
   SNIPER_SCOPE_MOVE_MULTIPLIER,
   WEAPONS,
-  adhesivePlayerHoldSeconds,
-  adhesivePlayerSpeedMultiplier,
-  adhesivePlayerStage,
   adjustedLootTableForMap,
   chooseWerewolfSeasonPoints,
   bazookaPlayerDamage,
@@ -216,7 +211,6 @@ type StuckState={lastX:number;lastY:number;movingSince:number;lastRecoveryAt:num
 type VehicleStuckState={lastX:number;lastY:number;stuckFor:number;lastRecoveryAt:number};
 type VehicleMotionState={movementHeldMs:number;previousInputX:number;previousInputY:number;mountedAt:number;directionPenaltyUntil:number};
 type AdhesiveExposure={ownerId:string;accumulated:number;lastHitAt:number};
-type WerewolfAuraContact={startedAt:number;lastAt:number};
 type DamageKind='bullet'|'explosion'|'silver'|'melee'|'fire'|'zone'|'vehicle'|'other';
 type Drop8RoomMetadata={roomCode:string;hostName:string;players:number;humans:number;phase:'LOBBY'|'PLANE'|'DROP'|'ACTIVE'|'FINISHED';fillAi:boolean;publicRoom:boolean;mapSizeMode:MapSizeMode;mapDisplayName:string;createdAt:number;updatedAt:number};
 type VaultJob={startX:number;startY:number;targetX:number;targetY:number;startedAt:number;duration:number;windowId:string;targetBuildingId:string;targetRoomIndex:number;startBuildingId:string;startRoomIndex:number;transitioned:boolean};
@@ -304,9 +298,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private supplySeq=0;
   private flameDamageAt=new Map<string,number>();
   private adhesiveExposure=new Map<string,AdhesiveExposure>();
-  private adhesivePlayerExposure=new Map<string,AdhesiveExposure>();
-  private werewolfAuraDamageAt=new Map<string,number>();
-  private werewolfAuraVehicleContact=new Map<string,WerewolfAuraContact>();
   private vehicleStatus=new VehicleStatusManager();
   private throwPrepareAt=new Map<string,number>();
   private nextFireTickAt=0;
@@ -797,9 +788,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.knockback.clear();
     this.noises=[];
     this.werewolfMoveVectors.clear();
-    this.adhesivePlayerExposure.clear();
-    this.werewolfAuraDamageAt.clear();
-    this.werewolfAuraVehicleContact.clear();
     const season=this.state.werewolfSeason;season.enabled=false;season.altarPhase='disabled';season.curseOwnerId='';season.werewolfPlayerId='';season.curseDropActive=false;season.armoryActive=false;season.armoryOpened=false;season.disabledForEndgame=false;
     for(const p of this.state.players.values())this.resetWerewolfPlayer(p);
     this.tickSamples=[];
@@ -938,7 +926,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   }
 
   private resetWerewolfPlayer(p:PlayerState){
-    const w=p.werewolf;w.hasCurse=false;w.curseExpiresAt=0;w.ritualizing=false;w.ritualStartedAt=0;w.ritualCompletesAt=0;w.ritualOriginX=0;w.ritualOriginY=0;w.transformPreparing=false;w.transformReadyAt=0;w.transformed=false;w.transformEndsAt=0;w.sprintGauge=1;w.sprinting=false;w.sprintRechargeAt=0;w.silverSlowUntil=0;w.adhesiveSlowStage=0;w.adhesiveSlowUntil=0;w.adhesiveRecoveryUntil=0;w.actionLockedUntil=0;w.attackRecoveryUntil=0;w.huntDismountImmuneUntil=0;
+    const w=p.werewolf;w.hasCurse=false;w.curseExpiresAt=0;w.ritualizing=false;w.ritualStartedAt=0;w.ritualCompletesAt=0;w.ritualOriginX=0;w.ritualOriginY=0;w.transformPreparing=false;w.transformReadyAt=0;w.transformed=false;w.transformEndsAt=0;w.sprintGauge=1;w.sprinting=false;w.sprintRechargeAt=0;w.silverSlowUntil=0;w.actionLockedUntil=0;w.attackRecoveryUntil=0;w.huntDismountImmuneUntil=0;
     this.werewolfMoveVectors.delete(p.id);
   }
 
@@ -1044,50 +1032,12 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       if(w.transformed){
         if(!p.alive){this.endWerewolfCycle(p,'death');continue;}
         if(now>=w.transformEndsAt){this.endWerewolfCycle(p,'expired');continue;}
-        const input=this.inputs.get(p.id);const canSprint=Boolean(input?.huntSprint)&&now>=w.silverSlowUntil&&now>=w.adhesiveSlowUntil&&now>=w.actionLockedUntil&&now>=w.attackRecoveryUntil&&w.sprintGauge>0;
+        const input=this.inputs.get(p.id);const canSprint=Boolean(input?.huntSprint)&&now>=w.silverSlowUntil&&now>=w.actionLockedUntil&&now>=w.attackRecoveryUntil&&w.sprintGauge>0;
         if(canSprint){w.sprinting=true;w.sprintGauge=Math.max(0,w.sprintGauge-dt/WEREWOLF_BALANCE.sprintSeconds);w.sprintRechargeAt=now+WEREWOLF_BALANCE.sprintRechargeDelaySeconds;if(w.sprintGauge<=0)w.sprinting=false;}
         else{w.sprinting=false;if(now>=w.sprintRechargeAt)w.sprintGauge=Math.min(1,w.sprintGauge+dt/WEREWOLF_BALANCE.sprintRechargeSeconds);}
       }
     }
-    this.updateWerewolfAura();
     if(season.curseDropActive){for(const p of this.state.players.values())if(p.alive&&!p.ai&&!p.werewolf.hasCurse&&!p.werewolf.transformed&&distance(p.x,p.y,season.curseDropX,season.curseDropY)<=62){const remaining=season.curseDropRemaining;season.curseDropActive=false;this.grantWerewolfCurse(p,remaining);break;}}
-  }
-
-
-  private updateWerewolfAura(){
-    const now=this.now(),activeContacts=new Set<string>();
-    for(const wolf of this.state.players.values()){
-      if(!wolf.alive||wolf.phase!=='landed'||!wolf.werewolf.transformed)continue;
-      for(const target of this.state.players.values()){
-        if(!target.alive||target.phase!=='landed'||target.id===wolf.id||target.isDriving)continue;
-        if(distance(wolf.x,wolf.y,target.x,target.y)>WEREWOLF_BALANCE.auraRadius+PLAYER_HIT_RADIUS)continue;
-        if(this.firstObstacleHitT(wolf.x,wolf.y,target.x,target.y,2)!==null)continue;
-        const key=`player:${wolf.id}:${target.id}`,last=this.werewolfAuraDamageAt.get(key)??-99;
-        if(now-last<WEREWOLF_BALANCE.auraTickSeconds)continue;
-        this.werewolfAuraDamageAt.set(key,now);
-        this.damage(target,WEREWOLF_BALANCE.auraDamage,wolf.id,'늑대 열기',0,undefined,'fire');
-      }
-      for(const vehicle of this.state.motorcycles.values()){
-        if(vehicle.destroyed||vehicle.exploding||distance(wolf.x,wolf.y,vehicle.x,vehicle.y)>WEREWOLF_BALANCE.auraRadius+MOTORCYCLE_RADIUS)continue;
-        if(this.firstObstacleHitT(wolf.x,wolf.y,vehicle.x,vehicle.y,2)!==null)continue;
-        const contactKey=`vehicle:${wolf.id}:${vehicle.id}`;activeContacts.add(contactKey);
-        const contact=this.werewolfAuraVehicleContact.get(contactKey)??{startedAt:now,lastAt:now};contact.lastAt=now;this.werewolfAuraVehicleContact.set(contactKey,contact);
-        const damageKey=`bike:${wolf.id}:${vehicle.id}`,last=this.werewolfAuraDamageAt.get(damageKey)??-99;
-        if(now-last>=WEREWOLF_BALANCE.auraTickSeconds){this.werewolfAuraDamageAt.set(damageKey,now);this.damageMotorcycle(vehicle,WEREWOLF_BALANCE.auraVehicleDamage,wolf.id,'늑대 열기');}
-        if(vehicle.driverId&&now-contact.startedAt>=WEREWOLF_BALANCE.auraDismountSeconds){
-          const driver=this.state.players.get(vehicle.driverId);
-          if(driver&&now>=driver.werewolf.huntDismountImmuneUntil){
-            this.forceDismountMotorcycle(driver,vehicle);
-            driver.werewolf.actionLockedUntil=Math.max(driver.werewolf.actionLockedUntil,now+.35);
-            driver.werewolf.huntDismountImmuneUntil=now+WEREWOLF_BALANCE.auraDismountImmunitySeconds;
-            this.werewolfAuraVehicleContact.delete(contactKey);
-            if(AI_HUMAN_DEBUG)console.debug('[DROP8 WEREWOLF AURA] dismount',{wolf:wolf.id,driver:driver.id,vehicle:vehicle.id});
-          }
-        }
-      }
-    }
-    for(const [key,contact] of this.werewolfAuraVehicleContact)if(!activeContacts.has(key)&&now-contact.lastAt>WEREWOLF_BALANCE.auraTickSeconds*1.5)this.werewolfAuraVehicleContact.delete(key);
-    for(const [key,last] of this.werewolfAuraDamageAt)if(now-last>2)this.werewolfAuraDamageAt.delete(key);
   }
 
   private werewolfClaw(p:PlayerState){
@@ -1209,17 +1159,8 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       if(target.id===p.id||!target.alive||target.phase!=='landed')continue;
       if(!coneContains(originX,originY,angle,ADHESIVE_SPRAYER_BALANCE.range,ADHESIVE_SPRAYER_BALANCE.halfAngleRadians,target.x,target.y,18))continue;
       if(this.firstObstacleHitT(originX,originY,target.x,target.y,2)!==null)continue;
-      const previous=this.adhesivePlayerExposure.get(target.id);
-      const continuous=Boolean(previous&&previous.ownerId===p.id&&now-previous.lastHitAt<=ADHESIVE_PLAYER_BALANCE.exposureBreakSeconds);
-      const exposure:AdhesiveExposure=continuous?previous!:{ownerId:p.id,accumulated:0,lastHitAt:now};
-      const elapsed=continuous?Math.max(.001,now-exposure.lastHitAt):ADHESIVE_SPRAYER_BALANCE.tickSeconds;
-      exposure.accumulated+=Math.min(ADHESIVE_SPRAYER_BALANCE.tickSeconds*1.5,elapsed);
-      exposure.lastHitAt=now;this.adhesivePlayerExposure.set(target.id,exposure);
-      const stage=adhesivePlayerStage(exposure.accumulated),w=target.werewolf;
-      w.adhesiveSlowStage=Math.max(w.adhesiveSlowStage,stage);
-      w.adhesiveSlowUntil=Math.max(w.adhesiveSlowUntil,now+adhesivePlayerHoldSeconds(w.adhesiveSlowStage));
-      w.adhesiveRecoveryUntil=Math.max(w.adhesiveRecoveryUntil,w.adhesiveSlowUntil+ADHESIVE_PLAYER_BALANCE.recoverySeconds);
-      if(w.transformed){w.sprinting=false;w.sprintRechargeAt=Math.max(w.sprintRechargeAt,now+1.1);}
+      target.werewolf.silverSlowUntil=Math.max(target.werewolf.silverSlowUntil,now+4);
+      if(target.werewolf.transformed){target.werewolf.sprinting=false;target.werewolf.sprintRechargeAt=Math.max(target.werewolf.sprintRechargeAt,now+.9);}
     }
   }
 
@@ -1227,8 +1168,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     const now=this.now();
     for(const [id,jet] of this.state.adhesiveJets)if(now>=jet.expiresAt)this.state.adhesiveJets.delete(id);
     for(const [vehicleId,exposure] of this.adhesiveExposure)if(now-exposure.lastHitAt>ADHESIVE_SPRAYER_BALANCE.exposureBreakSeconds)this.adhesiveExposure.delete(vehicleId);
-    for(const [playerId,exposure] of this.adhesivePlayerExposure)if(now-exposure.lastHitAt>ADHESIVE_PLAYER_BALANCE.exposureBreakSeconds)this.adhesivePlayerExposure.delete(playerId);
-    for(const player of this.state.players.values())if(player.werewolf.adhesiveSlowStage>0&&now>=player.werewolf.adhesiveRecoveryUntil){player.werewolf.adhesiveSlowStage=0;player.werewolf.adhesiveSlowUntil=0;player.werewolf.adhesiveRecoveryUntil=0;}
   }
 
   private applyVehicleSlow(vehicle:MotorcycleState,kind:VehicleSlowKind,sourceId:string,profile:VehicleSlowProfile,maxDurationSeconds?:number){
@@ -2298,8 +2237,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       const equipmentMultiplier=p.isSwimming?1:(ranged?.moveMultiplier??melee?.moveMultiplier??1)*(p.isSniperScoped?SNIPER_SCOPE_MOVE_MULTIPLIER:1);
       const terrainMultiplier=movementMultiplierAt(p.x,p.y,this.map.shallowWaterZones,this.map.landCrossings);
       const movementSlowed=this.now()<p.werewolf.silverSlowUntil;
-      const adhesiveMultiplier=adhesivePlayerSpeedMultiplier(p.werewolf.adhesiveSlowStage,this.now(),p.werewolf.adhesiveSlowUntil,p.werewolf.adhesiveRecoveryUntil);
-      const movementSpeed=p.werewolf.transformed?werewolfSpeed(MOTORCYCLE_MAX_SPEED,p.werewolf.sprinting,p.insideBuilding,movementSlowed,adhesiveMultiplier):(p.isSwimming?SWIM_SPEED:PLAYER_SPEED)*equipmentMultiplier*terrainMultiplier*(movementSlowed?.6:1)*adhesiveMultiplier;
+      const movementSpeed=p.werewolf.transformed?werewolfSpeed(MOTORCYCLE_MAX_SPEED,p.werewolf.sprinting,p.insideBuilding,movementSlowed):(p.isSwimming?SWIM_SPEED:PLAYER_SPEED)*equipmentMultiplier*terrainMultiplier*(movementSlowed?.6:1);
       const rawMagnitude=Math.hypot(input.x,input.y);
       const wantsMove=rawMagnitude>.08;
       let moveX=wantsMove?input.x/Math.max(1,rawMagnitude):0;
@@ -3316,7 +3254,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     if(intent.mode==='retreat'&&target)angle=Math.atan2(p.y-target.y,p.x-target.x);
     if(!target)p.angle=angle;
     const movementProfile=this.ensureAiProfile(p),baseLandSpeed=this.state.difficulty==='hard'?235:this.state.difficulty==='easy'?175:205,landSpeed=baseLandSpeed*(.93+movementProfile.aggression*.1);
-    const aiMovementSlowed=this.now()<p.werewolf.silverSlowUntil,aiAdhesiveMultiplier=adhesivePlayerSpeedMultiplier(p.werewolf.adhesiveSlowStage,this.now(),p.werewolf.adhesiveSlowUntil,p.werewolf.adhesiveRecoveryUntil);const speed=(p.isSwimming?landSpeed*(SWIM_SPEED/PLAYER_SPEED):landSpeed*movementMultiplierAt(p.x,p.y,this.map.shallowWaterZones,this.map.landCrossings))*(aiMovementSlowed?.6:1)*aiAdhesiveMultiplier;
+    const aiMovementSlowed=this.now()<p.werewolf.silverSlowUntil;const speed=(p.isSwimming?landSpeed*(SWIM_SPEED/PLAYER_SPEED):landSpeed*movementMultiplierAt(p.x,p.y,this.map.shallowWaterZones,this.map.landCrossings))*(aiMovementSlowed?.6:1);
     const moved=this.moveAiWithAvoidance(p,intent,waypoint,angle,speed,dt);
     this.updateSwimmingState(p);
 
@@ -3795,7 +3733,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     }
     let actual=amount;
     const resolvedKind:DamageKind=kind!=='other'?kind:reason==='총기'?'bullet':reason==='바주카포'||reason==='파편 수류탄'||reason==='오토바이 폭발'?'explosion':reason==='화염방사기'||reason==='화염탄'?'fire':reason==='자기장'?'zone':reason==='오토바이'?'vehicle':reason==='늑대 할퀴기'?'melee':'other';
-    if(p.werewolf.transformed)actual=werewolfDamage(actual,resolvedKind);
+    if(p.werewolf.transformed)actual=werewolfDamage(actual,resolvedKind==='silver'?'silver':resolvedKind==='bullet'?'bullet':resolvedKind==='explosion'?'explosion':'other');
     if(p.armor>0&&resolvedKind==='bullet'&&kind!=='silver'){
       const absorbed=actual*.3;
       actual-=absorbed;

@@ -1,0 +1,100 @@
+
+### TypeScript typecheck
+> pnpm run typecheck
+exit=0
+
+$ pnpm --filter @drop8/shared typecheck && pnpm --filter @drop8/shared build && pnpm --filter @drop8/client typecheck && pnpm --filter @drop8/server typecheck
+$ tsc -p tsconfig.json --noEmit
+$ tsc -p tsconfig.json
+$ tsc --noEmit
+$ tsc -p tsconfig.json --noEmit
+
+
+### ESLint
+> pnpm run lint
+exit=0
+
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\client\src\GameScene.ts
+  1503:178  warning  'wolfAttackPulse' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\server\src\rooms\Drop8Room.ts
+    34:3   warning  'BUSH_HIDE_DISTANCE' is defined but never used                            @typescript-eslint/no-unused-vars
+  1016:11  warning  'aliveAfterCycle' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+  2861:49  warning  'memory' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 4 problems (0 errors, 4 warnings)
+
+
+$ eslint --config eslint.config.ts shared/src shared/tests client/src server/src server/tests
+
+
+### Refactor 020 shared 늑대·점착 테스트
+> pnpm --filter @drop8/shared exec vitest run tests/refactor017-adhesive-status.test.ts tests/refactor018-werewolf-season.test.ts --reporter=verbose
+exit=0
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/shared[39m
+
+ [32m✓[39m tests/refactor017-adhesive-status.test.ts[2m > [22mRefactor 017 adhesive and vehicle status rules[2m > [22muses the strongest active multiplier instead of multiplying effects[32m 2[2mms[22m[39m
+ [32m✓[39m tests/refactor017-adhesive-status.test.ts[2m > [22mRefactor 017 adhesive and vehicle status rules[2m > [22mdrops expired effects and restores exact neutral multipliers[32m 1[2mms[22m[39m
+ [32m✓[39m tests/refactor017-adhesive-status.test.ts[2m > [22mRefactor 017 adhesive and vehicle status rules[2m > [22mbuilds three player slow stages and recovers gradually after spraying stops[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor017-adhesive-status.test.ts[2m > [22mRefactor 017 adhesive and vehicle status rules[2m > [22mnormalizes adhesive charge aliases without changing existing ammunition mappings[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor017-adhesive-status.test.ts[2m > [22mRefactor 017 adhesive and vehicle status rules[2m > [22muses a wider server-authoritative short-range cone[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-season.test.ts[2m > [22mRefactor 018 werewolf season rules[2m > [22mderives werewolf pursuit speed without changing motorcycle balance[32m 2[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-season.test.ts[2m > [22mRefactor 018 werewolf season rules[2m > [22mkeeps the three-claw, bazooka survival and silver shotgun pellet rules[32m 1[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-season.test.ts[2m > [22mRefactor 018 werewolf season rules[2m > [22mdefines an independent crossbow and limited silver ammunition[32m 0[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 08:44:35
+[2m   Duration [22m 447ms[2m (transform 356ms, setup 0ms, import 504ms, tests 9ms, environment 0ms)[22m
+
+
+
+
+### Refactor 020 AI 차량·늑대·점착 집중 테스트
+> pnpm --filter @drop8/server exec vitest run tests/refactor020-ai-vehicle-objective.test.ts tests/refactor020-werewolf-adhesive-balance.test.ts --pool=threads --maxWorkers=1 --no-file-parallelism --testTimeout=30000 --hookTimeout=30000 --reporter=verbose
+exit=1
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/server[39m
+
+ [32m✓[39m tests/refactor020-ai-vehicle-objective.test.ts[2m > [22mRefactor 020 AI vehicle, objective and rivalry[2m > [22mallows two AI to race for the same empty motorcycle[32m 7[2mms[22m[39m
+ [32m✓[39m tests/refactor020-ai-vehicle-objective.test.ts[2m > [22mRefactor 020 AI vehicle, objective and rivalry[2m > [22mmounts the first arriving AI and produces server-authoritative driving input[32m 3[2mms[22m[39m
+ [32m✓[39m tests/refactor020-ai-vehicle-objective.test.ts[2m > [22mRefactor 020 AI vehicle, objective and rivalry[2m > [22mdismounts near a supply, opens it and keeps the previous motorcycle for return[32m 3[2mms[22m[39m
+ [32m✓[39m tests/refactor020-ai-vehicle-objective.test.ts[2m > [22mRefactor 020 AI vehicle, objective and rivalry[2m > [22mlets an AI complete the altar ritual and automatically transform[32m 2[2mms[22m[39m
+ [31m×[39m tests/refactor020-werewolf-adhesive-balance.test.ts[2m > [22mRefactor 020 werewolf predator and adhesive control[2m > [22mapplies aura damage on an interval and dismounts a sustained nearby rider[32m 10[2mms[22m[39m
+[31m   → expected 180 to be 178 // Object.is equality[39m
+ [32m✓[39m tests/refactor020-werewolf-adhesive-balance.test.ts[2m > [22mRefactor 020 werewolf predator and adhesive control[2m > [22mstacks player adhesive to stage three and leaves a recovery tail[32m 6[2mms[22m[39m
+ [32m✓[39m tests/refactor020-werewolf-adhesive-balance.test.ts[2m > [22mRefactor 020 werewolf predator and adhesive control[2m > [22muses the stronger motorcycle adhesive profile without changing weapon range[32m 0[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m6 passed[39m[22m[90m (7)[39m
+[2m   Start at [22m 08:44:36
+[2m   Duration [22m 1.08s[2m (transform 311ms, setup 0ms, import 717ms, tests 35ms, environment 0ms)[22m
+
+undefined
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\server:
+[ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL] Command failed with exit code 1: vitest run tests/refactor020-ai-vehicle-objective.test.ts tests/refactor020-werewolf-adhesive-balance.test.ts "--pool=threads" "--maxWorkers=1" --no-file-parallelism "--testTimeout=30000" "--hookTimeout=30000" "--reporter=verbose"
+
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m tests/refactor020-werewolf-adhesive-balance.test.ts[2m > [22mRefactor 020 werewolf predator and adhesive control[2m > [22mapplies aura damage on an interval and dismounts a sustained nearby rider
+[31m[1mAssertionError[22m: expected 180 to be 178 // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 178[39m
+[31m+ 180[39m
+
+[36m [2m❯[22m tests/refactor020-werewolf-adhesive-balance.test.ts:[2m15:47[22m[39m
+    [90m 13|[39m     wolf.werewolf.transformed=true;wolf.werewolf.transformEndsAt=99;ro…
+    [90m 14|[39m     bike.id='bike';bike.x=1040;bike.y=1000;bike.driverId=driver.id;dri…
+    [90m 15|[39m     room.updateWerewolfAura();expect(bike.hp).toBe(bike.maxHp-WEREWOLF…
+    [90m   |[39m                                               [31m^[39m
+    [90m 16|[39m     clock.value=1.4;room.updateWerewolfAura();clock.value=1.81;room.up…
+    [90m 17|[39m     expect(driver.isDriving).toBe(false);expect(driver.vehicleId).toBe…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+
+

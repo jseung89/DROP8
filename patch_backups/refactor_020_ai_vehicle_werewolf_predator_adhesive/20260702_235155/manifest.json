@@ -1,0 +1,112 @@
+{
+  "patchId": "DROP8 Refactor 020 AI Vehicle Werewolf Predator Adhesive FIXED v2",
+  "patchFile": "DROP8_refactor_020_ai_vehicle_supply_werewolf_predator_adhesive_patch_FIXED_v2.ts",
+  "createdAt": "2026-07-02T23:51:55.845Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "7e50f8b7d1434d5ac50d0e2268d58e436bda892b68995b1412e2cd53bb727a85",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/schema.ts",
+      "existed": true,
+      "beforeSha256": "ed5b992fbd3a0e20cad91b8a8b4c634c890f2d89465b1b1755a4ed50bade25bd",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "existed": true,
+      "beforeSha256": "4c475d7d5adfa1c322fc83374db52bd47b444385885dd27562a04c63fb4538ad",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "shared/src/index.ts",
+      "existed": true,
+      "beforeSha256": "a53da8053e296689e31d3f5e5f40d5a39dc758ac858b89f1b0fe0ec15b3a23ce",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "shared/src/vehicleEffects.ts",
+      "existed": true,
+      "beforeSha256": "3ce1593103961fda09ebb175c087475e5be11e32c9256a38655e5ea8f45344c5",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "shared/src/werewolfSeason.ts",
+      "existed": true,
+      "beforeSha256": "6a3aae526f73f270d69c8429f099ccad3d0f55766ff2615dea12d9061ab379e4",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "shared/tests/refactor017-adhesive-status.test.ts",
+      "existed": true,
+      "beforeSha256": "925a49f2c1baaa0613031d9157af19c215e2338f6a93ab05508be41ad98ce007",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "shared/tests/refactor018-werewolf-season.test.ts",
+      "existed": true,
+      "beforeSha256": "cdee54800a7bec5584ff49231a93ea4e1ff30d7f1ed3343b2952cbf3eea6df77",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor020-ai-vehicle-objective.test.ts",
+      "existed": true,
+      "beforeSha256": "b3bd279d4b44e678eb14694ffa98b18fa6643e9591429e73790b6f2ca56712e7",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor020-werewolf-adhesive-balance.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "b65553ad3a818c73f1554ddd8cc6ebc3a2288793d79a5eb491e6e85259050563",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/tests/refactor020-werewolf-adhesive-balance.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ],
+  "protectedSnapshot": {
+    "aiNames": "const AI_NAMES=['준희커','대성(빅뱅)','양정횬','페이커','케리아','윤석10','손흥민'];",
+    "shotgun": "shotgun:{ id:'shotgun', name:'샷건', damage:15, fireInterval:.72, magazine:5, reloadSeconds:2.0, spread:.18, projectileSpeed:860, range:440, pellets:8, moveMultiplier:.96, ammoType:'shotgun_ammo', slot:'primary' },",
+    "flamethrower": "flamethrower:{ id:'flamethrower', name:'화염방사기', damage:9, fireInterval:.10, magazine:100, reloadSeconds:4.5, spread:0, projectileSpeed:1, range:420, pellets:1, moveMultiplier:.88, ammoType:'fuel_ammo', slot:'primary' },",
+    "bazooka": "bazooka:{ id:'bazooka', name:'바주카포', damage:0, fireInterval:1.65, magazine:1, reloadSeconds:4.2, spread:.012, projectileSpeed:900, range:1250, pellets:1, moveMultiplier:.78, ammoType:'rocket_ammo', slot:'primary' },",
+    "silverCrossbow": "silver_crossbow:{ id:'silver_crossbow', name:'은화살 쇠뇌', damage:14, fireInterval:.42, magazine:4, reloadSeconds:1.35, spread:.16, projectileSpeed:2100, range:1050, pellets:5, moveMultiplier:.96, ammoType:'silver_bolt', slot:'primary' }",
+    "werewolfDefenseBefore": "bulletDamageMultiplier:.25,explosionDamageMultiplier:.40,otherDamageMultiplier:.20,explosionKnockbackMultiplier:.50,",
+    "adhesiveVehicleBefore": "motorcycle:{speedMultiplier:.55,accelerationMultiplier:.40,steeringMultiplier:.75,durationSeconds:4,maxDurationSeconds:6},",
+    "aiMarkers": "// DROP8_REFACTOR_019_AI_HUMANIZATION | // DROP8_AI_PATROL_STABILITY_HOTFIX | // DROP8_AI_LARGE_BUILDING_PERIMETER_HOTFIX"
+  }
+}
