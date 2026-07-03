@@ -1,6 +1,3 @@
-// DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN
-// DROP8_REFACTOR_024B_OPEN_ARENA_LIFECYCLE_HOST_MIGRATION
-// DROP8_REFACTOR_024A_OPEN_ARENA_FOUNDATION
 // DROP8_REFACTOR_019_AI_HUMANIZATION
 // DROP8_REFACTOR_018_WEREWOLF_SEASON
 // DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
@@ -22,15 +19,10 @@ export type Snapshot={
 
 const endpoint=location.origin.replace(/^http/,'ws');
 
-export type RoomConfig={gameMode:'battleRoyale'|'openArena';maxHumans:number;configuredAiCount:number;maxTotalCombatants:number;joinInProgress:boolean;zoneEnabled:boolean;respawnEnabled:boolean;lifecycle?:string};
-
 export class Network {
   client=new Client(endpoint);
   room:Room<any>|null=null;
   snapshot:Snapshot|null=null;
-  roomConfig:RoomConfig={gameMode:'battleRoyale',maxHumans:8,configuredAiCount:0,maxTotalCombatants:8,joinInProgress:false,zoneEnabled:true,respawnEnabled:false};
-  respawnAt=0;
-  spawnProtectionUntil=0;
   listeners=new Set<()=>void>();
   messages=new Set<(t:string,p:any)=>void>();
   private playerCache=new Map<string,any>();
@@ -70,12 +62,8 @@ export class Network {
     };
     this.room.onStateChange(update);
     if(this.room.state?.players)update(this.room.state);
-    this.room.onMessage('roomConfig',(payload:any)=>{this.roomConfig={...this.roomConfig,...payload};this.listeners.forEach(fn=>fn());});
-    for(const type of ['chat','aiDialogue','killfeed','result','error','notice','pong','kicked','pickupResult','slotSwapResult','positionRecovery','vehicleRecovery','characterDeath','audioEvent','arenaStatus','hostChanged','respawnScheduled','respawned','spawnProtection'])this.room.onMessage(type,(p:any)=>{
+    for(const type of ['chat','aiDialogue','killfeed','result','error','notice','pong','kicked','pickupResult','slotSwapResult','positionRecovery','vehicleRecovery','characterDeath','audioEvent'])this.room.onMessage(type,(p:any)=>{
       if(type==='pong'&&Number.isFinite(Number(p?.t)))this.rtt=Math.max(0,Date.now()-Number(p.t));
-      if(type==='respawnScheduled')this.respawnAt=Number(p?.respawnAt)||0;
-      if(type==='respawned')this.respawnAt=0;
-      if(type==='spawnProtection')this.spawnProtectionUntil=Number(p?.protectedUntil)||0;
       this.messages.forEach(fn=>fn(type,p));
     });
     window.clearInterval(this.pingTimer);
@@ -125,8 +113,6 @@ export class Network {
     const room=this.room;
     this.room=null;
     this.snapshot=null;
-    this.roomConfig={gameMode:'battleRoyale',maxHumans:8,configuredAiCount:0,maxTotalCombatants:8,joinInProgress:false,zoneEnabled:true,respawnEnabled:false};
-    this.respawnAt=0;this.spawnProtectionUntil=0;
     this.playerCache.clear();
     this.tacticalInventoryCache.clear();
     this.bulletCache.clear();

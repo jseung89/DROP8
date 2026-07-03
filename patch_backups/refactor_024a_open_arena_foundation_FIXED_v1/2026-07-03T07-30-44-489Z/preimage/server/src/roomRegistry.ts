@@ -1,7 +1,5 @@
-// DROP8_REFACTOR_024A_OPEN_ARENA_FOUNDATION
 // DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
 import { matchMaker } from '@colyseus/core';
-import type { GameMode } from '@drop8/shared';
 
 export type PublicRoomStatus='LOBBY'|'PLANE'|'DROP'|'ACTIVE'|'FINISHED';
 export type PublicRoomInfo={
@@ -19,11 +17,6 @@ export type PublicRoomInfo={
   mapDisplayName:string;
   createdAt:number;
   updatedAt:number;
-  gameMode:GameMode;
-  maxHumans:number;
-  configuredAiCount:number;
-  joinInProgress:boolean;
-  lifecycle:'lobby'|'active'|'emptyGrace'|'disposed';
 };
 
 type RoomListing={roomId:string;clients:number;maxClients:number;locked?:boolean;private?:boolean;unlisted?:boolean;createdAt?:Date|string|number;metadata?:Partial<Omit<PublicRoomInfo,'roomId'|'maxPlayers'|'locked'>>};
@@ -52,11 +45,6 @@ export function publicRoomInfoFromListing(listing:RoomListing):PublicRoomInfo|nu
     mapDisplayName:String(metadata.mapDisplayName??(mapSizeMode==='large'?'큰 맵':mapSizeMode==='dock8'?'8번 부두':'작은 맵')),
     createdAt:Number.isFinite(createdAt)?createdAt:Date.now(),
     updatedAt:Number.isFinite(updatedAt)?updatedAt:Date.now(),
-    gameMode:metadata.gameMode==='openArena'?'openArena':'battleRoyale',
-    maxHumans:Number(metadata.maxHumans??listing.maxClients)||8,
-    configuredAiCount:Number(metadata.configuredAiCount)||0,
-    joinInProgress:Boolean(metadata.joinInProgress),
-    lifecycle:(['lobby','active','emptyGrace','disposed'].includes(String(metadata.lifecycle))?metadata.lifecycle:'lobby') as PublicRoomInfo['lifecycle'],
   };
 }
 

@@ -1,11 +1,3 @@
-<!-- DROP8_REFACTOR_024D_OPEN_ARENA_PERSISTENT_WORLD -->
-## Refactor 024D — Persistent Loot, Vehicle Respawn & World Cleanup
-
-- Open Arena 최초 아이템 배치를 고정 슬롯으로 추적하고 획득 후 종류별 쿨다운으로 다시 생성합니다.
-- 사망 시 장착 무기·제한 탄약·회복 1개만 드롭하며 동적 드롭은 60초 후 제거합니다.
-- 파괴된 오토바이는 원래 슬롯에서 75초 뒤 안전 위치를 확인하고 재생성합니다.
-- 1초 간격 정리 루프로 고아 드롭·예약·차량 슬롯을 관리하며 방 dispose 시 모든 런타임 Map을 비웁니다.
-
 <!-- DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN -->
 ## Refactor 024C — Human & AI Respawn
 

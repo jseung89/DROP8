@@ -1,0 +1,76 @@
+{
+  "patchId": "DROP8 Refactor 024B Lifecycle, Join-in-Progress & Host Migration FIXED v1",
+  "patchFile": "DROP8_refactor_024B_open_arena_lifecycle_host_migration_patch_FIXED_v1.ts",
+  "createdAt": "2026-07-03T07:34:21.966Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "client/src/main.ts",
+      "existed": true,
+      "beforeSha256": "4c3430540626e16e87145cf6fbb90f56effaf53fc7e1a769fabfb8564296a1a3",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true,
+      "beforeSha256": "53631d1c017cb30d4cf34f1bc5a714bebd9b9c2615652dedc9b8ff56dd1b18cf",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "2369778fa372161e06c434edebcd888c6cfba694f844b01b6d301930ee4aaa01",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "6a3d020d5a33f2edc3cb17623b72cb1fa0e847842172568236418ef22791bd57",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024b-host-migration.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024b-join-in-progress.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024b-open-arena-lifecycle.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/tests/refactor024b-host-migration.test.ts",
+    "server/tests/refactor024b-join-in-progress.test.ts",
+    "server/tests/refactor024b-open-arena-lifecycle.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

@@ -1,20 +1,3 @@
-<!-- DROP8_REFACTOR_024D_OPEN_ARENA_PERSISTENT_WORLD -->
-## Refactor 024D — Persistent Loot, Vehicle Respawn & World Cleanup
-
-- Open Arena 최초 아이템 배치를 고정 슬롯으로 추적하고 획득 후 종류별 쿨다운으로 다시 생성합니다.
-- 사망 시 장착 무기·제한 탄약·회복 1개만 드롭하며 동적 드롭은 60초 후 제거합니다.
-- 파괴된 오토바이는 원래 슬롯에서 75초 뒤 안전 위치를 확인하고 재생성합니다.
-- 1초 간격 정리 루프로 고아 드롭·예약·차량 슬롯을 관리하며 방 dispose 시 모든 런타임 Map을 비웁니다.
-
-<!-- DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN -->
-## Refactor 024C — Human & AI Respawn
-
-- Open Arena 인간은 사망 후 5초 관전 뒤 안전 위치에서 권총 기본 장비로 재투입됩니다.
-- 설정된 AI는 고정 슬롯과 동일한 이름·페르소나를 유지하며 6초 뒤 리스폰합니다.
-- 최근 사용 지점, 적 거리와 직접 사격선을 평가하는 공통 안전 스폰 선택기를 추가했습니다.
-- 리스폰 보호는 최대 2초이며 사격·근접·투척·트랩·상호작용 시 즉시 해제됩니다.
-- Open Arena 사망 시 전체 인벤토리 드롭은 비활성화했으며 제한 드롭은 024D에서 추가합니다.
-
 <!-- DROP8_REFACTOR_024B_OPEN_ARENA_LIFECYCLE_HOST_MIGRATION -->
 ## Refactor 024B — Lifecycle, Join-in-Progress & Host Migration
 

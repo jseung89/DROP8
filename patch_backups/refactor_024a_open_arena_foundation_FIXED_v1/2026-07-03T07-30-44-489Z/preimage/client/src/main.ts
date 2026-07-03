@@ -1,6 +1,3 @@
-// DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN
-// DROP8_REFACTOR_024B_OPEN_ARENA_LIFECYCLE_HOST_MIGRATION
-// DROP8_REFACTOR_024A_OPEN_ARENA_FOUNDATION
 // DROP8_REFACTOR_021_AI_PERSONA_DIALOGUE
 // DROP8_REFACTOR_019_AI_HUMANIZATION
 // DROP8_REFACTOR_018_WEREWOLF_SEASON
@@ -10,7 +7,7 @@
 // DROP8_REFACTOR_013H_FIXED_V3_VISIBILITY_ROOF_RIVER_ZONE_SNIPER_AI
 // DROP8_REFACTOR_013H_VISIBILITY_ROOF_RIVER_ZONE_SNIPER
 import Phaser from 'phaser';
-import { AI_DIALOGUE_LINES, AMMO_DISPLAY_NAMES, GAME_NAME, LOOT_LABELS, MAX_PLAYERS, MELEE_WEAPONS, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_SCOPE_SPEED_RATIO, OPEN_ARENA_LIMITS, WEAPONS, isThrowableType, type AmmoType, type WeaponId, type ThrowableType } from '@drop8/shared';
+import { AI_DIALOGUE_LINES, AMMO_DISPLAY_NAMES, GAME_NAME, LOOT_LABELS, MAX_PLAYERS, MELEE_WEAPONS, MOTORCYCLE_MAX_SPEED, MOTORCYCLE_SCOPE_SPEED_RATIO, WEAPONS, isThrowableType, type AmmoType, type WeaponId, type ThrowableType } from '@drop8/shared';
 import { GameScene } from './GameScene';
 import { Network } from './network';
 import { normalizeChatText, shouldSubmitChatKey } from './chatInput';
@@ -97,8 +94,7 @@ function nick(){
 async function connect(create:boolean){
   error.textContent='연결 중...';
   try{
-    const gameMode=$<HTMLSelectElement>('gameMode').value;
-    const opts={nickname:nick(),password:password.value,roomPassword:password.value,publicRoom:$<HTMLInputElement>('publicRoom').checked,fillAi:true,difficulty:'normal',zoneSpeed:'normal',mapSizeMode:'small',mapId:'small',gameMode,maxHumans:Number($<HTMLSelectElement>('maxHumans').value),aiCount:Number($<HTMLSelectElement>('arenaAiCount').value)};
+    const opts={nickname:nick(),password:password.value,roomPassword:password.value,publicRoom:$<HTMLInputElement>('publicRoom').checked,fillAi:true,difficulty:'normal',zoneSpeed:'normal',mapSizeMode:'small',mapId:'small'};
     if(create)await net.create(opts);
     else await net.join(roomCode.value.trim(),opts);
     home.classList.add('hidden');
@@ -134,18 +130,6 @@ $('difficulty').onchange=sendSettings;
 $('zoneSpeed').onchange=sendSettings;
 $('mapSizeMode').onchange=sendSettings;
 $('roomMapFilter').onchange=()=>renderRoomList(cachedRooms);
-const gameModeSelect=$<HTMLSelectElement>('gameMode');
-const maxHumansSelect=$<HTMLSelectElement>('maxHumans');
-const arenaAiCountSelect=$<HTMLSelectElement>('arenaAiCount');
-function updateCreateModeUi(){
-  const arena=gameModeSelect.value==='openArena';
-  maxHumansSelect.disabled=!arena;arenaAiCountSelect.disabled=!arena;
-  const total=Number(maxHumansSelect.value)+Number(arenaAiCountSelect.value);
-  const valid=!arena||total<=OPEN_ARENA_LIMITS.maxTotalCombatants;
-  $('createBtn').toggleAttribute('disabled',!valid);
-  $('arenaCreateHint').textContent=arena?`상시 개방 전장 · 자기장 없음 · 인간 ${maxHumansSelect.value}명 + AI ${arenaAiCountSelect.value}명 = 총 ${total}명${valid?'':' · 총원 16명 초과'}`:'배틀로얄 · 비행기 · 자기장 · 최후의 생존자';
-}
-gameModeSelect.onchange=updateCreateModeUi;maxHumansSelect.onchange=updateCreateModeUi;arenaAiCountSelect.onchange=updateCreateModeUi;updateCreateModeUi();
 
 function sendSettings(){
   net.send('settings',{
@@ -274,8 +258,6 @@ net.messages.add((type,p)=>{
   if(type==='pickupResult')showPickupResult(p);
   if(type==='kicked')void exitRoom(String(p?.message??'방장에 의해 방에서 나갔습니다.'),false);
   if(type==='notice')showGameNotice(p?.message??p,p?.type??'warning',Number(p?.duration)||undefined);
-  if(type==='hostChanged')showGameNotice(`${String(p?.hostName??'다른 플레이어')}님이 새로운 방장이 되었습니다.`,'info',2200);
-  if(type==='respawned')showGameNotice('상시 전장에 다시 투입되었습니다.','info',1500);
   if(type==='error'){const message=String(p?.message??p??'오류가 발생했습니다.');if(gameEl.classList.contains('hidden')&&lobby.classList.contains('hidden'))error.textContent=message;else showGameNotice(message,'error');}
 });
 
@@ -410,20 +392,12 @@ function render(){
   if(now-lastHudAt<100)return;
   lastHudAt=now;
   const me=s.players.find((p)=>p.id===net.sessionId);
-  const arena=net.roomConfig.gameMode==='openArena';
-  $('modeText').textContent=arena?'상시 개방 전장':'배틀로얄';
   $('phaseText').textContent=me&&!me.alive?'관전 중 · ← → 대상 변경':s.phase;
   $('aliveText').textContent=String(s.aliveCount);
   $('killsText').textContent=String(me?.kills??0);
   const zoneSeconds=Math.max(0,Math.ceil(s.zoneTimer));
-  $('zoneHudItem').classList.toggle('hidden',arena);
-  $('zoneText').textContent=arena?'없음':s.zoneState==='FREE'?`없음 · ${zoneSeconds}초`:s.zoneState==='ANNOUNCING'?`예고 · ${zoneSeconds}초`:`${zoneSeconds}초`;
+  $('zoneText').textContent=s.zoneState==='FREE'?`없음 · ${zoneSeconds}초`:s.zoneState==='ANNOUNCING'?`예고 · ${zoneSeconds}초`:`${zoneSeconds}초`;
   $('hpText').textContent=String(Math.ceil(me?.hp??0));
-  const respawnHud=$('arenaRespawnHud');
-  const respawnLeft=Math.max(0,net.respawnAt-Number(s.serverTime??0));
-  const protectionLeft=Math.max(0,net.spawnProtectionUntil-Number(s.serverTime??0));
-  respawnHud.classList.toggle('hidden',!arena||(!respawnLeft&&!protectionLeft));
-  respawnHud.textContent=respawnLeft>0?`재투입까지 ${respawnLeft.toFixed(1)}초 · 관전 중`:protectionLeft>0?`스폰 보호 ${protectionLeft.toFixed(1)}초 · 공격 시 즉시 해제`:'';
   $('mapModeText').textContent=s.mapId==='dock8'||s.mapSizeMode==='dock8'?'8번 부두':s.mapId==='large'||s.mapSizeMode==='large'?'큰 맵':'작은 맵';
   const motorcycle=me?.vehicleId?s.motorcycles.find((item:any)=>item.id===me.vehicleId):undefined;
   const vehicleHud=$('vehicleHud');
@@ -509,7 +483,7 @@ function renderLobby(s:any){
   $<HTMLSelectElement>('mapSizeMode').value=s.mapId??s.mapSizeMode??'small';
 }
 
-type PublicRoomInfo={roomId:string;roomCode:string;hostName:string;players:number;humans:number;maxPlayers:number;phase:string;fillAi:boolean;publicRoom:boolean;locked:boolean;mapSizeMode:'small'|'large'|'dock8';mapDisplayName:string;gameMode:'battleRoyale'|'openArena';maxHumans:number;configuredAiCount:number;joinInProgress:boolean;lifecycle:string};
+type PublicRoomInfo={roomId:string;roomCode:string;hostName:string;players:number;humans:number;maxPlayers:number;phase:string;fillAi:boolean;publicRoom:boolean;locked:boolean;mapSizeMode:'small'|'large'|'dock8';mapDisplayName:string};
 
 async function refreshRooms(){
   if(home.classList.contains('hidden'))return;
@@ -537,12 +511,10 @@ function renderRoomList(rooms:PublicRoomInfo[]){
   for(const room of filtered){
     const row=document.createElement('div');row.className='room-row';
     const info=document.createElement('div');
-    const arena=room.gameMode==='openArena';
-    const full=room.humans>=room.maxHumans;
-    const status=room.phase==='LOBBY'?(room.locked?'잠김':full?'인원 가득 참':'대기 중'):room.phase==='FINISHED'?'종료 중':arena?'전장 진행 중':'게임 중';
-    info.innerHTML=`<b>#${escapeText(room.roomCode)}</b><span>${escapeText(room.hostName)} · ${arena?'상시 개방 전장':'배틀로얄'} · 인간 ${room.humans}/${room.maxHumans}${arena?` · AI ${room.configuredAiCount}`:''} · ${escapeText(room.mapDisplayName||'작은 맵')} · ${status}</span>`;
+    const status=room.phase==='LOBBY'?(room.locked?'잠김':room.players>=room.maxPlayers?'인원 가득 참':'대기 중'):room.phase==='FINISHED'?'종료 중':'게임 중';
+    info.innerHTML=`<b>#${escapeText(room.roomCode)}</b><span>${escapeText(room.hostName)} · ${room.players}/${room.maxPlayers} · ${escapeText(room.mapDisplayName||'작은 맵')} · ${status}${room.fillAi?' · AI':''}</span>`;
     const join=document.createElement('button');join.type='button';join.textContent='참가';
-    join.disabled=room.locked||full||(arena?room.lifecycle!=='active'&&room.phase!=='LOBBY':room.phase!=='LOBBY');
+    join.disabled=room.locked||room.phase!=='LOBBY'||room.players>=room.maxPlayers;
     join.onclick=()=>{roomCode.value=room.roomCode;void connect(false);};
     row.append(info,join);list.append(row);
   }
@@ -571,7 +543,7 @@ $('toggleFieldChat').onclick=()=>setFieldChatCollapsed(!fieldChatCollapsed);
 setFieldChatCollapsed(fieldChatCollapsed);
 
 async function exitRoom(message='',ask=false){
-  if(ask&&net.snapshot?.phase!=='LOBBY'&&!confirmWithoutPopup('leave-game',net.roomConfig.gameMode==='openArena'?'상시 전장에서 나가시겠습니까? 남은 인간이 없으면 방이 종료됩니다.':'진행 중인 게임에서 나가면 현재 캐릭터가 탈락합니다.'))return;
+  if(ask&&net.snapshot?.phase!=='LOBBY'&&!confirmWithoutPopup('leave-game','진행 중인 게임에서 나가면 현재 캐릭터가 탈락합니다.'))return;
   closeChat();
   inventoryOpen=false;
   $('inventoryPanel').classList.add('hidden');

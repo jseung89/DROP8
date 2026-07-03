@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_024D_OPEN_ARENA_PERSISTENT_WORLD
 // DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN
 // DROP8_REFACTOR_024B_OPEN_ARENA_LIFECYCLE_HOST_MIGRATION
 // DROP8_REFACTOR_024A_OPEN_ARENA_FOUNDATION
@@ -173,7 +172,6 @@ import { awarenessForState, createAiMemory, createAiProfile, estimateSoundPoint,
 import { AI_PERSONA_NAMES, aiDialogueProfileForName, aiPersonaEventFromLegacy, selectAiPersonaLine, selectAiPersonaResponse, type AiPersonaEvent, type AiPersonaLine } from './aiDialogueProfiles.js';
 import { AI_NAVIGATION_RECOVERY, AI_SAFE_ZONE_SWEEP, aiDialogueAudience, aiSweepDetourMetrics, canReplaceAiGoal, createAiSafeZoneSweepTarget, detectAiOscillation, nextAiStallSeconds, pushAiProgressSample, shouldTakeAiSweepLoot, type AiGoalKind, type AiProgressSample, type AiSweepZone } from './aiNavigation.js';
 import { chooseOpenArenaSpawn, type OpenArenaAiSlot, type RecentArenaSpawn } from './openArenaRespawn.js';
-import { OPEN_ARENA_DROP_TTL_SECONDS, OPEN_ARENA_VEHICLE_RESPAWN_SECONDS, OPEN_ARENA_WORLD_CLEANUP_INTERVAL_SECONDS, arenaLootRespawnSeconds, type ArenaLootSlot, type ArenaVehicleSlot } from './openArenaWorld.js';
 
 type Input = { x:number; y:number; aimX:number; aimY:number; angle:number; seq:number; aiming:boolean; huntSprint:boolean; accelerate:boolean; brake:boolean; turnLeft:boolean; turnRight:boolean };
 type Point = { x:number; y:number };
@@ -329,11 +327,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private openArenaDeaths=new Map<string,number>();
   private openArenaAiSlots=new Map<string,OpenArenaAiSlot>();
   private recentArenaSpawns:RecentArenaSpawn[]=[];
-  private arenaLootSlots=new Map<string,ArenaLootSlot>();
-  private arenaLootToSlot=new Map<string,string>();
-  private arenaDropExpiresAt=new Map<string,number>();
-  private arenaVehicleSlots=new Map<string,ArenaVehicleSlot>();
-  private arenaWorldCleanupAt=0;
   private elapsed=0;
   private bulletSeq=0;
   private rocketSeq=0;
@@ -535,7 +528,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     targetClient.leave(CloseCode.CONSENTED,'kicked');
   }
 
-  onDispose(){this.openArenaLifecycle='disposed';this.humanJoinedAt.clear();this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.openArenaDeaths.clear();this.openArenaAiSlots.clear();this.recentArenaSpawns=[];this.arenaLootSlots.clear();this.arenaLootToSlot.clear();this.arenaDropExpiresAt.clear();this.arenaVehicleSlots.clear();for(const p of this.state.players.values())if(p.werewolf.transformed)this.endWerewolfCycle(p,'round_end');this.clearCountermeasureState();this.werewolfMoveVectors.clear();this.aiProfiles.clear();this.aiMemories.clear();this.aiLineCooldown.clear();this.aiMovementSamples.clear();this.aiVehiclePlans.clear();this.aiWorldObjectives.clear();this.aiObjectiveCooldown.clear();void this.presence.del(`drop8:${this.roomId}`);}
+  onDispose(){this.openArenaLifecycle='disposed';this.humanJoinedAt.clear();this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.openArenaDeaths.clear();this.openArenaAiSlots.clear();this.recentArenaSpawns=[];for(const p of this.state.players.values())if(p.werewolf.transformed)this.endWerewolfCycle(p,'round_end');this.clearCountermeasureState();this.werewolfMoveVectors.clear();this.aiProfiles.clear();this.aiMemories.clear();this.aiLineCooldown.clear();this.aiMovementSamples.clear();this.aiVehiclePlans.clear();this.aiWorldObjectives.clear();this.aiObjectiveCooldown.clear();void this.presence.del(`drop8:${this.roomId}`);}
 
   private system(text:string){const now=Date.now();this.broadcast('chat',{channel:'system',sender:'시스템',nickname:'시스템',text,time:now,sentAt:now});}
   private emitAudioEvent(type:string,data:Record<string,unknown>={},target?:Client){
@@ -851,8 +844,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private spawnLoot(){
     this.state.loot.clear();
     this.lootReservations.clear();
-    if(this.gameMode==='openArena'){this.arenaLootSlots.clear();this.arenaLootToSlot.clear();this.arenaDropExpiresAt.clear();}
-    for(const [spawnIndex,spawn] of this.map.lootSpawns.slice(0,this.map.lootBudget).entries()){
+    for(const spawn of this.map.lootSpawns.slice(0,this.map.lootBudget)){
       const kind=this.lootKindForSpawn(spawn);
       const expectedSpace=spaceAt(spawn.x,spawn.y,this.map.buildingVisibilityZones,this.map.rooms,0);
       const expectedBuildingId=spawn.buildingId??expectedSpace.buildingId;
@@ -868,7 +860,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       l.buildingId=lootSpace.buildingId;
       l.roomIndex=lootSpace.roomIndex;
       this.state.loot.set(l.id,l);
-      if(this.gameMode==='openArena'){const slotId=`arena-loot-slot-${spawnIndex}`;this.arenaLootSlots.set(slotId,{slotId,spawnIndex,currentLootId:l.id,respawnAt:0,generation:0});this.arenaLootToSlot.set(l.id,slotId);}
     }
   }
 
@@ -1654,7 +1645,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     const result=this.applyLoot(p,kind,pick);
     if(!result.success)return;
     c.send('pickupResult',{kind,equipped:p.equipped,autoEquipped:p.equipped!==equippedBefore&&(kind in WEAPONS||kind in MELEE_WEAPONS||isThrowableType(kind)),droppedKind:result.droppedKind??'',droppedMagazine:result.droppedMagazine??-1});
-    this.markOpenArenaLootConsumed(pick.id);
     this.state.loot.delete(pick.id);
     this.lootReservations.delete(pick.id);
   }
@@ -1974,7 +1964,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     for(const player of this.state.players.values())if(player.isPreparingThrow){const started=this.throwPrepareAt.get(player.id);player.throwCharge=started===undefined?0:clamp((this.now()-started)*1000/THROWABLE_MAX_CHARGE_MS,0,1);}
     this.updateThrowables(dt);
     this.updateThrowableFields();
-    if(this.gameMode==='openArena'){this.updateOpenArenaRespawns();this.updateOpenArenaWorld();}
+    if(this.gameMode==='openArena')this.updateOpenArenaRespawns();
     this.state.serverCollisionMs=performance.now()-collisionStarted;
     const zoneStarted=performance.now();
     if(this.gameMode==='battleRoyale')this.updateZone(dt);
@@ -2116,9 +2106,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.state.motorcycles.clear();
     this.vehicleCollisionAt.clear();
     this.vehicleStuckStates.clear();
-    if(this.gameMode==='openArena')this.arenaVehicleSlots.clear();
-    const selectedSpawns=this.selectMotorcycleSpawns();
-    for(const spawn of selectedSpawns){
+    for(const spawn of this.selectMotorcycleSpawns()){
       const point=this.findNearestVehiclePoint(spawn.x,spawn.y,260);
       if(!point)continue;
       const motorcycle=new MotorcycleState();
@@ -2133,7 +2121,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       motorcycle.buildingId=buildingIdAt(point.x,point.y,0,this.map.buildingVisibilityZones);
       this.state.motorcycles.set(motorcycle.id,motorcycle);
       this.vehicleStuckStates.set(motorcycle.id,{lastX:point.x,lastY:point.y,stuckFor:0,lastRecoveryAt:-99});
-      if(this.gameMode==='openArena')this.arenaVehicleSlots.set(spawn.id,{slotId:`arena-vehicle-slot-${spawn.id}`,spawnId:spawn.id,x:spawn.x,y:spawn.y,rotation:spawn.rotation,currentVehicleId:motorcycle.id,respawnAt:0,generation:0});
     }
   }
 
@@ -2295,7 +2282,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       if(speedRatio>MOTORCYCLE_SCOPE_SPEED_RATIO||requestedMove)driver.isSniperScoped=false;
       this.applyMotorcycleCollisions(motorcycle,driver,now);
     }
-    for(const id of removeIds){this.markOpenArenaVehicleDestroyed(id);this.state.motorcycles.delete(id);this.vehicleStuckStates.delete(id);this.vehicleMotionStates.delete(id);this.vehicleWallDamageAt.delete(id);this.vehicleAttackerAt.delete(id);this.vehicleStatus.deleteVehicle(id);this.adhesiveExposure.delete(id);}
+    for(const id of removeIds){this.state.motorcycles.delete(id);this.vehicleStuckStates.delete(id);this.vehicleMotionStates.delete(id);this.vehicleWallDamageAt.delete(id);this.vehicleAttackerAt.delete(id);this.vehicleStatus.deleteVehicle(id);this.adhesiveExposure.delete(id);}
     for(const [key,time] of this.vehicleCollisionAt)if(now-time>3)this.vehicleCollisionAt.delete(key);
     for(const [key,record] of this.vehicleShotDamage)if(now>record.expiresAt)this.vehicleShotDamage.delete(key);
     for(const [id,explosion] of this.state.explosions)if(now-explosion.startedAt>explosion.duration)this.state.explosions.delete(id);
@@ -3770,7 +3757,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       let picked=false;
       if(this.aiLootScore(p,loot.kind as LootKind)>0){
         const result=this.applyLoot(p,loot.kind as LootKind,loot);
-        if(result.success){picked=true;const event:AiPersonaEvent=loot.kind==='bazooka'?'loot_bazooka':loot.kind==='sniper'?'loot_sniper':loot.kind==='flamethrower'?'loot_flame':loot.kind==='pipe'?'loot_pipe':'loot';this.emitAiPersonaDialogue(p,event,{casual:true,loggable:false,allowResponse:true});this.markOpenArenaLootConsumed(loot.id);this.state.loot.delete(loot.id);this.lootReservations.delete(loot.id);}
+        if(result.success){picked=true;const event:AiPersonaEvent=loot.kind==='bazooka'?'loot_bazooka':loot.kind==='sniper'?'loot_sniper':loot.kind==='flamethrower'?'loot_flame':loot.kind==='pipe'?'loot_pipe':'loot';this.emitAiPersonaDialogue(p,event,{casual:true,loggable:false,allowResponse:true});this.state.loot.delete(loot.id);this.lootReservations.delete(loot.id);}
       }
       this.releaseLootReservation(p.id,completedLootId);
       intent.lootId='';
@@ -4422,52 +4409,9 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
         this.emitAudioEvent('kill_confirm',{sourceId:attacker.id,targetId:p.id,variant:cause},this.playerClient(attacker.id));
         this.broadcast('killfeed',{killer:attacker.name,victim:p.name,reason});
       }else this.broadcast('killfeed',{killer:reason,victim:p.name,reason});
-      if(this.gameMode==='openArena'){this.dropOpenArenaDeathLoot(p);this.scheduleOpenArenaRespawn(p);}
+      if(this.gameMode==='openArena')this.scheduleOpenArenaRespawn(p);
       else this.dropInventory(p);
     }
-  }
-
-  private markOpenArenaLootConsumed(lootId:string){
-    if(this.gameMode!=='openArena')return;
-    const slotId=this.arenaLootToSlot.get(lootId);if(!slotId)return;
-    const slot=this.arenaLootSlots.get(slotId);this.arenaLootToSlot.delete(lootId);
-    if(!slot)return;
-    const spawn=this.map.lootSpawns[slot.spawnIndex];slot.currentLootId='';slot.respawnAt=this.now()+arenaLootRespawnSeconds(spawn?.category??'misc');slot.generation++;
-  }
-
-  private createOpenArenaTimedDrop(kind:LootKind,x:number,y:number,configure?:(loot:LootState)=>void){
-    const pos=this.findSeparatedLootPosition(x,y,kind,'',0)??this.findNearestFreePoint(x,y,160);if(!pos)return;
-    const loot=new LootState();loot.id=`loot-${++this.lootSeq}`;loot.kind=kind;loot.x=pos.x;loot.y=pos.y;const lootSpace=spaceAt(pos.x,pos.y,this.map.buildingVisibilityZones,this.map.rooms,0);loot.buildingId=lootSpace.buildingId;loot.roomIndex=lootSpace.roomIndex;configure?.(loot);this.state.loot.set(loot.id,loot);this.arenaDropExpiresAt.set(loot.id,this.now()+OPEN_ARENA_DROP_TTL_SECONDS);
-  }
-
-  private dropOpenArenaDeathLoot(p:PlayerState){
-    const weapon=(p.equipped in WEAPONS&&p.equipped!=='fists'?p.equipped:p.primary||p.secondary) as WeaponId|'';
-    if(weapon&&weapon in WEAPONS){const magazine=this.getWeaponMagazine(p,weapon);this.createOpenArenaTimedDrop(weapon as LootKind,p.x+28,p.y,(loot)=>{loot.weaponMagazine=magazine;loot.grantsAmmo=false;});const ammo=WEAPONS[weapon].ammoType;const ammoKind=ammo==='pistol_ammo'?'pistol_ammo':ammo==='standard_ammo'?'standard_ammo':ammo==='shotgun_ammo'?'shotgun_ammo':ammo==='rocket_ammo'?'rocket_ammo':ammo==='fuel_ammo'?'fuel_ammo':'';if(ammoKind)this.createOpenArenaTimedDrop(ammoKind as LootKind,p.x-24,p.y,(loot)=>{loot.ammoCount=Math.max(1,Math.min(24,this.getAmmo(p,ammo)));});}
-    if(p.medkits>0)this.createOpenArenaTimedDrop('medkit',p.x,p.y+32);else if(p.bandages>0)this.createOpenArenaTimedDrop('bandage',p.x,p.y+32);
-  }
-
-  private markOpenArenaVehicleDestroyed(vehicleId:string){
-    if(this.gameMode!=='openArena')return;
-    for(const slot of this.arenaVehicleSlots.values())if(slot.currentVehicleId===vehicleId){slot.currentVehicleId='';slot.respawnAt=this.now()+OPEN_ARENA_VEHICLE_RESPAWN_SECONDS;slot.generation++;return;}
-  }
-
-  private respawnOpenArenaVehicle(slot:ArenaVehicleSlot){
-    if(slot.currentVehicleId&&this.state.motorcycles.has(slot.currentVehicleId))return;
-    const point=this.findNearestVehiclePoint(slot.x,slot.y,260);if(!point){slot.respawnAt=this.now()+5;return;}
-    const motorcycle=new MotorcycleState();motorcycle.id=slot.spawnId;motorcycle.x=point.x;motorcycle.y=point.y;motorcycle.rotation=slot.rotation;motorcycle.lastSafeX=point.x;motorcycle.lastSafeY=point.y;motorcycle.hp=MOTORCYCLE_DESTRUCTION_BALANCE.maxHp;motorcycle.maxHp=MOTORCYCLE_DESTRUCTION_BALANCE.maxHp;motorcycle.buildingId=buildingIdAt(point.x,point.y,0,this.map.buildingVisibilityZones);this.state.motorcycles.set(motorcycle.id,motorcycle);this.vehicleStuckStates.set(motorcycle.id,{lastX:point.x,lastY:point.y,stuckFor:0,lastRecoveryAt:-99});slot.currentVehicleId=motorcycle.id;slot.respawnAt=0;
-  }
-
-  private updateOpenArenaWorld(){
-    const now=this.now();if(now<this.arenaWorldCleanupAt)return;this.arenaWorldCleanupAt=now+OPEN_ARENA_WORLD_CLEANUP_INTERVAL_SECONDS;
-    for(const [lootId] of this.state.loot)if(!this.arenaLootToSlot.has(lootId)&&!this.arenaDropExpiresAt.has(lootId))this.arenaDropExpiresAt.set(lootId,now+OPEN_ARENA_DROP_TTL_SECONDS);
-    for(const [lootId,expiresAt] of [...this.arenaDropExpiresAt])if(now>=expiresAt){this.state.loot.delete(lootId);this.lootReservations.delete(lootId);this.arenaDropExpiresAt.delete(lootId);}
-    for(const slot of this.arenaLootSlots.values()){
-      if(slot.currentLootId&&this.state.loot.has(slot.currentLootId))continue;
-      if(slot.currentLootId){this.arenaLootToSlot.delete(slot.currentLootId);slot.currentLootId='';slot.respawnAt=Math.max(slot.respawnAt,now+5);}
-      if(now<slot.respawnAt)continue;
-      const spawn=this.map.lootSpawns[slot.spawnIndex];if(!spawn)continue;const kind=this.lootKindForSpawn(spawn);const expectedSpace=spaceAt(spawn.x,spawn.y,this.map.buildingVisibilityZones,this.map.rooms,0);const expectedBuildingId=spawn.buildingId??expectedSpace.buildingId,expectedRoomIndex=spawn.roomIndex??expectedSpace.roomIndex;const pos=this.findSeparatedLootPosition(spawn.x,spawn.y,kind,expectedBuildingId,expectedRoomIndex);if(!pos){slot.respawnAt=now+4;continue;}const loot=new LootState();loot.id=`loot-${++this.lootSeq}`;loot.kind=kind;loot.x=pos.x;loot.y=pos.y;const lootSpace=spaceAt(pos.x,pos.y,this.map.buildingVisibilityZones,this.map.rooms,0);loot.buildingId=lootSpace.buildingId;loot.roomIndex=lootSpace.roomIndex;this.state.loot.set(loot.id,loot);slot.currentLootId=loot.id;slot.respawnAt=0;this.arenaLootToSlot.set(loot.id,slot.slotId);
-    }
-    for(const slot of this.arenaVehicleSlots.values())if(!slot.currentVehicleId&&now>=slot.respawnAt)this.respawnOpenArenaVehicle(slot);
   }
 
   private knockbackPower(attacker:PlayerState,reason:string):number{

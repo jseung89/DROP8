@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN
 // DROP8_REFACTOR_023_AI_SAFE_ZONE_SWEEP_LIVE_SPECTATOR_DIALOGUE
 // DROP8_REFACTOR_021_AI_PERSONA_DIALOGUE
 // DROP8_REFACTOR_020_WEREWOLF_PREDATOR_ADHESIVE_BALANCE
@@ -132,7 +131,7 @@ export class GameScene extends Phaser.Scene {
   private lastZoneState='';
   private zoneWarningStage='';
   private lastPhase='';
-  private chatMessageHandler=(type:string,payload:any)=>{if(type==='chat')this.receiveChat(payload as ChatPayload);if(type==='aiDialogue')this.receiveAiDialogue(payload as AiDialoguePayload);if(type==='positionRecovery')this.receivePositionRecovery(payload);if(type==='vehicleRecovery')this.receiveVehicleRecovery(payload);if(type==='characterDeath')this.receiveCharacterDeath(payload as CharacterDeathPayload);if(type==='respawned')this.receiveOpenArenaRespawn(payload);if(type==='audioEvent')this.receiveAudioEvent(payload as AudioEventMessage);};
+  private chatMessageHandler=(type:string,payload:any)=>{if(type==='chat')this.receiveChat(payload as ChatPayload);if(type==='aiDialogue')this.receiveAiDialogue(payload as AiDialoguePayload);if(type==='positionRecovery')this.receivePositionRecovery(payload);if(type==='vehicleRecovery')this.receiveVehicleRecovery(payload);if(type==='characterDeath')this.receiveCharacterDeath(payload as CharacterDeathPayload);if(type==='audioEvent')this.receiveAudioEvent(payload as AudioEventMessage);};
   private chatStateHandler=(event:Event)=>{
     const open=Boolean((event as CustomEvent<{open?:boolean}>).detail?.open);
     this.chatBlocked=open;
@@ -507,15 +506,6 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(75,()=>this.cameras.main.fadeIn(110,4,8,12));
   }
 
-  private receiveOpenArenaRespawn(payload:any){
-    if(String(payload?.playerId??'')!==this.net.sessionId)return;
-    const x=Number(payload?.x),y=Number(payload?.y);
-    this.spectateIndex=0;this.localDeathPoint=null;this.localDeathCameraUntil=0;this.deathVisuals=this.deathVisuals.filter((item)=>item.entityId!==this.net.sessionId);
-    if(Number.isFinite(x)&&Number.isFinite(y))this.predictedLocal={x,y};
-    this.scopeRequested=false;this.cameras.main.fadeOut(70,4,8,12);this.time.delayedCall(75,()=>this.cameras.main.fadeIn(120,4,8,12));
-    this.dispatchNotice('전장에 다시 투입되었습니다.','info',1500);
-  }
-
   private receiveCharacterDeath(payload:CharacterDeathPayload){
     const entityId=String(payload.entityId??''),x=Number(payload.x),y=Number(payload.y);
     if(!entityId||!Number.isFinite(x)||!Number.isFinite(y))return;
@@ -541,7 +531,7 @@ export class GameScene extends Phaser.Scene {
       this.localDeathPoint={x,y};
       this.localDeathCameraUntil=this.time.now+700;
       this.scopeRequested=false;
-      this.dispatchNotice(this.net.roomConfig.gameMode==='openArena'?'잠시 후 다시 투입됩니다.':'탈락했습니다.','warning',1600);
+      this.dispatchNotice('탈락했습니다.','warning',1600);
     }
   }
 

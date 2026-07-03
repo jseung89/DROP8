@@ -1,5 +1,3 @@
-// DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN
-// DROP8_REFACTOR_024B_OPEN_ARENA_LIFECYCLE_HOST_MIGRATION
 // DROP8_REFACTOR_024A_OPEN_ARENA_FOUNDATION
 // DROP8_REFACTOR_021_AI_PERSONA_DIALOGUE
 // DROP8_REFACTOR_019_AI_HUMANIZATION
@@ -274,8 +272,6 @@ net.messages.add((type,p)=>{
   if(type==='pickupResult')showPickupResult(p);
   if(type==='kicked')void exitRoom(String(p?.message??'방장에 의해 방에서 나갔습니다.'),false);
   if(type==='notice')showGameNotice(p?.message??p,p?.type??'warning',Number(p?.duration)||undefined);
-  if(type==='hostChanged')showGameNotice(`${String(p?.hostName??'다른 플레이어')}님이 새로운 방장이 되었습니다.`,'info',2200);
-  if(type==='respawned')showGameNotice('상시 전장에 다시 투입되었습니다.','info',1500);
   if(type==='error'){const message=String(p?.message??p??'오류가 발생했습니다.');if(gameEl.classList.contains('hidden')&&lobby.classList.contains('hidden'))error.textContent=message;else showGameNotice(message,'error');}
 });
 
@@ -419,11 +415,6 @@ function render(){
   $('zoneHudItem').classList.toggle('hidden',arena);
   $('zoneText').textContent=arena?'없음':s.zoneState==='FREE'?`없음 · ${zoneSeconds}초`:s.zoneState==='ANNOUNCING'?`예고 · ${zoneSeconds}초`:`${zoneSeconds}초`;
   $('hpText').textContent=String(Math.ceil(me?.hp??0));
-  const respawnHud=$('arenaRespawnHud');
-  const respawnLeft=Math.max(0,net.respawnAt-Number(s.serverTime??0));
-  const protectionLeft=Math.max(0,net.spawnProtectionUntil-Number(s.serverTime??0));
-  respawnHud.classList.toggle('hidden',!arena||(!respawnLeft&&!protectionLeft));
-  respawnHud.textContent=respawnLeft>0?`재투입까지 ${respawnLeft.toFixed(1)}초 · 관전 중`:protectionLeft>0?`스폰 보호 ${protectionLeft.toFixed(1)}초 · 공격 시 즉시 해제`:'';
   $('mapModeText').textContent=s.mapId==='dock8'||s.mapSizeMode==='dock8'?'8번 부두':s.mapId==='large'||s.mapSizeMode==='large'?'큰 맵':'작은 맵';
   const motorcycle=me?.vehicleId?s.motorcycles.find((item:any)=>item.id===me.vehicleId):undefined;
   const vehicleHud=$('vehicleHud');
@@ -571,7 +562,7 @@ $('toggleFieldChat').onclick=()=>setFieldChatCollapsed(!fieldChatCollapsed);
 setFieldChatCollapsed(fieldChatCollapsed);
 
 async function exitRoom(message='',ask=false){
-  if(ask&&net.snapshot?.phase!=='LOBBY'&&!confirmWithoutPopup('leave-game',net.roomConfig.gameMode==='openArena'?'상시 전장에서 나가시겠습니까? 남은 인간이 없으면 방이 종료됩니다.':'진행 중인 게임에서 나가면 현재 캐릭터가 탈락합니다.'))return;
+  if(ask&&net.snapshot?.phase!=='LOBBY'&&!confirmWithoutPopup('leave-game','진행 중인 게임에서 나가면 현재 캐릭터가 탈락합니다.'))return;
   closeChat();
   inventoryOpen=false;
   $('inventoryPanel').classList.add('hidden');

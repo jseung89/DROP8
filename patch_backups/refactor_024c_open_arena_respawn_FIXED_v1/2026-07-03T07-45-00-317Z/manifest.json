@@ -1,0 +1,105 @@
+{
+  "patchId": "DROP8 Refactor 024C Human & AI Respawn FIXED v1",
+  "patchFile": "DROP8_refactor_024C_open_arena_respawn_patch_FIXED_v1.ts",
+  "createdAt": "2026-07-03T07:45:00.319Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "client/index.html",
+      "existed": true,
+      "beforeSha256": "e38ce673fdc7e095f53fd66bf5ef7ee10399bb8621eff6fb5124a32e09c63f2e",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "existed": true,
+      "beforeSha256": "68d9b6058d363ca83a9c96898c5a528625cf2469eed6e4188049680bd60d4c41",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true,
+      "beforeSha256": "40b092446f0d94d91551a10e68572e7981c240a9c247e8ec80e63d11070ef61e",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true,
+      "beforeSha256": "88a428a6211788ae822a17fe30da6866028b068365a77eb85821bbae9194da22",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/style.css",
+      "existed": true,
+      "beforeSha256": "f490c13e5aea009d0f7f74242bee13d61abe1c560828b0d4c8723256c48fce6c",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "4f65de16446f1f52b2207d66e1fcb1e07efdbe2539d4245618204dca8b2c162c",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "2b0767934e0cb9cc2474dab9a23188df2ef23affb9ecedd68d05e05384a6234b",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/openArenaRespawn.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024c-ai-slot-respawn.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024c-open-arena-respawn.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024c-safe-spawn.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/src/rooms/openArenaRespawn.ts",
+    "server/tests/refactor024c-ai-slot-respawn.test.ts",
+    "server/tests/refactor024c-open-arena-respawn.test.ts",
+    "server/tests/refactor024c-safe-spawn.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

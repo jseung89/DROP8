@@ -90,9 +90,3 @@ html,body,#app{width:100%;height:100%;overflow:hidden}
 
 /* DROP8_REFACTOR_019_AI_HUMANIZATION */
 .message.ai{border-left:3px solid #78c7ff;background:#0b1b2ad9;color:#dff4ff}.message.ai::before{content:'AI';display:inline-grid;place-items:center;margin-right:5px;padding:1px 5px;border-radius:999px;background:#246a94;color:#fff;font-size:9px;font-weight:900}
-
-/* DROP8_REFACTOR_024A_OPEN_ARENA_FOUNDATION */
-.arena-create-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0}.arena-create-grid label{margin:0}.arena-create-hint{grid-column:1/-1;margin:0;padding:8px 10px;border:1px solid #ffffff18;border-radius:9px;background:#0a151e;color:#b7c9d4;font-size:12px}.arena-create-grid select:disabled{opacity:.45}.hud .hidden{display:none}@media(max-width:780px){.arena-create-grid{grid-template-columns:1fr}}
-
-/* DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN */
-.arena-respawn-hud{position:absolute;z-index:72;left:50%;top:128px;transform:translateX(-50%);padding:10px 15px;border:1px solid #78c7ff88;border-radius:12px;background:#071018ee;color:#dff4ff;font-weight:900;box-shadow:0 10px 30px #0008;pointer-events:none}.arena-respawn-hud.hidden{display:none}

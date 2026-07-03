@@ -1,0 +1,104 @@
+{
+  "patchId": "DROP8 Refactor 024A Open Arena Mode Foundation FIXED v1",
+  "patchFile": "DROP8_refactor_024A_open_arena_foundation_patch_FIXED_v1.ts",
+  "createdAt": "2026-07-03T07:30:44.492Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "client/index.html",
+      "existed": true,
+      "beforeSha256": "458269f9d5d0ace51bb2ad16ec3d62c68725bbbf1b8497370319a9616abdb94e",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true,
+      "beforeSha256": "a69ca04b4ba1705589db268ab13d1f65b1b233ed0e9159d8aa238e9596394bb2",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true,
+      "beforeSha256": "0ffa2feb51c587b1797cb2e7d245a14cd1e5ce3835d54d5d92b00b056b313f4b",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/style.css",
+      "existed": true,
+      "beforeSha256": "e596d0c1b4465a02177694e004c6e1e57d58aab5e8d60cc9113829096f23ac8d",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "7553566e71988bde7fb2a85d05784508fa8d9e7abb6c1dd4a5c0e26916e9ac10",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/roomRegistry.ts",
+      "existed": true,
+      "beforeSha256": "4a13f4e3bbcef7e982d38ae0039d1b93597c8ed9cbded21f17c710f253ec9872",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "ab87e98984ae2d41af21cac61db0177a099bb2488fb8b5666389637bc05f8f53",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024a-open-arena-foundation.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024a-room-registry.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "shared/src/gameModes.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "shared/src/index.ts",
+      "existed": true,
+      "beforeSha256": "cc0452c18165bcbf9213d30818e54ea52269ff4599004708abbcac21832040b8",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/tests/refactor024a-open-arena-foundation.test.ts",
+    "server/tests/refactor024a-room-registry.test.ts",
+    "shared/src/gameModes.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "patchId": "DROP8 Refactor 024D Persistent Loot, Vehicle Respawn & World Cleanup FIXED v1",
+  "patchFile": "DROP8_refactor_024D_open_arena_persistent_world_patch_FIXED_v1.ts",
+  "createdAt": "2026-07-03T07:49:12.822Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "205761aa697d9f29cbab08689ed401066af8c6667267fbc003faa05b4de1fada",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "529937d37eef89d627eb94ac16f93fd26b23b2b40fdacac1dd87ae60451129b4",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/openArenaWorld.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024d-arena-loot.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024d-arena-vehicle.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024d-world-cleanup.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/src/rooms/openArenaWorld.ts",
+    "server/tests/refactor024d-arena-loot.test.ts",
+    "server/tests/refactor024d-arena-vehicle.test.ts",
+    "server/tests/refactor024d-world-cleanup.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

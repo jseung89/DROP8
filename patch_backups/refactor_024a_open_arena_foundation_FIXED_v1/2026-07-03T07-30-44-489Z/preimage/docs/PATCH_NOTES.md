@@ -1,37 +1,3 @@
-<!-- DROP8_REFACTOR_024D_OPEN_ARENA_PERSISTENT_WORLD -->
-## Refactor 024D — Persistent Loot, Vehicle Respawn & World Cleanup
-
-- Open Arena 최초 아이템 배치를 고정 슬롯으로 추적하고 획득 후 종류별 쿨다운으로 다시 생성합니다.
-- 사망 시 장착 무기·제한 탄약·회복 1개만 드롭하며 동적 드롭은 60초 후 제거합니다.
-- 파괴된 오토바이는 원래 슬롯에서 75초 뒤 안전 위치를 확인하고 재생성합니다.
-- 1초 간격 정리 루프로 고아 드롭·예약·차량 슬롯을 관리하며 방 dispose 시 모든 런타임 Map을 비웁니다.
-
-<!-- DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN -->
-## Refactor 024C — Human & AI Respawn
-
-- Open Arena 인간은 사망 후 5초 관전 뒤 안전 위치에서 권총 기본 장비로 재투입됩니다.
-- 설정된 AI는 고정 슬롯과 동일한 이름·페르소나를 유지하며 6초 뒤 리스폰합니다.
-- 최근 사용 지점, 적 거리와 직접 사격선을 평가하는 공통 안전 스폰 선택기를 추가했습니다.
-- 리스폰 보호는 최대 2초이며 사격·근접·투척·트랩·상호작용 시 즉시 해제됩니다.
-- Open Arena 사망 시 전체 인벤토리 드롭은 비활성화했으며 제한 드롭은 024D에서 추가합니다.
-
-<!-- DROP8_REFACTOR_024B_OPEN_ARENA_LIFECYCLE_HOST_MIGRATION -->
-## Refactor 024B — Lifecycle, Join-in-Progress & Host Migration
-
-- 진행 중인 Open Arena에 인간 정원이 남아 있으면 서버 권위로 난입할 수 있습니다.
-- 방장이 퇴장하면 명시적인 입장 시각 기준으로 가장 오래 접속한 인간에게 방장이 승계됩니다.
-- 마지막 인간이 나가면 방을 즉시 비공개로 전환하고 10초 후 명시적으로 dispose합니다.
-- Open Arena만 `autoDispose=false`를 사용하며 Battle Royale의 기존 방 수명은 유지합니다.
-
-<!-- DROP8_REFACTOR_024A_OPEN_ARENA_FOUNDATION -->
-## Refactor 024A — Open Arena Mode Foundation
-
-- 신규 `openArena` 모드를 기존 Battle Royale과 분리했습니다.
-- 방 생성 시 인간 최대 인원과 AI 인원을 별도로 검증하며 총 전투원은 16명으로 제한합니다.
-- Open Arena는 비행기·낙하·자기장·마지막 생존자 종료 없이 전장에 바로 배치됩니다.
-- 방 목록 metadata와 클라이언트 UI에 모드·인간 정원·AI 인원을 표시합니다.
-- 진행 중 난입, 방장 승계, 반복 리스폰, 영구 아이템은 후속 024B~024E에서 단계적으로 추가합니다.
-
 # 패치 노트
 
 ## Refactor 023 — AI Safe-Zone Sweep & Live Spectator Dialogue

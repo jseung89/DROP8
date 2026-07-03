@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_024A_OPEN_ARENA_FOUNDATION
 // DROP8_REFACTOR_018_WEREWOLF_SEASON
 // DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
 // DROP8_REFACTOR_015A_SUPPLY_DROP_FLAMETHROWER
@@ -12,8 +11,6 @@ import { DOCK8_AI_MACRO_EDGES, DOCK8_AI_MACRO_NODES, DOCK8_BUILDINGS, DOCK8_CROS
 import { LARGE_CUSTOM_ROOMS, LARGE_INTERNAL_PORTALS, LARGE_INTERNAL_WALLS } from './maps/large.js';
 import { SWIM_ENTER_MARGIN, SWIM_EXIT_MARGIN, SWIM_SPEED, crossingAt, isDeepWaterAt, isShallowWaterAt, motorcycleCanOccupyWaterPosition, movementMultiplierAt, nearestShoreExit, riverLandSideAt, riverSideAt, terrainAt, terrainAllowsSwimming, terrainIsWalkable, waterSignedDepthAt } from './maps/water.js';
 import type { AiMacroEdge, AiMacroNode, LandCrossing, LootAnchor, MapId, RiverBand, RoomZone, ShoreExit, SpaceDescriptor, SpacePortal, SpaceVisibilityTrace, TerrainKind, WaterZone } from './maps/types.js';
-export { OPEN_ARENA_LIMITS, normalizeGameMode, normalizeOpenArenaConfig } from './gameModes.js';
-export type { GameMode, OpenArenaConfig, OpenArenaLifecycle } from './gameModes.js';
 export { ADHESIVE_PLAYER_BALANCE, ADHESIVE_SPRAYER_BALANCE, STRIP_TRAP_VEHICLE_PROFILE, WEREWOLF_HUNT_VEHICLE_PROFILE, VEHICLE_MIN_SPEED_MULTIPLIER, adhesivePlayerHoldSeconds, adhesivePlayerSpeedMultiplier, adhesivePlayerStage, aggregateVehicleSlowEffects, coneContains } from './vehicleEffects.js';
 export type { VehicleSlowAggregate, VehicleSlowEffect, VehicleSlowKind, VehicleSlowProfile } from './vehicleEffects.js';
 export { STRIP_TRAP_BALANCE, circleHitsStripTrap, pointSegmentDistanceSquared, stripTrapEndpoints, stripTrapsOverlap } from './stripTrap.js';
