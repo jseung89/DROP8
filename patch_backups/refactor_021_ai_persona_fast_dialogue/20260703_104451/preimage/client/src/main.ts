@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_021_AI_PERSONA_DIALOGUE
 // DROP8_REFACTOR_019_AI_HUMANIZATION
 // DROP8_REFACTOR_018_WEREWOLF_SEASON
 // DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
@@ -247,7 +246,7 @@ for(const button of Array.from(document.querySelectorAll<HTMLButtonElement>('#qu
 net.listeners.add(render);
 net.messages.add((type,p)=>{
   if(type==='chat')addMessage(p);
-  if(type==='aiDialogue'&&p?.loggable!==false){const lineId=String(p?.lineId??'');const legacy=(AI_DIALOGUE_LINES as Record<string,string>)[lineId];addMessage({...p,channel:'ai',sender:p?.sender??'AI',text:legacy??String(p?.text??'')});}
+  if(type==='aiDialogue'){const lineId=String(p?.lineId??'') as keyof typeof AI_DIALOGUE_LINES;addMessage({...p,channel:'ai',sender:p?.sender??'AI',text:AI_DIALOGUE_LINES[lineId]??String(p?.text??'')});}
   if(type==='killfeed')addKill(p);
   if(type==='result'){
     $('result').classList.remove('hidden');

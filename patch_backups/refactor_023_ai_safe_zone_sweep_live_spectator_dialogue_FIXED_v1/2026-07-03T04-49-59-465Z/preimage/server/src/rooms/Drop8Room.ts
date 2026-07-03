@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_023_AI_SAFE_ZONE_SWEEP_LIVE_SPECTATOR_DIALOGUE
 // DROP8_REFACTOR_022_AI_NAVIGATION_TACTICAL_RECOVERY
 // DROP8_REFACTOR_021_AI_PERSONA_DIALOGUE
 // DROP8_REFACTOR_020_WEREWOLF_PREDATOR_ADHESIVE_BALANCE
@@ -161,7 +160,7 @@ import {
 import { VehicleStatusManager } from './vehicleStatus.js';
 import { awarenessForState, createAiMemory, createAiProfile, estimateSoundPoint, finishAiBurstShot, pickDialogue, prepareAiBurst, prepareAiReaction, refreshAiAim, type AiHumanMemory, type AiPersonalityProfile, type AiSoundKind } from './aiHumanization.js';
 import { AI_PERSONA_NAMES, aiDialogueProfileForName, aiPersonaEventFromLegacy, selectAiPersonaLine, selectAiPersonaResponse, type AiPersonaEvent, type AiPersonaLine } from './aiDialogueProfiles.js';
-import { AI_NAVIGATION_RECOVERY, AI_SAFE_ZONE_SWEEP, aiDialogueAudience, aiSweepDetourMetrics, canReplaceAiGoal, createAiSafeZoneSweepTarget, detectAiOscillation, nextAiStallSeconds, pushAiProgressSample, shouldTakeAiSweepLoot, type AiGoalKind, type AiProgressSample, type AiSweepZone } from './aiNavigation.js';
+import { AI_NAVIGATION_RECOVERY, canReplaceAiGoal, detectAiOscillation, nextAiStallSeconds, pushAiProgressSample, type AiGoalKind, type AiProgressSample } from './aiNavigation.js';
 
 type Input = { x:number; y:number; aimX:number; aimY:number; angle:number; seq:number; aiming:boolean; huntSprint:boolean; accelerate:boolean; brake:boolean; turnLeft:boolean; turnRight:boolean };
 type Point = { x:number; y:number };
@@ -226,15 +225,6 @@ type AiIntent = {
   combatStrafeUntil:number;
   combatHoldStartedAt:number;
   combatBlockedFor:number;
-  sweepTargetX:number;
-  sweepTargetY:number;
-  sweepStartedAt:number;
-  sweepExpiresAt:number;
-  sweepZoneSignature:string;
-  sweepGeneration:number;
-  sweepKey:string;
-  sweepSector:number;
-  itemDetourActive:boolean;
 };
 type HealKind = 'bandage'|'medkit';
 type HealJob = { at:number; startedAt:number; duration:number; amount:number; kind:HealKind };
@@ -666,7 +656,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       goalKind:'none',goalKey:'',goalLockedUntil:0,failedGoalKey:'',failedGoalUntil:0,lastGoalDistance:0,
       progressSamples:[],lastProgressSampleAt:0,oscillationCount:0,swimExitId:'',swimExitLockedUntil:0,failedShoreExitId:'',failedShoreExitUntil:0,
       combatStrafeSign:Math.random()<.5?-1:1,combatStrafeUntil:0,combatHoldStartedAt:0,combatBlockedFor:0,
-      sweepTargetX:p.x,sweepTargetY:p.y,sweepStartedAt:0,sweepExpiresAt:0,sweepZoneSignature:'',sweepGeneration:0,sweepKey:'',sweepSector:0,itemDetourActive:false,
     };
   }
 
@@ -2911,12 +2900,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     memory.recentDialogueIds.push(line.id);if(memory.recentDialogueIds.length>15)memory.recentDialogueIds.splice(0,memory.recentDialogueIds.length-15);
     this.aiGlobalDialogueAt=now;this.aiLineCooldown.set(line.id,now);
     const payload={playerId:p.id,speakerId:p.id,sender:p.name,nickname:p.name,lineId:line.id,category:event,text:line.text,channel:'ai',time:Date.now(),sentAt:Date.now(),durationMs:this.aiDialogueDurationMs(line.text),loggable:options.loggable??!options.casual};
-    for(const client of this.clients){
-      const listener=this.state.players.get(client.sessionId);
-      const audience=aiDialogueAudience(listener,listener?distance(p.x,p.y,listener.x,listener.y):Number.POSITIVE_INFINITY,AI_HUMANIZATION.dialogueRadius);
-      if(audience==='player')client.send('aiDialogue',payload);
-      else if(audience==='spectator')client.send('aiDialogue',{...payload,loggable:false});
-    }
+    for(const client of this.clients){const listener=this.state.players.get(client.sessionId);if(listener?.alive&&distance(p.x,p.y,listener.x,listener.y)<=AI_HUMANIZATION.dialogueRadius)client.send('aiDialogue',payload);}
     if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI PERSONA]',{ai:p.id,name:p.name,event,lineId:line.id,text:line.text});
     this.addAiNoise(p.x,p.y,p.id,'voice',360,.15);
     if(options.allowResponse)this.scheduleAiDialogueResponse(p);
@@ -3489,60 +3473,16 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   }
 
   private assignLootIntent(p:PlayerState,intent:AiIntent,loot:LootState,early=false){
-    if(intent.failedGoalKey===loot.id&&this.now()<intent.failedGoalUntil)return false;
-    const resumingSweep=this.hasActiveAiSafeSweep(intent);
+    if(intent.failedGoalKey===`loot:${loot.id}`&&this.now()<intent.failedGoalUntil)return false;
     if(!this.startAiGoal(intent,'loot',loot.id,early?1.8:2.6))return false;
     this.reserveLoot(p,loot);
     intent.lootId=loot.id;
     intent.targetId='';
-    intent.itemDetourActive=resumingSweep;
     p.aiState=early?'EARLY_LOOT':this.aiLootState(loot.kind as LootKind);
     intent.state=p.aiState;
     intent.mode='move';
     this.setAiDestination(p,intent,loot.x,loot.y);
     return true;
-  }
-
-  private aiSweepZone():AiSweepZone{
-    if(!this.state.zoneActive)return{active:false,centerX:this.worldSize/2,centerY:this.worldSize/2,radius:this.worldSize*.42,signature:'free'};
-    const advancing=['ANNOUNCING','WAITING','SHRINKING'].includes(this.state.zoneState);
-    const centerX=advancing?this.state.nextZoneX:this.state.zoneX,centerY=advancing?this.state.nextZoneY:this.state.zoneY,radius=advancing?this.state.nextZoneRadius:this.state.zoneRadius;
-    const signature=`${this.state.zoneStage}:${this.state.zoneState}:${Math.round(centerX/80)}:${Math.round(centerY/80)}:${Math.round(radius/120)}`;
-    return{active:true,centerX,centerY,radius,signature};
-  }
-
-  private hasActiveAiSafeSweep(intent:AiIntent,now=this.now()){
-    return Boolean(intent.sweepKey&&intent.sweepExpiresAt>now&&intent.sweepZoneSignature===this.aiSweepZone().signature);
-  }
-
-  private ensureAiSafeSweepTarget(p:PlayerState,intent:AiIntent){
-    const now=this.now(),zone=this.aiSweepZone();
-    const arrived=distance(p.x,p.y,intent.sweepTargetX,intent.sweepTargetY)<=AI_SAFE_ZONE_SWEEP.arrivalDistance;
-    const failed=intent.failedGoalKey===intent.sweepKey&&intent.failedGoalUntil>now;
-    if(!intent.sweepKey||intent.sweepExpiresAt<=now||intent.sweepZoneSignature!==zone.signature||arrived||failed){
-      const generated=createAiSafeZoneSweepTarget({aiId:p.id,x:p.x,y:p.y,worldSize:this.worldSize,generation:intent.sweepGeneration+1,zone});
-      const free=this.isPositionFree(generated.x,generated.y)?generated:this.findNearestFreePoint(generated.x,generated.y,360)??generated;
-      intent.sweepTargetX=free.x;intent.sweepTargetY=free.y;intent.sweepStartedAt=now;intent.sweepExpiresAt=now+AI_SAFE_ZONE_SWEEP.targetLifetimeSeconds;
-      intent.sweepZoneSignature=zone.signature;intent.sweepGeneration=generated.generation;intent.sweepKey=generated.key;intent.sweepSector=generated.sector;
-    }
-    return{x:intent.sweepTargetX,y:intent.sweepTargetY,key:intent.sweepKey};
-  }
-
-  private applyAiSafeSweep(p:PlayerState,intent:AiIntent,force=false){
-    const sweep=this.ensureAiSafeSweepTarget(p,intent);
-    const sweepChanged=intent.goalKind==='patrol'&&intent.goalKey!==sweep.key;
-    if(!this.startAiGoal(intent,'patrol',sweep.key,AI_SAFE_ZONE_SWEEP.targetLifetimeSeconds,force||sweepChanged))return false;
-    intent.itemDetourActive=false;p.aiState='SAFE_SWEEP';intent.state='SAFE_SWEEP';intent.mode='move';
-    const needsRoute=intent.route.length===0||distance(intent.routeGoalX,intent.routeGoalY,sweep.x,sweep.y)>48||intent.stuckFor>.55;
-    if(needsRoute)this.setAiDestination(p,intent,sweep.x,sweep.y,force);
-    else{intent.tx=sweep.x;intent.ty=sweep.y;}
-    return true;
-  }
-
-  private resumeAiSafeSweep(p:PlayerState,intent:AiIntent){
-    if(!intent.itemDetourActive||!this.hasActiveAiSafeSweep(intent))return false;
-    intent.itemDetourActive=false;this.clearAiGoal(intent);intent.route=[];
-    return this.applyAiSafeSweep(p,intent,true);
   }
 
   private aiPatrolPoint(){
@@ -3568,14 +3508,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     const target=this.findVisibleTarget(p,intent),targetDistance=target?distance(p.x,p.y,target.x,target.y):Number.POSITIVE_INFINITY,recentlyAttacked=now<(this.aiDefendUntil.get(p.id)??0),combatReady=this.aiCombatReady(p),early=now-(this.aiLandedAt.get(p.id)??now)<15&&!combatReady,danger=Boolean(target&&targetDistance<430);
     if(this.healUntil.has(p.id)){this.releaseLootReservation(p.id,previousLoot);intent.lootId='';p.aiState='HEAL';intent.state='HEAL';intent.mode='hold';return;}
     if(p.hp<=55&&(p.bandages>0||p.medkits>0)&&!danger){if(this.beginHeal(p,'auto')){this.releaseLootReservation(p.id,previousLoot);intent.lootId='';intent.state='HEAL';intent.mode='hold';this.emitAiDialogue(p,'heal_need','heal');return;}}
-    if(early){
-      this.ensureAiSafeSweepTarget(p,intent);
-      const loot=this.findBestLoot(p,intent);
-      if(loot&&(!target||targetDistance>65||!recentlyAttacked)&&this.assignLootIntent(p,intent,loot,true))return;
-      this.releaseLootReservation(p.id,previousLoot);intent.lootId='';intent.itemDetourActive=false;
-      if(target){this.rememberAiTarget(p,target,intent);const dx=p.x-target.x,dy=p.y-target.y,len=Math.hypot(dx,dy)||1;if(targetDistance<=65&&p.hp>35){intent.targetId=target.id;p.aiState='DEFEND';intent.state='DEFEND';intent.mode='hold';this.setEquipped(p,p.melee&&p.melee!=='fists'?p.melee as MeleeId:'fists',true);}else{p.aiState='RETREAT';intent.state='RETREAT';intent.mode='retreat';this.setAiDestination(p,intent,p.x+dx/len*320,p.y+dy/len*320);}return;}
-      this.applyAiSafeSweep(p,intent);return;
-    }
+    if(early){const loot=this.findBestLoot(p);if(loot&&(!target||targetDistance>65||!recentlyAttacked)&&this.assignLootIntent(p,intent,loot,true))return;this.releaseLootReservation(p.id,previousLoot);intent.lootId='';if(target){this.rememberAiTarget(p,target,intent);const dx=p.x-target.x,dy=p.y-target.y,len=Math.hypot(dx,dy)||1;if(targetDistance<=65&&p.hp>35){intent.targetId=target.id;p.aiState='DEFEND';intent.state='DEFEND';intent.mode='hold';this.setEquipped(p,p.melee&&p.melee!=='fists'?p.melee as MeleeId:'fists',true);}else{p.aiState='RETREAT';intent.state='RETREAT';intent.mode='retreat';this.setAiDestination(p,intent,p.x+dx/len*320,p.y+dy/len*320);}return;}p.aiState=this.aiHasUsableGun(p)?'COMBAT_READY':'PATROL';intent.state=p.aiState;const patrol=this.state.zoneActive?{x:this.state.zoneX+(this.lootRandom()-.5)*500,y:this.state.zoneY+(this.lootRandom()-.5)*500}:this.aiPatrolPoint();this.setAiDestination(p,intent,patrol.x,patrol.y);return;}
     if(target&&!this.startAiGoal(intent,'combat',`combat:${target.id}`,1.15))return;
     this.releaseLootReservation(p.id,previousLoot);intent.lootId='';
     if(target){this.rememberAiTarget(p,target,intent);intent.targetId=target.id;this.chooseAiWeapon(p,targetDistance);const weapon=WEAPONS[p.equipped as WeaponId];if(weapon&&weapon.id!=='fists'){const magazine=this.getWeaponMagazine(p,weapon.id),lowMagazine=magazine>0&&magazine<=Math.max(1,Math.ceil(weapon.magazine*.22));if(magazine<=0||lowMagazine&&targetDistance>this.desiredRange(weapon.id)*.9){if(this.getAmmo(p,weapon.ammoType)>0){const cover=this.findAiCoverPoint(p,target);this.beginReload(p,weapon.id);p.aiState='RELOAD';intent.state='RELOAD';intent.mode='retreat';if(cover)this.setAiDestination(p,intent,cover.x,cover.y);else this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));return;}if(magazine<=0)this.chooseAiWeapon(p,targetDistance,true);}}
@@ -3585,10 +3518,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     const noise=this.findRecentNoise(p);if(noise){if(!this.startAiGoal(intent,'sound',`sound:${noise.id}`,1.1))return;p.aiState='INVESTIGATE_SOUND';intent.state='INVESTIGATE_SOUND';this.setAiDestination(p,intent,noise.x,noise.y);this.emitAiDialogue(p,noise.kind==='vehicle'?'vehicle_heard':noise.kind==='footstep'||noise.kind==='running'?'uncertain_steps':'uncertain_sound',noise.kind==='vehicle'?'vehicle':'uncertain');return;}
     if(p.insideBuilding&&(now-memory.buildingEnteredAt>(AI_HUMANIZATION.buildingDwellSeconds[0]+(1-profile.lootPreference)*(AI_HUMANIZATION.buildingDwellSeconds[1]-AI_HUMANIZATION.buildingDwellSeconds[0]))||now-memory.roomEnteredAt>AI_HUMANIZATION.roomIdleSeconds&&intent.stuckCount>=2)){const exit=this.findAiBuildingExitPoint(p,memory);if(exit){p.aiState='EXIT_BUILDING';intent.state='EXIT_BUILDING';intent.mode='move';memory.exitRequestedAt=now;this.setAiDestination(p,intent,exit.x,exit.y,true);this.emitAiDialogue(p,pickDialogue('exit',p.id,Math.floor(now*5)),'exit',true);return;}}
     if(this.tryAssignAiWorldObjective(p,intent,profile))return;
-    this.chooseAiWeapon(p);const current=WEAPONS[p.equipped as WeaponId];if(current&&current.id!=='fists'&&this.getWeaponMagazine(p,current.id)<=0&&this.getAmmo(p,current.ammoType)>0)this.beginReload(p,current.id);
-    this.ensureAiSafeSweepTarget(p,intent);
-    const loot=this.findBestLoot(p,intent);if(loot&&this.assignLootIntent(p,intent,loot,false))return;
-    this.applyAiSafeSweep(p,intent);
+    this.chooseAiWeapon(p);const current=WEAPONS[p.equipped as WeaponId];if(current&&current.id!=='fists'&&this.getWeaponMagazine(p,current.id)<=0&&this.getAmmo(p,current.ammoType)>0)this.beginReload(p,current.id);const loot=this.findBestLoot(p);if(loot&&this.assignLootIntent(p,intent,loot,false))return;if(!this.startAiGoal(intent,'patrol','patrol',1.6))return;p.aiState='PATROL';intent.state='PATROL';const patrol=this.state.zoneActive?{x:this.state.zoneX+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45),y:this.state.zoneY+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45)}:this.aiPatrolPoint();this.setAiDestination(p,intent,patrol.x,patrol.y);
   }
 
   private runAi(p:PlayerState,intent:AiIntent,dt:number){
@@ -3613,10 +3543,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
           vehiclePlan.phase='walk';vehiclePlan.objectiveId=nextLoot.id;vehiclePlan.targetX=nextLoot.x;vehiclePlan.targetY=nextLoot.y;vehiclePlan.expiresAt=now+10;
           this.assignLootIntent(p,intent,nextLoot,false);
         }else this.finishAiVehicleObjective(p,intent);
-      }else if(!this.aiVehiclePlans.has(p.id)||this.aiVehiclePlans.get(p.id)?.phase!=='return'){
-        if(!picked)this.failAiGoal(intent,completedLootId,1.8);
-        if(!this.resumeAiSafeSweep(p,intent))intent.route=[];
-      }
+      }else if(!this.aiVehiclePlans.has(p.id)||this.aiVehiclePlans.get(p.id)?.phase!=='return')intent.route=[];
       this.aiThinkAt.set(p.id,0);
     }
 
@@ -3648,9 +3575,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       if(p.isSwimming&&intent.swimExitId){intent.failedShoreExitId=intent.swimExitId;intent.failedShoreExitUntil=this.now()+AI_NAVIGATION_RECOVERY.failedShoreExitCooldownSeconds;intent.swimExitId='';intent.swimExitLockedUntil=0;intent.route=[];intent.stuckFor=0;intent.oscillationCount++;intent.lastRepathReason='swim-exit-stuck';this.aiThinkAt.set(p.id,0);intent.lastX=p.x;intent.lastY=p.y;return;}
       intent.avoidSign*=-1;
       intent.stuckCount++;
-      if(intent.goalKind==='patrol'&&intent.goalKey===intent.sweepKey&&intent.stuckCount>=2){
-        this.failAiGoal(intent,intent.sweepKey,AI_NAVIGATION_RECOVERY.failedGoalCooldownSeconds);intent.sweepExpiresAt=0;intent.route=[];intent.stuckFor=0;intent.lastRepathReason='safe-sweep-failed';this.aiThinkAt.set(p.id,0);intent.lastX=p.x;intent.lastY=p.y;return;
-      }
       intent.repathAt=0;
       const memory=this.ensureAiMemory(p);memory.unstuckStage=Math.min(4,memory.unstuckStage+1);const buildingExit=intent.stuckCount>=2?this.findAiBuildingExitPoint(p,memory):undefined;
       const escape=buildingExit??this.findAiEscapePoint(p,intent);
@@ -3732,28 +3656,18 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     if(!selected)return undefined;if(memory.heardEventId!==selected.id){const estimate=estimateSoundPoint(p.id,selected.id,selected.x,selected.y,best);memory.heardEventId=selected.id;memory.heardX=clamp(estimate.x,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);memory.heardY=clamp(estimate.y,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);memory.heardAt=now;memory.heardKind=selected.kind;memory.source='sound';memory.confidence=Math.max(memory.confidence,selected.danger*55+(1-best/Math.max(1,selected.radius))*25);if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI HUMAN] sound',{ai:p.id,kind:selected.kind,source:selected.owner,estimatedX:Math.round(memory.heardX),estimatedY:Math.round(memory.heardY),error:Math.round(distance(memory.heardX,memory.heardY,selected.x,selected.y))});}return{...selected,x:memory.heardX,y:memory.heardY};
   }
 
-  private findBestLoot(p:PlayerState,intent?:AiIntent){
+  private findBestLoot(p:PlayerState){
     let selected:LootState|undefined;
     let best=0;
-    const now=this.now(),sweepActive=Boolean(intent&&this.hasActiveAiSafeSweep(intent,now));
     for(const l of this.state.loot.values()){
-      if(l.pickupLockedForPlayerId===p.id&&now<l.pickupLockedUntil)continue;
+      if(l.pickupLockedForPlayerId===p.id&&this.now()<l.pickupLockedUntil)continue;
       const reservation=this.lootReservations.get(l.id);
       if(reservation&&reservation.aiId!==p.id)continue;
       const d=distance(p.x,p.y,l.x,l.y);
       if(d>950)continue;
-      const kind=l.kind as LootKind,baseScore=this.aiLootScore(p,kind);
-      if(baseScore<=0)continue;
-      let sweepPenalty=0;
-      if(sweepActive&&intent){
-        const metrics=aiSweepDetourMetrics({x:p.x,y:p.y},{x:intent.sweepTargetX,y:intent.sweepTargetY},{x:l.x,y:l.y});
-        const urgent=(!this.aiHasUsableGun(p)&&kind in WEAPONS&&kind!=='fists')||(p.hp<45&&(kind==='bandage'||kind==='medkit'));
-        if(!shouldTakeAiSweepLoot(metrics,urgent))continue;
-        sweepPenalty=metrics.extraDistance*.08+metrics.corridorDistance*.035;
-      }
       const zoneRisk=this.state.zoneActive&&distance(l.x,l.y,this.state.zoneX,this.state.zoneY)>this.state.zoneRadius-100?55:0;
       let enemyRisk=0;const memory=this.ensureAiMemory(p);if(memory.confidence>15){const knownX=memory.source==='visual'?memory.lastSeenX:memory.heardX,knownY=memory.source==='visual'?memory.lastSeenY:memory.heardY,enemyDistance=distance(l.x,l.y,knownX,knownY);if(enemyDistance<180)enemyRisk=55;else if(enemyDistance<360)enemyRisk=22;}
-      const score=baseScore-d*.035-zoneRisk-enemyRisk-sweepPenalty;
+      const score=this.aiLootScore(p,l.kind as LootKind)-d*.035-zoneRisk-enemyRisk;
       if(score>best){best=score;selected=l;}
     }
     return selected;

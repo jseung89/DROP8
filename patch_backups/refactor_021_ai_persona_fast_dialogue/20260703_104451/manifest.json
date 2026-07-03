@@ -1,0 +1,75 @@
+{
+  "patchId": "DROP8 Refactor 021 AI Persona Fast Dialogue FIXED v1",
+  "patchFile": "DROP8_refactor_021_ai_persona_fast_dialogue_patch_FIXED_v1.ts",
+  "createdAt": "2026-07-03T01:44:51.573Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "7dcc2b7f01a6560a866e6e0c2c071d229ddb03cbfde783d7b511bf4ef88456a4",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/aiHumanization.ts",
+      "existed": true,
+      "beforeSha256": "b6e05cc46e48da5512dff96e88f1b2930ba826547940019cb0cb6a3379318f45",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "existed": true,
+      "beforeSha256": "c1de9e8a60415868a929bc9d14765c85aa5d938d2f860e6f9941d93cbb527b6a",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true,
+      "beforeSha256": "fd0a3c8d59ea1f128d934f4b042ef773834af412f9b4d520649b82e376d103ad",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "137ba2291972e1616862b7759cd89da8981cf10072aa353208d5fbe475e1708c",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/aiDialogueProfiles.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor021-ai-persona-dialogue.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/src/rooms/aiDialogueProfiles.ts",
+    "server/tests/refactor021-ai-persona-dialogue.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

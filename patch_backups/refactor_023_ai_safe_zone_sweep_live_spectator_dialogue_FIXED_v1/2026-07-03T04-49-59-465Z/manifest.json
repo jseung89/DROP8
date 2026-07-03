@@ -1,0 +1,68 @@
+{
+  "patchId": "DROP8 Refactor 023 AI Safe-Zone Sweep & Live Spectator Dialogue FIXED v1",
+  "patchFile": "DROP8_refactor_023_ai_safe_zone_sweep_live_spectator_dialogue_patch_FIXED_v1.ts",
+  "createdAt": "2026-07-03T04:49:59.467Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "ed6125fdc30dfc6445d00be9749c5d8e5b1c3c8d45ef4b4adc2cdf1bab59ebb4",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/aiNavigation.ts",
+      "existed": true,
+      "beforeSha256": "f43c090ce2e6b7cb62d914a7b6ae0b8a8d2a15fa17a10d878021170a1d69964d",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/GameScene.ts",
+      "existed": true,
+      "beforeSha256": "45105787747235538f8b95f0680b4e7b4781691e6d77512fd53c92a1d60dd625",
+      "eol": "CRLF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor023-ai-safe-zone-sweep.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor023-live-spectator-dialogue.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "40cbf4907024b0ecff0156f823bfcb8f0302985d7303a9b5f19ddff3d1a7ebf3",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/tests/refactor023-ai-safe-zone-sweep.test.ts",
+    "server/tests/refactor023-live-spectator-dialogue.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

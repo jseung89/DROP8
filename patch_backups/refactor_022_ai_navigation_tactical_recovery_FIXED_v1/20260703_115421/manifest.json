@@ -1,0 +1,62 @@
+{
+  "patchId": "DROP8 Refactor 022 AI Navigation & Tactical Recovery FIXED v1",
+  "patchFile": "DROP8_refactor_022_ai_navigation_tactical_recovery_patch_FIXED_v1.ts",
+  "createdAt": "2026-07-03T02:54:21.647Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "4b29b60491eaa98b5ee9a528f9b696c72a84d1462d9e938da512644274fc6203",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/aiNavigation.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor022-ai-navigation-recovery.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor022-ai-combat-water.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "43ce3060af0e188c815dedbdc187904daec6b3d5d6f2df7cfe2f4a6290aa9e9f",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/src/rooms/aiNavigation.ts",
+    "server/tests/refactor022-ai-navigation-recovery.test.ts",
+    "server/tests/refactor022-ai-combat-water.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

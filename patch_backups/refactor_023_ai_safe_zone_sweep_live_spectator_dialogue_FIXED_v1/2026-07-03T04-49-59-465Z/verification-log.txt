@@ -1,0 +1,399 @@
+
+### TypeScript typecheck
+> pnpm run typecheck
+exit=0
+
+$ pnpm --filter @drop8/shared typecheck && pnpm --filter @drop8/shared build && pnpm --filter @drop8/client typecheck && pnpm --filter @drop8/server typecheck
+$ tsc -p tsconfig.json --noEmit
+$ tsc -p tsconfig.json
+$ tsc --noEmit
+$ tsc -p tsconfig.json --noEmit
+
+
+### ESLint
+> pnpm run lint
+exit=0
+
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\client\src\GameScene.ts
+  1512:178  warning  'wolfAttackPulse' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\server\src\rooms\Drop8Room.ts
+    36:3   warning  'BUSH_HIDE_DISTANCE' is defined but never used                            @typescript-eslint/no-unused-vars
+  1056:11  warning  'aliveAfterCycle' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+  2999:49  warning  'memory' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 4 problems (0 errors, 4 warnings)
+
+
+$ eslint --config eslint.config.ts shared/src shared/tests client/src server/src server/tests
+
+
+### Refactor 023 집중 테스트
+> pnpm --filter @drop8/server exec vitest run tests/refactor023-ai-safe-zone-sweep.test.ts tests/refactor023-live-spectator-dialogue.test.ts --pool=threads --maxWorkers=1 --no-file-parallelism --testTimeout=30000 --hookTimeout=30000 --reporter=verbose
+exit=0
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/server[39m
+
+ [32m✓[39m tests/refactor023-ai-safe-zone-sweep.test.ts[2m > [22mRefactor 023 AI safe-zone sweep[2m > [22mcreates a stable long-lived target that advances toward the safe area[32m 2[2mms[22m[39m
+ [32m✓[39m tests/refactor023-ai-safe-zone-sweep.test.ts[2m > [22mRefactor 023 AI safe-zone sweep[2m > [22mspreads different AIs across different sweep lanes[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor023-ai-safe-zone-sweep.test.ts[2m > [22mRefactor 023 AI safe-zone sweep[2m > [22maccepts useful loot near the route and rejects a large sideways detour[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor023-ai-safe-zone-sweep.test.ts[2m > [22mRefactor 023 AI safe-zone sweep[2m > [22mkeeps the same destination across repeated AI thinking and regenerates after a zone change[32m 25[2mms[22m[39m
+ [32m✓[39m tests/refactor023-ai-safe-zone-sweep.test.ts[2m > [22mRefactor 023 AI safe-zone sweep[2m > [22mrestores the saved sweep after a short item detour[32m 17[2mms[22m[39m
+ [32m✓[39m tests/refactor023-live-spectator-dialogue.test.ts[2m > [22mRefactor 023 live spectator dialogue[2m > [22mkeeps the living-player radius rule while allowing dead spectators[32m 2[2mms[22m[39m
+ [32m✓[39m tests/refactor023-live-spectator-dialogue.test.ts[2m > [22mRefactor 023 live spectator dialogue[2m > [22msends spectator events without adding off-screen dialogue to the chat log[32m 1[2mms[22m[39m
+ [32m✓[39m tests/refactor023-live-spectator-dialogue.test.ts[2m > [22mRefactor 023 live spectator dialogue[2m > [22muses duration-based bubbles and removes the old permanent spectator condition[32m 1[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m8 passed[39m[22m[90m (8)[39m
+[2m   Start at [22m 13:50:12
+[2m   Duration [22m 914ms[2m (transform 345ms, setup 0ms, import 537ms, tests 53ms, environment 0ms)[22m
+
+
+
+
+### Refactor 021/022 AI·대사 회귀 테스트
+> pnpm --filter @drop8/server exec vitest run tests/refactor021-ai-persona-dialogue.test.ts tests/refactor022-ai-navigation-recovery.test.ts tests/refactor022-ai-combat-water.test.ts tests/refactor019-ai-humanization.test.ts --pool=threads --maxWorkers=1 --no-file-parallelism --testTimeout=30000 --hookTimeout=30000 --reporter=verbose
+exit=0
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/server[39m
+
+ [32m✓[39m tests/refactor022-ai-combat-water.test.ts[2m > [22mRefactor 022 AI water and tactical recovery[2m > [22mprioritizes a locked shore exit while swimming[32m 10[2mms[22m[39m
+ [32m✓[39m tests/refactor022-ai-combat-water.test.ts[2m > [22mRefactor 022 AI water and tactical recovery[2m > [22mroutes opposite river banks through a crossing instead of a direct water cut[32m 17[2mms[22m[39m
+ [32m✓[39m tests/refactor022-ai-combat-water.test.ts[2m > [22mRefactor 022 AI water and tactical recovery[2m > [22mdoes not let swimming AI enter combat hold[32m 1[2mms[22m[39m
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts[2m > [22mRefactor 019 server perception[2m > [22mdoes not acquire a target behind a calm AI[32m 4[2mms[22m[39m
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts[2m > [22mRefactor 019 server perception[2m > [22mstops long-range hidden-bush acquisition[32m 1[2mms[22m[39m
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts[2m > [22mRefactor 019 server perception[2m > [22mstores an estimated sound instead of exact coordinates[32m 1[2mms[22m[39m
+ [32m✓[39m tests/refactor021-ai-persona-dialogue.test.ts[2m > [22mRefactor 021 fixed AI personas and fast dialogue[2m > [22muses the seven fixed cast names in stable order[32m 2[2mms[22m[39m
+ [32m✓[39m tests/refactor021-ai-persona-dialogue.test.ts[2m > [22mRefactor 021 fixed AI personas and fast dialogue[2m > [22mprovides at least 150 persona-specific lines for every AI[32m 1[2mms[22m[39m
+ [32m✓[39m tests/refactor021-ai-persona-dialogue.test.ts[2m > [22mRefactor 021 fixed AI personas and fast dialogue[2m > [22mcontains the requested signature phrases[32m 1[2mms[22m[39m
+ [32m✓[39m tests/refactor021-ai-persona-dialogue.test.ts[2m > [22mRefactor 021 fixed AI personas and fast dialogue[2m > [22mkeeps fixed personality traits while preserving difficulty influence[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor021-ai-persona-dialogue.test.ts[2m > [22mRefactor 021 fixed AI personas and fast dialogue[2m > [22mavoids recent lines and supports fixed nearby response combinations[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor021-ai-persona-dialogue.test.ts[2m > [22mRefactor 021 fixed AI personas and fast dialogue[2m > [22minitializes per-match repeat prevention and casual timing memory[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor022-ai-navigation-recovery.test.ts[2m > [22mRefactor 022 AI navigation recovery helpers[2m > [22mcounts sideways movement without goal gain as a stall[32m 2[2mms[22m[39m
+ [32m✓[39m tests/refactor022-ai-navigation-recovery.test.ts[2m > [22mRefactor 022 AI navigation recovery helpers[2m > [22mdetects A-B-A-B route oscillation[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor022-ai-navigation-recovery.test.ts[2m > [22mRefactor 022 AI navigation recovery helpers[2m > [22mdoes not flag healthy forward progress[32m 0[2mms[22m[39m
+ [32m✓[39m tests/refactor022-ai-navigation-recovery.test.ts[2m > [22mRefactor 022 AI navigation recovery helpers[2m > [22mkeeps a locked goal unless a higher-priority emergency replaces it[32m 0[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m4 passed[39m[22m[90m (4)[39m
+[2m      Tests [22m [1m[32m16 passed[39m[22m[90m (16)[39m
+[2m   Start at [22m 13:50:14
+[2m   Duration [22m 1.37s[2m (transform 344ms, setup 0ms, import 742ms, tests 45ms, environment 0ms)[22m
+
+
+
+
+### Room·현장 채팅 회귀 테스트
+> pnpm --filter @drop8/server exec vitest run tests/room.test.ts tests/refactor004c-field-chat.test.ts --pool=threads --maxWorkers=1 --no-file-parallelism --testTimeout=30000 --hookTimeout=30000 --reporter=verbose
+exit=0
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/server[39m
+
+[90mstdout[2m | tests/room.test.ts
+[22m[39mℹ️  optional .env file not found: .env.test, .env
+
+[90mstdout[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration
+[22m[39m
+   ___      _                                    ___   _ _____
+  / __\___ | |_   _ ___  ___ _   _ ___   __   __/ _ \ / |___  |
+ / /  / _ \| | | | / __|/ _ \ | | / __|  \ \ / / | | || |  / /
+/ /__| (_) | | |_| \__ \  __/ |_| \__ \   \ V /| |_| || | / /
+\____/\___/|_|\__, |___/\___|\__,_|___/    \_/  \___(_)_|/_/
+              |___/
+
+             · Multiplayer Framework for Node.js ·
+
+💖 Consider becoming a Sponsor on GitHub → https://github.com/sponsors/endel
+🌟 Give us a star on GitHub → https://github.com/colyseus/colyseus
+☁️  Deploy and scale your project on Colyseus Cloud → https://cloud.colyseus.io
+
+
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mcreates a room and synchronizes two clients[32m 87[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mfills empty slots with AI after every human is ready[32m 268[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22maccepts eight human clients without adding AI[33m 437[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mmoves a client through server-authoritative input[33m 438[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mmoves landed AI continuously between decision ticks[33m 734[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mapplies hit state and knockback for a fist attack[33m 453[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mkeeps a healing item until completion and restores health[33m 2372[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mpreserves a separate magazine for each firearm[32m 250[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mlets AI choose a suitable loaded weapon for a distant target[33m 2934[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mroutes AI around building walls, through the door, and out of collision[33m 4882[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mkeeps a healthy AI route until measured stalling triggers replanning[32m 204[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mbuilds a window route and lets AI complete a server-authoritative vault[33m 593[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mallows a safe low-health AI to use a bandage[33m 5561[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mprioritizes a nearby weapon over chasing while an AI is unprepared[33m 378[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mreserves one loot target for only one AI at a time[33m 437[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mspawns separated loot away from doors and walls[32m 260[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mspreads death drops instead of stacking them at one point[32m 12[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mconceals a bush player from distant AI until the player attacks[33m 381[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22msynchronizes reload progress and only fills the magazine after completion[33m 1751[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mcancels reload cleanly when switching weapons[33m 388[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mrecovers a human player placed inside a building wall[33m 359[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mvalidates and broadcasts chat with the authoritative player identity[32m 18[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mblocks human movement through a solid field prop and publishes server timing metrics[33m 797[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22msynchronizes a randomized plane route and activates a contained next zone after the free phase[32m 203[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mseparates indoor and outdoor visibility for AI targeting[32m 202[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mlets only the host kick another human player[32m 139[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mtransfers host authority when the host leaves[32m 124[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mauto-equips a newly picked up weapon and publishes pickup feedback[32m 141[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mlets only the host switch between small and large maps before a match[33m 423[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22muses three ammo types and makes the sniper consume standard ammo[32m 215[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22muses segment collision so a fast projectile cannot tunnel through a player[32m 1[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mtreats aiming input as scope state without firing or consuming ammunition[32m 276[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mspawns, mounts, drives, and safely dismounts a motorcycle[33m 734[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mapplies one speed-based motorcycle hit with knockback cooldown[33m 343[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mdrives a motorcycle in screen-space directions regardless of its current facing[33m 498[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mnormalizes diagonal motorcycle input and keeps movement independent from aim direction[33m 480[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mdrops the equipped firearm with its magazine when a full inventory swaps weapons[32m 172[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mkeeps reserve ammo and blocks the dropper from instantly re-picking a swapped gun[33m 1357[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mvaults through a nearby window with server-authoritative landing and building transition[33m 630[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mkeeps cross-window loot interaction disabled after visibility is granted[32m 279[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mpublishes a non-blocking notice when healing is unavailable[32m 173[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22minitializes motorcycle durability and lets bullets damage the vehicle first[32m 169[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mforce-dismounts a rider, explodes once, and damages nearby targets with a fuse[32m 224[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mleaves a full-health target near death at the motorcycle blast center[32m 227[2mms[22m[39m
+ [32m✓[39m tests/room.test.ts[2m > [22mDROP 8 room integration[2m > [22mbroadcasts one authoritative character death event without delaying server death state[32m 266[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m45 passed[39m[22m[90m (45)[39m
+[2m   Start at [22m 13:50:16
+[2m   Duration [22m 32.30s[2m (transform 386ms, setup 0ms, import 841ms, tests 31.29s, environment 0ms)[22m
+
+
+[90mstderr[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration[2m > [22m[2mpreserves a separate magazine for each firearm
+[22m[39m@colyseus/sdk: onMessage() not registered for type 'slotSwapResult'.
+
+[90mstderr[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration[2m > [22m[2mlets AI choose a suitable loaded weapon for a distant target
+[22m[39m@colyseus/sdk: onMessage() not registered for type 'aiDialogue'.
+
+[90mstderr[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration[2m > [22m[2mlets AI choose a suitable loaded weapon for a distant target
+[22m[39m@colyseus/sdk: onMessage() not registered for type 'aiDialogue'.
+
+
+
+### 전체 테스트
+> pnpm run test
+exit=0
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/shared[39m
+
+ [32m✓[39m tests/refactor017-strip-trap-geometry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/refactor017-adhesive-status.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-season.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-map-candidates.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m tests/throwables.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/refactor013h1-room-dock8.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m tests/rules.test.ts [2m([22m[2m53 tests[22m[2m)[22m[32m 65[2mms[22m[39m
+ [32m✓[39m tests/refactor013-map.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 64[2mms[22m[39m
+ [32m✓[39m tests/refactor013h-terrain-zone-loot.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 289[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m10 passed[39m[22m[90m (10)[39m
+[2m      Tests [22m [1m[32m95 passed[39m[22m[90m (95)[39m
+[2m   Start at [22m 13:50:51
+[2m   Duration [22m 944ms[2m (transform 1.14s, setup 0ms, import 2.42s, tests 524ms, environment 1ms)[22m
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.9 [39m[90mC:/Users/Playdata/Downloads/DROP8_SOURCE_ONLY/DROP8_SOURCE/server[39m
+
+[90mstdout[2m | tests/room.test.ts
+[22m[39mℹ️  optional .env file not found: .env.test, .env
+
+[90mstdout[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration
+[22m[39m
+   ___      _                                    ___   _ _____
+  / __\___ | |_   _ ___  ___ _   _ ___   __   __/ _ \ / |___  |
+ / /  / _ \| | | | / __|/ _ \ | | / __|  \ \ / / | | || |  / /
+/ /__| (_) | | |_| \__ \  __/ |_| \__ \   \ V /| |_| || | / /
+\____/\___/|_|\__, |___/\___|\__,_|___/    \_/  \___(_)_|/_/
+              |___/
+
+             · Multiplayer Framework for Node.js ·
+
+💖 Consider becoming a Sponsor on GitHub → https://github.com/sponsors/endel
+🌟 Give us a star on GitHub → https://github.com/colyseus/colyseus
+☁️  Deploy and scale your project on Colyseus Cloud → https://cloud.colyseus.io
+
+
+ [32m✓[39m tests/room.test.ts [2m([22m[2m45 tests[22m[2m)[22m[33m 31619[2mms[22m[39m
+     [33m[2m✓[22m[39m accepts eight human clients without adding AI [33m 439[2mms[22m[39m
+     [33m[2m✓[22m[39m moves a client through server-authoritative input [33m 422[2mms[22m[39m
+     [33m[2m✓[22m[39m moves landed AI continuously between decision ticks [33m 734[2mms[22m[39m
+     [33m[2m✓[22m[39m applies hit state and knockback for a fist attack [33m 451[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps a healing item until completion and restores health [33m 2373[2mms[22m[39m
+     [33m[2m✓[22m[39m lets AI choose a suitable loaded weapon for a distant target [33m 2940[2mms[22m[39m
+     [33m[2m✓[22m[39m routes AI around building walls, through the door, and out of collision [33m 5081[2mms[22m[39m
+     [33m[2m✓[22m[39m builds a window route and lets AI complete a server-authoritative vault [33m 591[2mms[22m[39m
+     [33m[2m✓[22m[39m allows a safe low-health AI to use a bandage [33m 5562[2mms[22m[39m
+     [33m[2m✓[22m[39m prioritizes a nearby weapon over chasing while an AI is unprepared [33m 374[2mms[22m[39m
+     [33m[2m✓[22m[39m reserves one loot target for only one AI at a time [33m 454[2mms[22m[39m
+     [33m[2m✓[22m[39m conceals a bush player from distant AI until the player attacks [33m 385[2mms[22m[39m
+     [33m[2m✓[22m[39m synchronizes reload progress and only fills the magazine after completion [33m 1760[2mms[22m[39m
+     [33m[2m✓[22m[39m cancels reload cleanly when switching weapons [33m 389[2mms[22m[39m
+     [33m[2m✓[22m[39m recovers a human player placed inside a building wall [33m 374[2mms[22m[39m
+     [33m[2m✓[22m[39m blocks human movement through a solid field prop and publishes server timing metrics [33m 793[2mms[22m[39m
+     [33m[2m✓[22m[39m lets only the host switch between small and large maps before a match [33m 424[2mms[22m[39m
+     [33m[2m✓[22m[39m spawns, mounts, drives, and safely dismounts a motorcycle [33m 754[2mms[22m[39m
+     [33m[2m✓[22m[39m applies one speed-based motorcycle hit with knockback cooldown [33m 345[2mms[22m[39m
+     [33m[2m✓[22m[39m drives a motorcycle in screen-space directions regardless of its current facing [33m 502[2mms[22m[39m
+     [33m[2m✓[22m[39m normalizes diagonal motorcycle input and keeps movement independent from aim direction [33m 452[2mms[22m[39m
+     [33m[2m✓[22m[39m keeps reserve ammo and blocks the dropper from instantly re-picking a swapped gun [33m 1357[2mms[22m[39m
+     [33m[2m✓[22m[39m vaults through a nearby window with server-authoritative landing and building transition [33m 624[2mms[22m[39m
+ [32m✓[39m tests/refactor013h1-nested-window-dock8-loot.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 10941[2mms[22m[39m
+     [33m[2m✓[22m[39m spawns 280 naturally scattered Dock 8 loot items without changing other map budgets [33m 10660[2mms[22m[39m
+[90mstdout[2m | tests/throwables.test.ts
+[22m[39mℹ️  optional .env file not found: .env.test, .env
+
+[90mstdout[2m | tests/throwables.test.ts[2m > [22m[2mRefactor 012 throwable server authority
+[22m[39m
+   ___      _                                    ___   _ _____
+  / __\___ | |_   _ ___  ___ _   _ ___   __   __/ _ \ / |___  |
+ / /  / _ \| | | | / __|/ _ \ | | / __|  \ \ / / | | || |  / /
+/ /__| (_) | | |_| \__ \  __/ |_| \__ \   \ V /| |_| || | / /
+\____/\___/|_|\__, |___/\___|\__,_|___/    \_/  \___(_)_|/_/
+              |___/
+
+             · Multiplayer Framework for Node.js ·
+
+💖 Consider becoming a Sponsor on GitHub → https://github.com/sponsors/endel
+🌟 Give us a star on GitHub → https://github.com/colyseus/colyseus
+☁️  Deploy and scale your project on Colyseus Cloud → https://cloud.colyseus.io
+
+
+ [32m✓[39m tests/throwables.test.ts [2m([22m[2m6 tests[22m[2m)[22m[33m 1333[2mms[22m[39m
+     [33m[2m✓[22m[39m does not stack periodic fire damage from overlapping fields [33m 329[2mms[22m[39m
+[90mstdout[2m | tests/refactor013-swimming.test.ts
+[22m[39mℹ️  optional .env file not found: .env.test, .env
+
+[90mstdout[2m | tests/refactor013-swimming.test.ts[2m > [22m[2mRefactor 013 swimming server authority
+[22m[39m
+   ___      _                                    ___   _ _____
+  / __\___ | |_   _ ___  ___ _   _ ___   __   __/ _ \ / |___  |
+ / /  / _ \| | | | / __|/ _ \ | | / __|  \ \ / / | | || |  / /
+/ /__| (_) | | |_| \__ \  __/ |_| \__ \   \ V /| |_| || | / /
+\____/\___/|_|\__, |___/\___|\__,_|___/    \_/  \___(_)_|/_/
+              |___/
+
+             · Multiplayer Framework for Node.js ·
+
+💖 Consider becoming a Sponsor on GitHub → https://github.com/sponsors/endel
+🌟 Give us a star on GitHub → https://github.com/colyseus/colyseus
+☁️  Deploy and scale your project on Colyseus Cloud → https://cloud.colyseus.io
+
+
+ [32m✓[39m tests/refactor013-swimming.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 313[2mms[22m[39m
+[90mstdout[2m | tests/refactor013h-zone-water.test.ts
+[22m[39mℹ️  optional .env file not found: .env.test, .env
+
+[90mstdout[2m | tests/refactor013h-zone-water.test.ts[2m > [22m[2mRefactor 013H delayed zone and continuous swimming authority
+[22m[39m
+   ___      _                                    ___   _ _____
+  / __\___ | |_   _ ___  ___ _   _ ___   __   __/ _ \ / |___  |
+ / /  / _ \| | | | / __|/ _ \ | | / __|  \ \ / / | | || |  / /
+/ /__| (_) | | |_| \__ \  __/ |_| \__ \   \ V /| |_| || | / /
+\____/\___/|_|\__, |___/\___|\__,_|___/    \_/  \___(_)_|/_/
+              |___/
+
+             · Multiplayer Framework for Node.js ·
+
+💖 Consider becoming a Sponsor on GitHub → https://github.com/sponsors/endel
+🌟 Give us a star on GitHub → https://github.com/colyseus/colyseus
+☁️  Deploy and scale your project on Colyseus Cloud → https://cloud.colyseus.io
+
+
+ [32m✓[39m tests/refactor013h-zone-water.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 91[2mms[22m[39m
+[90mstdout[2m | tests/refactor013g-dock8-recovery.test.ts
+[22m[39mℹ️  optional .env file not found: .env.test, .env
+
+[90mstdout[2m | tests/refactor013g-dock8-recovery.test.ts[2m > [22m[2mRefactor 013G Dock 8 recovery
+[22m[39m
+   ___      _                                    ___   _ _____
+  / __\___ | |_   _ ___  ___ _   _ ___   __   __/ _ \ / |___  |
+ / /  / _ \| | | | / __|/ _ \ | | / __|  \ \ / / | | || |  / /
+/ /__| (_) | | |_| \__ \  __/ |_| \__ \   \ V /| |_| || | / /
+\____/\___/|_|\__, |___/\___|\__,_|___/    \_/  \___(_)_|/_/
+              |___/
+
+             · Multiplayer Framework for Node.js ·
+
+💖 Consider becoming a Sponsor on GitHub → https://github.com/sponsors/endel
+🌟 Give us a star on GitHub → https://github.com/colyseus/colyseus
+☁️  Deploy and scale your project on Colyseus Cloud → https://cloud.colyseus.io
+
+
+ [32m✓[39m tests/refactor013g-dock8-recovery.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 63[2mms[22m[39m
+ [32m✓[39m tests/refactor023-ai-safe-zone-sweep.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 86[2mms[22m[39m
+ [32m✓[39m tests/refactor022-ai-combat-water.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 28[2mms[22m[39m
+ [32m✓[39m tests/refactor015a-supply-flamethrower.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32m✓[39m tests/refactor014-bazooka-slot-plane.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/refactor020-ai-vehicle-objective.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 20[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-combat.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-recharge-cleanup.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/refactor017-adhesive-strip-trap.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 15[2mms[22m[39m
+ [32m✓[39m tests/refactor020-werewolf-adhesive-balance.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+ [32m✓[39m tests/refactor017-lobby-room-list.integration.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-ritual-transform.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m tests/refactor018-werewolf-schema-sync.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/room-registry.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/refactor019-ai-humanization.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m tests/refactor017-bazooka-water-collision.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m tests/refactor021-ai-persona-dialogue.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/refactor023-live-spectator-dialogue.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/refactor018-silver-crossbow.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m tests/refactor013h-visibility-roof-source.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m tests/refactor022-ai-navigation-recovery.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/chat-input.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m tests/interpolation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m28 passed[39m[22m[90m (28)[39m
+[2m      Tests [22m [1m[32m141 passed[39m[22m[90m (141)[39m
+[2m   Start at [22m 13:50:53
+[2m   Duration [22m 54.41s[2m (transform 533ms, setup 0ms, import 5.64s, tests 44.66s, environment 3ms)[22m
+
+
+$ pnpm --filter @drop8/shared build && pnpm --filter @drop8/shared test && pnpm --filter @drop8/server test
+$ tsc -p tsconfig.json
+$ vitest run
+$ vitest run --pool=threads --maxWorkers=1 --no-file-parallelism --testTimeout=20000 --hookTimeout=20000
+[90mstderr[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration[2m > [22m[2mpreserves a separate magazine for each firearm
+[22m[39m@colyseus/sdk: onMessage() not registered for type 'slotSwapResult'.
+
+[90mstderr[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration[2m > [22m[2mlets AI choose a suitable loaded weapon for a distant target
+[22m[39m@colyseus/sdk: onMessage() not registered for type 'aiDialogue'.
+
+[90mstderr[2m | tests/room.test.ts[2m > [22m[2mDROP 8 room integration[2m > [22m[2mlets AI choose a suitable loaded weapon for a distant target
+[22m[39m@colyseus/sdk: onMessage() not registered for type 'aiDialogue'.
+
+
+
+### 전체 빌드
+> pnpm run build
+exit=0
+[36mvite v8.0.16 [32mbuilding client environment for production...[36m[39m
+[2Ktransforming...✓ 51 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     8.64 kB │ gzip:   3.28 kB
+dist/assets/index-B8VSzxLD.css     15.91 kB │ gzip:   4.20 kB
+dist/assets/index-C43GjCB3.js   1,688.23 kB │ gzip: 457.47 kB
+
+[32m✓ built in 569ms[39m
+
+$ pnpm --filter @drop8/shared build && pnpm --filter @drop8/client build && pnpm --filter @drop8/server build
+$ tsc -p tsconfig.json
+$ vite build
+[33m[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+$ rimraf build && tsc -p tsconfig.build.json
+
+
+### Refactor 023 대상 git diff check
+> git diff --check -- "server/src/rooms/Drop8Room.ts" "server/src/rooms/aiNavigation.ts" "client/src/GameScene.ts" "server/tests/refactor023-ai-safe-zone-sweep.test.ts" "server/tests/refactor023-live-spectator-dialogue.test.ts" "docs/PATCH_NOTES.md"
+exit=0
+
+warning: in the working copy of 'client/src/GameScene.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/PATCH_NOTES.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'server/src/rooms/Drop8Room.ts', LF will be replaced by CRLF the next time Git touches it
+

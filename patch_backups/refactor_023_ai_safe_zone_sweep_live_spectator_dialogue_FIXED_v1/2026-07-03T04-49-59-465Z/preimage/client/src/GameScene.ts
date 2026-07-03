@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_023_AI_SAFE_ZONE_SWEEP_LIVE_SPECTATOR_DIALOGUE
 // DROP8_REFACTOR_021_AI_PERSONA_DIALOGUE
 // DROP8_REFACTOR_020_WEREWOLF_PREDATOR_ADHESIVE_BALANCE
 // DROP8_REFACTOR_019_AI_HUMANIZATION
@@ -1323,10 +1322,6 @@ export class GameScene extends Phaser.Scene {
     if(!payload?.playerId||!payload.text||payload.channel==='system'||payload.channel==='lobby')return;
     const player=this.net.snapshot?.players.find((item)=>item.id===payload.playerId);
     if(!player)return;
-    if(payload.channel==='ai'&&!this.local()?.alive){
-      const existing=this.playerOverlays.get(player.id),view=this.cameras.main.worldView;
-      if(!existing?.container.visible||!view.contains(player.x,player.y))return;
-    }
     const overlay=this.getOrCreatePlayerOverlay(player);
     overlay.bubbleText.setText(String(payload.text).slice(0,80));
     const width=Math.min(196,Math.max(72,overlay.bubbleText.width+22));
@@ -1362,11 +1357,12 @@ export class GameScene extends Phaser.Scene {
     overlay.container.setDepth(aboveRoof?RENDER_DEPTH.BUILDING_ROOF+3:RENDER_DEPTH.PLAYER_OVERLAY).setPosition(x,y).setVisible(visible).setAlpha(alpha);
     overlay.name.setText(this.displayPlayerName(player));
     const remaining=overlay.bubbleExpiresAt-time;
-    const showBubble=visible&&remaining>0;
+    const spectating=!this.local()?.alive;
+    const showBubble=visible&&(remaining>0||(spectating&&overlay.bubbleText.text.length>0));
     overlay.bubbleBg.setVisible(showBubble);
     overlay.bubbleText.setVisible(showBubble);
     if(showBubble){
-      const bubbleAlpha=remaining<1000?clamp(remaining/1000,0,1):1;
+      const bubbleAlpha=spectating?1:(remaining<1000?clamp(remaining/1000,0,1):1);
       overlay.bubbleBg.setAlpha(bubbleAlpha);
       overlay.bubbleText.setAlpha(bubbleAlpha);
     }

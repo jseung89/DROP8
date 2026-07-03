@@ -1,6 +1,3 @@
-// DROP8_REFACTOR_023_AI_SAFE_ZONE_SWEEP_LIVE_SPECTATOR_DIALOGUE
-// DROP8_REFACTOR_022_AI_NAVIGATION_TACTICAL_RECOVERY
-// DROP8_REFACTOR_021_AI_PERSONA_DIALOGUE
 // DROP8_REFACTOR_020_WEREWOLF_PREDATOR_ADHESIVE_BALANCE
 // DROP8_REFACTOR_020_AI_VEHICLE_OBJECTIVE_RIVALRY
 // DROP8_REFACTOR_019_AI_HUMANIZATION
@@ -20,6 +17,7 @@ import {
 // DROP8_REFACTOR_013_INTERIOR_RIVER_DOCK8
   ADHESIVE_PLAYER_BALANCE,
   ADHESIVE_SPRAYER_BALANCE,
+  AI_DIALOGUE_LINES,
   AI_HUMANIZATION,
   aiVisionDistance,
   aiVisionFovRadians,
@@ -160,8 +158,6 @@ import {
 } from '@drop8/shared';
 import { VehicleStatusManager } from './vehicleStatus.js';
 import { awarenessForState, createAiMemory, createAiProfile, estimateSoundPoint, finishAiBurstShot, pickDialogue, prepareAiBurst, prepareAiReaction, refreshAiAim, type AiHumanMemory, type AiPersonalityProfile, type AiSoundKind } from './aiHumanization.js';
-import { AI_PERSONA_NAMES, aiDialogueProfileForName, aiPersonaEventFromLegacy, selectAiPersonaLine, selectAiPersonaResponse, type AiPersonaEvent, type AiPersonaLine } from './aiDialogueProfiles.js';
-import { AI_NAVIGATION_RECOVERY, AI_SAFE_ZONE_SWEEP, aiDialogueAudience, aiSweepDetourMetrics, canReplaceAiGoal, createAiSafeZoneSweepTarget, detectAiOscillation, nextAiStallSeconds, pushAiProgressSample, shouldTakeAiSweepLoot, type AiGoalKind, type AiProgressSample, type AiSweepZone } from './aiNavigation.js';
 
 type Input = { x:number; y:number; aimX:number; aimY:number; angle:number; seq:number; aiming:boolean; huntSprint:boolean; accelerate:boolean; brake:boolean; turnLeft:boolean; turnRight:boolean };
 type Point = { x:number; y:number };
@@ -209,39 +205,11 @@ type AiIntent = {
   failedWindowUntil:number;
   stuckCount:number;
   lastRepathReason:string;
-  goalKind:AiGoalKind;
-  goalKey:string;
-  goalLockedUntil:number;
-  failedGoalKey:string;
-  failedGoalUntil:number;
-  lastGoalDistance:number;
-  progressSamples:AiProgressSample[];
-  lastProgressSampleAt:number;
-  oscillationCount:number;
-  swimExitId:string;
-  swimExitLockedUntil:number;
-  failedShoreExitId:string;
-  failedShoreExitUntil:number;
-  combatStrafeSign:number;
-  combatStrafeUntil:number;
-  combatHoldStartedAt:number;
-  combatBlockedFor:number;
-  sweepTargetX:number;
-  sweepTargetY:number;
-  sweepStartedAt:number;
-  sweepExpiresAt:number;
-  sweepZoneSignature:string;
-  sweepGeneration:number;
-  sweepKey:string;
-  sweepSector:number;
-  itemDetourActive:boolean;
 };
 type HealKind = 'bandage'|'medkit';
 type HealJob = { at:number; startedAt:number; duration:number; amount:number; kind:HealKind };
 type ReloadJob = { at:number; startedAt:number; duration:number; weapon:WeaponId };
 type Noise = { id:string; x:number; y:number; at:number; owner:string; kind:AiSoundKind; radius:number; danger:number };
-type AiDialogueEmitOptions={casual?:boolean;loggable?:boolean;allowResponse?:boolean;force?:boolean};
-type PendingAiDialogueResponse={at:number;speakerId:string;responderId:string;depth:number};
 type LootReservation={aiId:string;expiresAt:number;lastDistance:number};
 type SafePoint={x:number;y:number;mapId:string;buildingId:string;roomIndex:number;recordedAt:number};
 type StuckState={lastX:number;lastY:number;movingSince:number;lastRecoveryAt:number};
@@ -264,7 +232,7 @@ type JoinOptions = {
   mapId?:MapId;
 };
 
-const AI_NAMES=[...AI_PERSONA_NAMES];
+const AI_NAMES=['준희커','대성(빅뱅)','양정횬','페이커','케리아','윤석10','손흥민'];
 // DROP8_REFACTOR_012A_SMOKE_MOTORCYCLE_AI_NAV
 // DROP8_REFACTOR_012A1_TEST_FIXTURE_CLEANUP
 const AI_NAV_DEBUG=false;
@@ -287,8 +255,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private aiMemories=new Map<string,AiHumanMemory>();
   private aiLineCooldown=new Map<string,number>();
   private aiGlobalDialogueAt=-99;
-  private aiDialogueResponses:PendingAiDialogueResponse[]=[];
-  private aiDialogueSequence=0;
   private aiMovementSamples=new Map<string,{x:number;y:number;at:number}>();
   private aiMovementNoiseAt=0;
   private aiVehiclePlans=new Map<string,AiVehiclePlan>();
@@ -548,7 +514,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       p.aiState='PLANE';
       this.state.players.set(p.id,p);
       this.tacticalInventory(p.id);
-      this.aiProfiles.set(p.id,createAiProfile(p.id,this.state.difficulty as Difficulty,p.name));
+      this.aiProfiles.set(p.id,createAiProfile(p.id,this.state.difficulty as Difficulty));
       this.aiMemories.set(p.id,createAiMemory(p.x,p.y,p.buildingId,p.roomIndex,this.now()));
       i++;
     }
@@ -645,7 +611,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       if(p.ai){
         this.aiThinkAt.set(p.id,3+aiIndex++*1.7);
         this.aiIntent.set(p.id,this.newAiIntent(p));
-        this.aiProfiles.set(p.id,createAiProfile(p.id,this.state.difficulty as Difficulty,p.name));
+        this.aiProfiles.set(p.id,createAiProfile(p.id,this.state.difficulty as Difficulty));
         this.aiMemories.set(p.id,createAiMemory(p.x,p.y,p.buildingId,p.roomIndex,this.now()));
       }
     }
@@ -663,10 +629,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       route:[],lastSeenX:p.x,lastSeenY:p.y,lastSeenUntil:0,
       routeGoalX:p.x,routeGoalY:p.y,repathAt:0,
       failedWindowId:'',failedWindowUntil:0,stuckCount:0,lastRepathReason:'spawn',
-      goalKind:'none',goalKey:'',goalLockedUntil:0,failedGoalKey:'',failedGoalUntil:0,lastGoalDistance:0,
-      progressSamples:[],lastProgressSampleAt:0,oscillationCount:0,swimExitId:'',swimExitLockedUntil:0,failedShoreExitId:'',failedShoreExitUntil:0,
-      combatStrafeSign:Math.random()<.5?-1:1,combatStrafeUntil:0,combatHoldStartedAt:0,combatBlockedFor:0,
-      sweepTargetX:p.x,sweepTargetY:p.y,sweepStartedAt:0,sweepExpiresAt:0,sweepZoneSignature:'',sweepGeneration:0,sweepKey:'',sweepSector:0,itemDetourActive:false,
     };
   }
 
@@ -801,8 +763,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.aiMemories.clear();
     this.aiLineCooldown.clear();
     this.aiGlobalDialogueAt=-99;
-    this.aiDialogueResponses=[];
-    this.aiDialogueSequence=0;
     this.aiMovementSamples.clear();
     this.aiMovementNoiseAt=0;
     this.aiVehiclePlans.clear();
@@ -1426,7 +1386,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.vehicleMotionStates.set(motorcycle.id,{movementHeldMs:0,previousInputX:0,previousInputY:0,mountedAt:this.now(),directionPenaltyUntil:-99});
     p.x=motorcycle.x;p.y=motorcycle.y;
     this.knockback.delete(p.id);
-    if(p.ai)this.emitAiPersonaDialogue(p,'mount',{casual:true,loggable:false,allowResponse:true});
     return true;
   }
 
@@ -1450,7 +1409,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     motorcycle.driverId='';motorcycle.velocityX*=.35;motorcycle.velocityY*=.35;motorcycle.speed=Math.hypot(motorcycle.velocityX,motorcycle.velocityY);motorcycle.angularVelocity=0;this.vehicleMotionStates.delete(motorcycle.id);
     p.isDriving=false;p.vehicleId='';p.isSniperScoped=false;p.x=point.x;p.y=point.y;const dismountSpace=spaceAt(point.x,point.y,this.map.buildingVisibilityZones,this.map.rooms,0);p.buildingId=dismountSpace.buildingId;p.roomIndex=dismountSpace.roomIndex;p.insideBuilding=Boolean(p.buildingId);
     this.lastSafePositions.set(p.id,{x:p.x,y:p.y,mapId:this.map.id,buildingId:p.buildingId,roomIndex:p.roomIndex,recordedAt:this.now()});
-    if(p.ai)this.emitAiPersonaDialogue(p,'dismount',{casual:true,loggable:false,allowResponse:false});
     return true;
   }
 
@@ -2870,7 +2828,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     }
   }
 
-  private ensureAiProfile(p:PlayerState){let profile=this.aiProfiles.get(p.id);if(!profile){profile=createAiProfile(p.id,this.state.difficulty as Difficulty,p.name);this.aiProfiles.set(p.id,profile);}return profile;}
+  private ensureAiProfile(p:PlayerState){let profile=this.aiProfiles.get(p.id);if(!profile){profile=createAiProfile(p.id,this.state.difficulty as Difficulty);this.aiProfiles.set(p.id,profile);}return profile;}
 
   private ensureAiMemory(p:PlayerState){let memory=this.aiMemories.get(p.id);if(!memory){memory=createAiMemory(p.x,p.y,p.buildingId,p.roomIndex,this.now());this.aiMemories.set(p.id,memory);}return memory;}
 
@@ -2894,107 +2852,11 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
 
   private markAiTargetLost(p:PlayerState,intent:AiIntent,target?:PlayerState){const memory=this.ensureAiMemory(p);if(!memory.targetVisible)return;memory.targetVisible=false;memory.source='visual';memory.confidence=Math.min(memory.confidence,72);memory.searchUntil=Math.max(memory.searchUntil,this.now()+3.2);intent.lastSeenX=memory.lastSeenX;intent.lastSeenY=memory.lastSeenY;intent.lastSeenUntil=memory.searchUntil;intent.targetId='';const line:AiDialogueLineId=target?.inBush?'lost_bush':target?.insideBuilding?'lost_building':pickDialogue('lost',p.id,Math.floor(this.now()*10));if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI HUMAN] lost',{ai:p.id,target:memory.targetId,lastSeenX:Math.round(memory.lastSeenX),lastSeenY:Math.round(memory.lastSeenY),searchUntil:memory.searchUntil});this.emitAiDialogue(p,line,'lost');}
 
-  private aiDialogueDurationMs(text:string){return clamp(900+text.length*42,900,3000);}
+  private emitAiDialogue(p:PlayerState,lineId:AiDialogueLineId,category:AiDialogueCategory,casual=false){if(!p.ai||!p.alive||this.state.phase==='LOBBY'||this.state.phase==='FINISHED')return false;const now=this.now(),memory=this.ensureAiMemory(p),profile=this.ensureAiProfile(p);const personal=casual?AI_HUMANIZATION.casualDialogueCooldown[0]+(1-profile.talkativeness)*(AI_HUMANIZATION.casualDialogueCooldown[1]-AI_HUMANIZATION.casualDialogueCooldown[0]):AI_HUMANIZATION.tacticalDialogueCooldown[0]+(1-profile.talkativeness)*(AI_HUMANIZATION.tacticalDialogueCooldown[1]-AI_HUMANIZATION.tacticalDialogueCooldown[0]);if(now-memory.lastDialogueAt<personal||now-this.aiGlobalDialogueAt<AI_HUMANIZATION.globalDialogueCooldown||now-(this.aiLineCooldown.get(lineId)??-99)<AI_HUMANIZATION.repeatedLineCooldown)return false;memory.lastDialogueAt=now;if(casual)memory.lastCasualDialogueAt=now;memory.lastLineId=lineId;memory.lastLineAt=now;this.aiGlobalDialogueAt=now;this.aiLineCooldown.set(lineId,now);const text=AI_DIALOGUE_LINES[lineId];const payload={playerId:p.id,speakerId:p.id,sender:p.name,nickname:p.name,lineId,category,text,channel:'ai',time:Date.now(),sentAt:Date.now()};for(const client of this.clients){const listener=this.state.players.get(client.sessionId);if(listener?.alive&&distance(p.x,p.y,listener.x,listener.y)<=AI_HUMANIZATION.dialogueRadius)client.send('aiDialogue',payload);}if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI DIALOGUE]',{ai:p.id,lineId,category,text});this.addAiNoise(p.x,p.y,p.id,'voice',360,.15);this.maybeAiDialogueResponse(p,category);return true;}
 
-  private aiDialogueBlockedIds(now:number){const blocked=new Set<string>();for(const [lineId,usedAt] of this.aiLineCooldown)if(now-usedAt<40)blocked.add(lineId);return blocked;}
+  private maybeAiDialogueResponse(speaker:PlayerState,category:AiDialogueCategory){if(!['uncertain','lost','exit','stuck'].includes(category))return;const memory=this.ensureAiMemory(speaker);let responder:PlayerState|undefined,best=380;for(const candidate of this.state.players.values()){if(!candidate.ai||!candidate.alive||candidate.id===speaker.id||candidate.phase!=='landed')continue;const d=distance(speaker.x,speaker.y,candidate.x,candidate.y);if(d<best){best=d;responder=candidate;}}if(!responder)return;const responderMemory=this.ensureAiMemory(responder);if(this.now()-responderMemory.lastDialogueAt<6)return;const point={x:memory.lastSeenX+(this.lootRandom()-.5)*180,y:memory.lastSeenY+(this.lootRandom()-.5)*180};if(memory.confidence>20){responderMemory.heardX=point.x;responderMemory.heardY=point.y;responderMemory.heardAt=this.now();responderMemory.heardKind='voice';responderMemory.source='voice';responderMemory.confidence=Math.min(55,memory.confidence*.6);}const line=pickDialogue('response',responder.id,Math.floor(this.now()*7));const now=this.now();responderMemory.lastDialogueAt=now;responderMemory.lastLineId=line;responderMemory.lastLineAt=now;const payload={playerId:responder.id,speakerId:responder.id,sender:responder.name,nickname:responder.name,lineId:line,category:'response',text:AI_DIALOGUE_LINES[line],channel:'ai',time:Date.now(),sentAt:Date.now()};for(const client of this.clients){const listener=this.state.players.get(client.sessionId);if(listener?.alive&&distance(responder.x,responder.y,listener.x,listener.y)<=AI_HUMANIZATION.dialogueRadius)client.send('aiDialogue',payload);}}
 
-  private sendAiPersonaLine(p:PlayerState,line:AiPersonaLine,event:AiPersonaEvent,options:AiDialogueEmitOptions={}){
-    if(!p.ai||!p.alive||this.state.phase==='LOBBY'||this.state.phase==='FINISHED')return false;
-    const now=this.now(),memory=this.ensureAiMemory(p),profile=aiDialogueProfileForName(p.name);
-    if(!profile)return false;
-    const tacticalCooldown=profile.tacticalSpeechCooldownSeconds;
-    const personalCooldown=options.casual?Math.max(1.8,profile.idleSpeechIntervalMinSeconds*.58):tacticalCooldown;
-    const globalCooldown=options.force?.35:1.05;
-    if(!options.force&&(now-memory.lastDialogueAt<personalCooldown||now-this.aiGlobalDialogueAt<globalCooldown))return false;
-    if(!options.force&&now-(this.aiLineCooldown.get(line.id)??-99)<40)return false;
-    memory.lastDialogueAt=now;if(options.casual)memory.lastCasualDialogueAt=now;memory.lastLineId=line.id;memory.lastLineAt=now;memory.lastDialogueEvent=event;
-    memory.recentDialogueIds.push(line.id);if(memory.recentDialogueIds.length>15)memory.recentDialogueIds.splice(0,memory.recentDialogueIds.length-15);
-    this.aiGlobalDialogueAt=now;this.aiLineCooldown.set(line.id,now);
-    const payload={playerId:p.id,speakerId:p.id,sender:p.name,nickname:p.name,lineId:line.id,category:event,text:line.text,channel:'ai',time:Date.now(),sentAt:Date.now(),durationMs:this.aiDialogueDurationMs(line.text),loggable:options.loggable??!options.casual};
-    for(const client of this.clients){
-      const listener=this.state.players.get(client.sessionId);
-      const audience=aiDialogueAudience(listener,listener?distance(p.x,p.y,listener.x,listener.y):Number.POSITIVE_INFINITY,AI_HUMANIZATION.dialogueRadius);
-      if(audience==='player')client.send('aiDialogue',payload);
-      else if(audience==='spectator')client.send('aiDialogue',{...payload,loggable:false});
-    }
-    if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI PERSONA]',{ai:p.id,name:p.name,event,lineId:line.id,text:line.text});
-    this.addAiNoise(p.x,p.y,p.id,'voice',360,.15);
-    if(options.allowResponse)this.scheduleAiDialogueResponse(p);
-    return true;
-  }
-
-  private emitAiPersonaDialogue(p:PlayerState,event:AiPersonaEvent,options:AiDialogueEmitOptions={}){
-    const now=this.now(),memory=this.ensureAiMemory(p),blocked=this.aiDialogueBlockedIds(now);
-    const line=selectAiPersonaLine(p.name,event,`${p.id}:${event}:${Math.floor(now*10)}:${++this.aiDialogueSequence}`,memory.recentDialogueIds,blocked);
-    return line?this.sendAiPersonaLine(p,line,event,options):false;
-  }
-
-  private emitAiDialogue(p:PlayerState,lineId:AiDialogueLineId,category:AiDialogueCategory,casual=false){
-    const event=aiPersonaEventFromLegacy(lineId,category);
-    const allowResponse=['uncertain','lost','exit','stuck'].includes(category);
-    return this.emitAiPersonaDialogue(p,event,{casual,loggable:!casual,allowResponse});
-  }
-
-  private scheduleAiDialogueResponse(speaker:PlayerState){
-    const speakerProfile=aiDialogueProfileForName(speaker.name);if(!speakerProfile)return;
-    let responder:PlayerState|undefined,best=430;
-    for(const candidate of this.state.players.values()){
-      if(!candidate.ai||!candidate.alive||candidate.id===speaker.id||candidate.phase!=='landed')continue;
-      const d=distance(speaker.x,speaker.y,candidate.x,candidate.y);if(d>=best)continue;
-      const blocked=this.firstObstacleHitT(speaker.x,speaker.y,candidate.x,candidate.y,4)!==null;
-      if(blocked&&d>260)continue;
-      const profile=aiDialogueProfileForName(candidate.name),memory=this.ensureAiMemory(candidate);
-      if(!profile||this.now()-memory.lastDialogueAt<Math.max(1.6,profile.tacticalSpeechCooldownSeconds))continue;
-      best=d;responder=candidate;
-    }
-    if(!responder)return;
-    const responderProfile=aiDialogueProfileForName(responder.name);if(!responderProfile||this.lootRandom()>responderProfile.responseChance)return;
-    this.aiDialogueResponses.push({at:this.now()+.4+this.lootRandom()*1.1,speakerId:speaker.id,responderId:responder.id,depth:1});
-    if(this.aiDialogueResponses.length>12)this.aiDialogueResponses.splice(0,this.aiDialogueResponses.length-12);
-  }
-
-  private processAiDialogueResponses(){
-    const now=this.now(),pending=this.aiDialogueResponses.filter((job)=>job.at<=now);this.aiDialogueResponses=this.aiDialogueResponses.filter((job)=>job.at>now);
-    for(const job of pending){
-      const speaker=this.state.players.get(job.speakerId),responder=this.state.players.get(job.responderId);if(!speaker?.alive||!responder?.alive||distance(speaker.x,speaker.y,responder.x,responder.y)>500)continue;
-      const memory=this.ensureAiMemory(responder),line=selectAiPersonaResponse(speaker.name,responder.name,`${speaker.id}:${responder.id}:${Math.floor(now*10)}:${++this.aiDialogueSequence}`,memory.recentDialogueIds,this.aiDialogueBlockedIds(now));
-      if(line)this.sendAiPersonaLine(responder,line,'response',{casual:true,loggable:false,allowResponse:false});
-    }
-  }
-
-  private aiCasualEvent(p:PlayerState,intent:AiIntent):AiPersonaEvent{
-    if(p.isDriving)return'move';
-    if(intent.lootId)return'loot';
-    if(intent.state==='EXIT_BUILDING')return'exit';
-    if(intent.state==='INVESTIGATE_SOUND')return'sound';
-    if(intent.state==='SEARCH_LAST_SEEN')return'lost';
-    if(intent.state==='RELOAD')return'reload';
-    if(intent.state==='RETREAT')return'retreat';
-    if(p.insideBuilding)return this.lootRandom()<.32?'empty_room':'move';
-    return this.lootRandom()<.45?'idle':'move';
-  }
-
-  private maybeAiCasualDialogue(p:PlayerState,intent:AiIntent){
-    const now=this.now(),memory=this.ensureAiMemory(p),profile=aiDialogueProfileForName(p.name);if(!profile)return;
-    if(memory.nextCasualDialogueAt<=0){memory.nextCasualDialogueAt=now+.5+(this.aiDialogueSequence++%7)*.42;return;}
-    if(now<memory.nextCasualDialogueAt)return;
-    const combat=['ENGAGE','DEFEND','RETREAT','BAZOOKA_SAFE_DISTANCE','EVADE_GRENADE','AVOID_FIRE'].includes(intent.state)||memory.targetVisible;
-    if(combat){memory.nextCasualDialogueAt=now+1.2;return;}
-    const event=this.aiCasualEvent(p,intent),spoken=this.emitAiPersonaDialogue(p,event,{casual:true,loggable:false,allowResponse:true});
-    const span=profile.idleSpeechIntervalMaxSeconds-profile.idleSpeechIntervalMinSeconds;
-    memory.nextCasualDialogueAt=now+(spoken?profile.idleSpeechIntervalMinSeconds+this.lootRandom()*span:.65+this.lootRandom()*.65);
-  }
-
-  private updateAiRoomMemory(p:PlayerState,memory:AiHumanMemory){
-    const now=this.now();
-    if(memory.buildingId!==p.buildingId){
-      const wasInside=Boolean(memory.buildingId);memory.buildingId=p.buildingId;memory.buildingEnteredAt=now;memory.roomIndex=p.roomIndex;memory.roomEnteredAt=now;memory.visitedRooms.clear();if(p.buildingId)memory.visitedRooms.add(`${p.buildingId}:${p.roomIndex}`);memory.exitRequestedAt=0;
-      if(p.ai&&p.phase==='landed'){if(p.buildingId)this.emitAiPersonaDialogue(p,'building_enter',{casual:true,loggable:false,allowResponse:true});else if(wasInside)this.emitAiPersonaDialogue(p,'exit',{casual:true,loggable:false,allowResponse:true});}
-    }else if(memory.roomIndex!==p.roomIndex){
-      memory.roomIndex=p.roomIndex;memory.roomEnteredAt=now;if(p.buildingId)memory.visitedRooms.add(`${p.buildingId}:${p.roomIndex}`);
-      if(p.ai&&p.buildingId)this.emitAiPersonaDialogue(p,'empty_room',{casual:true,loggable:false,allowResponse:false});
-    }
-  }
+  private updateAiRoomMemory(p:PlayerState,memory:AiHumanMemory){const now=this.now();if(memory.buildingId!==p.buildingId){memory.buildingId=p.buildingId;memory.buildingEnteredAt=now;memory.roomIndex=p.roomIndex;memory.roomEnteredAt=now;memory.visitedRooms.clear();if(p.buildingId)memory.visitedRooms.add(`${p.buildingId}:${p.roomIndex}`);memory.exitRequestedAt=0;}else if(memory.roomIndex!==p.roomIndex){memory.roomIndex=p.roomIndex;memory.roomEnteredAt=now;if(p.buildingId)memory.visitedRooms.add(`${p.buildingId}:${p.roomIndex}`);}}
 
   private findAiBuildingExitPoint(p:PlayerState,memory:AiHumanMemory){if(!p.buildingId)return undefined;const index=this.map.buildingVisibilityZones.findIndex((zone)=>zone.id===p.buildingId),building=index>=0?this.map.buildings[index]:undefined;if(!building)return undefined;const door=this.doorPoints(building).outside;if(this.isPositionFree(door.x,door.y))return door;let selected:Point|undefined,best=Number.POSITIVE_INFINITY;for(const portal of this.map.portals){if(portal.buildingId!==p.buildingId)continue;for(const point of [portal.approachA,portal.approachB,portal.landingA,portal.landingB]){const space=spaceAt(point.x,point.y,this.map.buildingVisibilityZones,this.map.rooms,12);if(!space.outdoors||!this.isPositionFree(point.x,point.y))continue;const d=distance(p.x,p.y,point.x,point.y);if(d<best){best=d;selected={x:point.x,y:point.y};}}}return selected;}
 
@@ -3277,7 +3139,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private updateAi(dt:number){
     const now=this.now();
     this.cleanupLootReservations(now);
-    this.processAiDialogueResponses();
     for(const p of this.state.players.values()){
       if(!p.ai||!p.alive||p.phase!=='landed')continue;
       if(p.isVaulting){
@@ -3286,7 +3147,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       }
       let intent=this.aiIntent.get(p.id);
       if(!intent){intent=this.newAiIntent(p);this.aiIntent.set(p.id,intent);}
-      const memory=this.ensureAiMemory(p);this.ensureAiProfile(p);this.updateAiRoomMemory(p,memory);this.maybeAiCasualDialogue(p,intent);
+      const memory=this.ensureAiMemory(p);this.ensureAiProfile(p);this.updateAiRoomMemory(p,memory);
       if(!this.aiLandedAt.has(p.id))this.aiLandedAt.set(p.id,now);
       if(p.werewolf.ritualizing){
         const plan=this.aiVehiclePlans.get(p.id);if(plan)plan.phase='ritual';
@@ -3359,190 +3220,14 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     }
   }
 
-  private clearAiGoal(intent:AiIntent){
-    intent.goalKind='none';intent.goalKey='';intent.goalLockedUntil=0;
-  }
-
-  private refreshAiGoalValidity(p:PlayerState,intent:AiIntent,now=this.now()){
-    if(intent.failedGoalUntil<=now){intent.failedGoalKey='';intent.failedGoalUntil=0;}
-    if(intent.failedShoreExitUntil<=now){intent.failedShoreExitId='';intent.failedShoreExitUntil=0;}
-    if(intent.goalKind==='combat'&&!this.state.players.get(intent.goalKey.replace(/^combat:/,''))?.alive)this.clearAiGoal(intent);
-    else if(intent.goalKind==='loot'&&!this.state.loot.has(intent.goalKey))this.clearAiGoal(intent);
-    else if(intent.goalKind==='swim-exit'&&!p.isSwimming)this.clearAiGoal(intent);
-    else if(intent.goalKind==='zone'&&!this.state.zoneActive)this.clearAiGoal(intent);
-    if(intent.goalKey&&intent.failedGoalKey===intent.goalKey&&intent.failedGoalUntil>now)this.clearAiGoal(intent);
-  }
-
-  private startAiGoal(intent:AiIntent,kind:AiGoalKind,key:string,lockSeconds:number,force=false){
-    const now=this.now();
-    if(!canReplaceAiGoal(intent.goalKind,intent.goalKey,intent.goalLockedUntil,kind,key,now,force))return false;
-    const changed=intent.goalKind!==kind||intent.goalKey!==key;
-    intent.goalKind=kind;intent.goalKey=key;if(changed||force&&now>=intent.goalLockedUntil)intent.goalLockedUntil=now+lockSeconds;
-    if(changed){intent.progressSamples=[];intent.lastProgressSampleAt=0;intent.oscillationCount=0;intent.lastGoalDistance=distance(intent.lastX,intent.lastY,intent.tx,intent.ty);if(kind==='combat'){intent.combatHoldStartedAt=0;intent.combatBlockedFor=0;}}
-    return true;
-  }
-
-  private failAiGoal(intent:AiIntent,key:string,cooldown:number=AI_NAVIGATION_RECOVERY.failedGoalCooldownSeconds){
-    intent.failedGoalKey=key;intent.failedGoalUntil=this.now()+cooldown;
-    if(intent.goalKey===key)this.clearAiGoal(intent);
-  }
-
-  private selectAiShoreExit(p:PlayerState,intent:AiIntent){
-    const now=this.now();
-    if(intent.swimExitId&&now<intent.swimExitLockedUntil){
-      const existing=this.map.shoreExits.find((exit)=>exit.id===intent.swimExitId);
-      if(existing&&!(intent.failedShoreExitId===existing.id&&now<intent.failedShoreExitUntil))return existing;
-    }
-    let selected:(typeof this.map.shoreExits)[number]|undefined,best=Number.POSITIVE_INFINITY;
-    for(const exit of this.map.shoreExits){
-      if(intent.failedShoreExitId===exit.id&&now<intent.failedShoreExitUntil)continue;
-      const entryX=exit.entry.x+exit.entry.w/2,entryY=exit.entry.y+exit.entry.h/2;
-      const blocked=this.segmentBlocked(p.x,p.y,entryX,entryY,PLAYER_BODY_RADIUS*.55);
-      let score=distance(p.x,p.y,entryX,entryY)+(blocked?320:0);
-      if(this.state.zoneActive){
-        const outside=distance(exit.landingPoint.x,exit.landingPoint.y,this.state.zoneX,this.state.zoneY)-this.state.zoneRadius;
-        score+=Math.max(0,outside)*1.8;
-      }
-      if(intent.goalKind==='zone')score+=distance(exit.landingPoint.x,exit.landingPoint.y,intent.tx,intent.ty)*.18;
-      if(score<best){best=score;selected=exit;}
-    }
-    if(selected){intent.swimExitId=selected.id;intent.swimExitLockedUntil=now+AI_NAVIGATION_RECOVERY.swimExitLockSeconds;}
-    return selected;
-  }
-
-  private planAiSwimEscape(p:PlayerState,intent:AiIntent){
-    const exit=this.selectAiShoreExit(p,intent);
-    if(!exit)return false;
-    const key=`swim:${exit.id}`;
-    this.startAiGoal(intent,'swim-exit',key,AI_NAVIGATION_RECOVERY.swimExitLockSeconds,true);
-    intent.targetId='';intent.lootId='';intent.mode='move';intent.state='SWIM_ESCAPE';p.aiState='SWIM_ESCAPE';
-    const entry={x:exit.entry.x+exit.entry.w/2,y:exit.entry.y+exit.entry.h/2};
-    const route=[...this.buildRoute(p.x,p.y,entry.x,entry.y,intent),exit.landingPoint].filter((point,index,array)=>index===0||distance(point.x,point.y,array[index-1]!.x,array[index-1]!.y)>8);
-    const routeChanged=intent.route.length===0||intent.swimExitId!==exit.id||distance(intent.routeGoalX,intent.routeGoalY,exit.landingPoint.x,exit.landingPoint.y)>18;
-    intent.tx=exit.landingPoint.x;intent.ty=exit.landingPoint.y;intent.routeGoalX=intent.tx;intent.routeGoalY=intent.ty;
-    if(routeChanged)intent.route=route;
-    intent.repathAt=this.now()+.8;intent.lastRepathReason='swim-exit';
-    return true;
-  }
-
-  private segmentCrossesDeepWater(x1:number,y1:number,x2:number,y2:number){
-    const length=distance(x1,y1,x2,y2),steps=Math.max(2,Math.ceil(length/AI_NAVIGATION_RECOVERY.waterProbeStep));
-    for(let index=1;index<steps;index++){
-      const t=index/steps,x=x1+(x2-x1)*t,y=y1+(y2-y1)*t;
-      if(this.terrainKindAt(x,y)==='deep-water')return true;
-    }
-    return false;
-  }
-
-  private sameSideWaterDetour(sx:number,sy:number,tx:number,ty:number,side:'west'|'east',intent?:AiIntent){
-    const points:Point[]=[];
-    for(const crossing of this.map.landCrossings){
-      if(!crossing.allowsPlayer)continue;
-      points.push(side==='west'?{x:crossing.rect.x-42,y:crossing.rect.y+crossing.rect.h/2}:{x:crossing.rect.x+crossing.rect.w+42,y:crossing.rect.y+crossing.rect.h/2});
-    }
-    for(const exit of this.map.shoreExits)if((exit.normal.x<0?'west':'east')===side)points.push(exit.landingPoint);
-    let selected:Point|undefined,best=Number.POSITIVE_INFINITY;
-    for(const point of points){
-      if(this.segmentCrossesDeepWater(sx,sy,point.x,point.y)||this.segmentCrossesDeepWater(point.x,point.y,tx,ty))continue;
-      const score=distance(sx,sy,point.x,point.y)+distance(point.x,point.y,tx,ty);
-      if(score<best){best=score;selected=point;}
-    }
-    if(!selected)return undefined;
-    const first=this.buildRoute(sx,sy,selected.x,selected.y,intent),second=this.buildRoute(selected.x,selected.y,tx,ty,intent);
-    return[...first,...second].filter((point,index,array)=>index===0||distance(point.x,point.y,array[index-1]!.x,array[index-1]!.y)>8);
-  }
-
-  private updateAiProgress(p:PlayerState,intent:AiIntent,dt:number,beforeWaypoint:number,beforeGoal:number,waypoint:Point){
-    const actualMove=distance(p.x,p.y,intent.lastX,intent.lastY),waypointGain=beforeWaypoint-distance(p.x,p.y,waypoint.x,waypoint.y),goalGain=beforeGoal-distance(p.x,p.y,intent.routeGoalX,intent.routeGoalY);
-    intent.stuckFor=nextAiStallSeconds(intent.stuckFor,dt,actualMove,waypointGain,goalGain);
-    if(Math.max(waypointGain,goalGain)>AI_NAVIGATION_RECOVERY.healthyGoalGain)intent.stuckCount=Math.max(0,intent.stuckCount-1);
-    const now=this.now();
-    if(now-intent.lastProgressSampleAt>=AI_NAVIGATION_RECOVERY.progressSampleSeconds){
-      intent.progressSamples=pushAiProgressSample(intent.progressSamples,{x:p.x,y:p.y,goalDistance:distance(p.x,p.y,intent.routeGoalX,intent.routeGoalY),at:now});intent.lastProgressSampleAt=now;
-      if(detectAiOscillation(intent.progressSamples)){intent.oscillationCount++;intent.stuckFor=Math.max(intent.stuckFor,AI_NAVIGATION_RECOVERY.oscillationStallSeconds);}
-    }
-  }
-
-  private runAiCombatHold(p:PlayerState,intent:AiIntent,target:PlayerState,dt:number){
-    const now=this.now(),memory=this.ensureAiMemory(p),weaponId=p.equipped as WeaponId;
-    const blocked=!memory.targetVisible||this.map.bulletObstacles.some((rect)=>this.segmentRect(p.x,p.y,target.x,target.y,rect));
-    intent.combatBlockedFor=blocked?intent.combatBlockedFor+dt:Math.max(0,intent.combatBlockedFor-dt*3);
-    if(blocked&&intent.combatBlockedFor>AI_NAVIGATION_RECOVERY.blockedCombatRepathSeconds){
-      const escape=this.findAiEscapePoint(p,intent);
-      if(escape){intent.mode='move';intent.route=[escape];intent.repathAt=now+1;intent.lastRepathReason='combat-wall-flank';intent.combatBlockedFor=0;this.aiThinkAt.set(p.id,now+.65);return true;}
-      if(intent.combatBlockedFor>AI_NAVIGATION_RECOVERY.blockedCombatGiveUpSeconds){this.failAiGoal(intent,`combat:${target.id}`,1.6);intent.targetId='';intent.mode='move';intent.route=[];intent.combatBlockedFor=0;this.aiThinkAt.set(p.id,0);return true;}
-    }
-    if(intent.combatHoldStartedAt<=0)intent.combatHoldStartedAt=now;
-    const settle=weaponId==='sniper'?.85:weaponId==='bazooka'?.7:.28;
-    if(now-intent.combatHoldStartedAt<settle)return true;
-    const interval=weaponId==='sniper'?1.35:weaponId==='bazooka'?1.1:.62;
-    if(now>=intent.combatStrafeUntil){intent.combatStrafeUntil=now+interval;intent.combatStrafeSign*=-1;}
-    const d=distance(p.x,p.y,target.x,target.y),desired=this.desiredRange(p.equipped as EquippedId),radial=clamp((d-desired)*.22,-58,58),base=Math.atan2(target.y-p.y,target.x-p.x),side=base+intent.combatStrafeSign*Math.PI/2;
-    const stride=weaponId==='sniper'?42:weaponId==='bazooka'?50:72;
-    for(const factor of [1,.7,-.55]){
-      const x=clamp(p.x+Math.cos(side)*stride*factor+Math.cos(base)*radial,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS),y=clamp(p.y+Math.sin(side)*stride*factor+Math.sin(base)*radial,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);
-      if(this.terrainKindAt(x,y)==='deep-water'||!this.playerMovementPositionFree(p,x,y)||this.segmentBlocked(p.x,p.y,x,y,PLAYER_BODY_RADIUS))continue;
-      const step=Math.min(distance(p.x,p.y,x,y),(this.state.difficulty==='hard'?185:this.state.difficulty==='easy'?125:155)*dt);
-      const angle=Math.atan2(y-p.y,x-p.x);this.tryMove(p,Math.cos(angle)*step,Math.sin(angle)*step);this.updateSwimmingState(p);return true;
-    }
-    return true;
-  }
-
   private assignLootIntent(p:PlayerState,intent:AiIntent,loot:LootState,early=false){
-    if(intent.failedGoalKey===loot.id&&this.now()<intent.failedGoalUntil)return false;
-    const resumingSweep=this.hasActiveAiSafeSweep(intent);
-    if(!this.startAiGoal(intent,'loot',loot.id,early?1.8:2.6))return false;
     this.reserveLoot(p,loot);
     intent.lootId=loot.id;
     intent.targetId='';
-    intent.itemDetourActive=resumingSweep;
     p.aiState=early?'EARLY_LOOT':this.aiLootState(loot.kind as LootKind);
     intent.state=p.aiState;
     intent.mode='move';
     this.setAiDestination(p,intent,loot.x,loot.y);
-    return true;
-  }
-
-  private aiSweepZone():AiSweepZone{
-    if(!this.state.zoneActive)return{active:false,centerX:this.worldSize/2,centerY:this.worldSize/2,radius:this.worldSize*.42,signature:'free'};
-    const advancing=['ANNOUNCING','WAITING','SHRINKING'].includes(this.state.zoneState);
-    const centerX=advancing?this.state.nextZoneX:this.state.zoneX,centerY=advancing?this.state.nextZoneY:this.state.zoneY,radius=advancing?this.state.nextZoneRadius:this.state.zoneRadius;
-    const signature=`${this.state.zoneStage}:${this.state.zoneState}:${Math.round(centerX/80)}:${Math.round(centerY/80)}:${Math.round(radius/120)}`;
-    return{active:true,centerX,centerY,radius,signature};
-  }
-
-  private hasActiveAiSafeSweep(intent:AiIntent,now=this.now()){
-    return Boolean(intent.sweepKey&&intent.sweepExpiresAt>now&&intent.sweepZoneSignature===this.aiSweepZone().signature);
-  }
-
-  private ensureAiSafeSweepTarget(p:PlayerState,intent:AiIntent){
-    const now=this.now(),zone=this.aiSweepZone();
-    const arrived=distance(p.x,p.y,intent.sweepTargetX,intent.sweepTargetY)<=AI_SAFE_ZONE_SWEEP.arrivalDistance;
-    const failed=intent.failedGoalKey===intent.sweepKey&&intent.failedGoalUntil>now;
-    if(!intent.sweepKey||intent.sweepExpiresAt<=now||intent.sweepZoneSignature!==zone.signature||arrived||failed){
-      const generated=createAiSafeZoneSweepTarget({aiId:p.id,x:p.x,y:p.y,worldSize:this.worldSize,generation:intent.sweepGeneration+1,zone});
-      const free=this.isPositionFree(generated.x,generated.y)?generated:this.findNearestFreePoint(generated.x,generated.y,360)??generated;
-      intent.sweepTargetX=free.x;intent.sweepTargetY=free.y;intent.sweepStartedAt=now;intent.sweepExpiresAt=now+AI_SAFE_ZONE_SWEEP.targetLifetimeSeconds;
-      intent.sweepZoneSignature=zone.signature;intent.sweepGeneration=generated.generation;intent.sweepKey=generated.key;intent.sweepSector=generated.sector;
-    }
-    return{x:intent.sweepTargetX,y:intent.sweepTargetY,key:intent.sweepKey};
-  }
-
-  private applyAiSafeSweep(p:PlayerState,intent:AiIntent,force=false){
-    const sweep=this.ensureAiSafeSweepTarget(p,intent);
-    const sweepChanged=intent.goalKind==='patrol'&&intent.goalKey!==sweep.key;
-    if(!this.startAiGoal(intent,'patrol',sweep.key,AI_SAFE_ZONE_SWEEP.targetLifetimeSeconds,force||sweepChanged))return false;
-    intent.itemDetourActive=false;p.aiState='SAFE_SWEEP';intent.state='SAFE_SWEEP';intent.mode='move';
-    const needsRoute=intent.route.length===0||distance(intent.routeGoalX,intent.routeGoalY,sweep.x,sweep.y)>48||intent.stuckFor>.55;
-    if(needsRoute)this.setAiDestination(p,intent,sweep.x,sweep.y,force);
-    else{intent.tx=sweep.x;intent.ty=sweep.y;}
-    return true;
-  }
-
-  private resumeAiSafeSweep(p:PlayerState,intent:AiIntent){
-    if(!intent.itemDetourActive||!this.hasActiveAiSafeSweep(intent))return false;
-    intent.itemDetourActive=false;this.clearAiGoal(intent);intent.route=[];
-    return this.applyAiSafeSweep(p,intent,true);
   }
 
   private aiPatrolPoint(){
@@ -3555,46 +3240,33 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   }
 
   private planAi(p:PlayerState,intent:AiIntent){
-    const memory=this.ensureAiMemory(p),profile=this.ensureAiProfile(p),now=this.now();this.updateAiRoomMemory(p,memory);this.refreshAiGoalValidity(p,intent,now);
+    const memory=this.ensureAiMemory(p),profile=this.ensureAiProfile(p),now=this.now();this.updateAiRoomMemory(p,memory);
     const fire=[...this.state.fireFields.values()].find((field)=>fireFieldContains(field,p,this.map.buildingVisibilityZones));
     const grenade=[...this.state.thrownObjects.values()].find((object)=>object.kind==='fragGrenade'&&object.detonateAt-now<1.1&&distance(p.x,p.y,object.x,object.y)<220);
     const hazard=fire??grenade;
-    if(hazard){const dx=p.x-hazard.x,dy=p.y-hazard.y,length=Math.hypot(dx,dy)||1;this.startAiGoal(intent,'hazard',fire?`fire:${fire.id}`:`grenade:${grenade?.id??'near'}`,.8,true);intent.targetId='';intent.lootId='';intent.mode='retreat';intent.state=fire?'AVOID_FIRE':'EVADE_GRENADE';this.setAiDestination(p,intent,p.x+dx/length*280,p.y+dy/length*280,true);intent.lastRepathReason=intent.state;this.emitAiDialogue(p,'retreat_back','retreat');return;}
-    const previousLoot=intent.lootId;
-    if(p.isSwimming){this.releaseLootReservation(p.id,previousLoot);this.cancelHeal(p);if(this.planAiSwimEscape(p,intent))return;}
-    intent.targetId='';intent.mode='move';
+    if(hazard){const dx=p.x-hazard.x,dy=p.y-hazard.y,length=Math.hypot(dx,dy)||1;intent.targetId='';intent.lootId='';intent.mode='retreat';intent.state=fire?'AVOID_FIRE':'EVADE_GRENADE';this.setAiDestination(p,intent,p.x+dx/length*280,p.y+dy/length*280,true);intent.lastRepathReason=intent.state;this.emitAiDialogue(p,'retreat_back','retreat');return;}
+    const previousLoot=intent.lootId;intent.targetId='';intent.mode='move';
     const zoneActive=Boolean(this.state.zoneActive),outside=zoneActive&&distance(p.x,p.y,this.state.zoneX,this.state.zoneY)>this.state.zoneRadius-180,nextUrgent=zoneActive&&(this.state.zoneState==='SHRINKING'||this.state.zoneTimer<14),outsideNext=zoneActive&&distance(p.x,p.y,this.state.nextZoneX,this.state.nextZoneY)>this.state.nextZoneRadius-120;
-    if(outside||(nextUrgent&&outsideNext)){this.startAiGoal(intent,'zone','zone',1.4,true);this.releaseLootReservation(p.id,previousLoot);intent.lootId='';this.cancelHeal(p);p.aiState='ZONE_ESCAPE';intent.state='ZONE_ESCAPE';const safe=this.aiZoneTarget(p,outside?this.state.zoneX:this.state.nextZoneX,outside?this.state.zoneY:this.state.nextZoneY,outside?this.state.zoneRadius:this.state.nextZoneRadius);this.setAiDestination(p,intent,safe.x,safe.y);return;}
+    if(outside||(nextUrgent&&outsideNext)){this.releaseLootReservation(p.id,previousLoot);intent.lootId='';this.cancelHeal(p);p.aiState='ZONE_ESCAPE';intent.state='ZONE_ESCAPE';const safe=this.aiZoneTarget(p,outside?this.state.zoneX:this.state.nextZoneX,outside?this.state.zoneY:this.state.nextZoneY,outside?this.state.zoneRadius:this.state.nextZoneRadius);this.setAiDestination(p,intent,safe.x,safe.y);return;}
     const target=this.findVisibleTarget(p,intent),targetDistance=target?distance(p.x,p.y,target.x,target.y):Number.POSITIVE_INFINITY,recentlyAttacked=now<(this.aiDefendUntil.get(p.id)??0),combatReady=this.aiCombatReady(p),early=now-(this.aiLandedAt.get(p.id)??now)<15&&!combatReady,danger=Boolean(target&&targetDistance<430);
     if(this.healUntil.has(p.id)){this.releaseLootReservation(p.id,previousLoot);intent.lootId='';p.aiState='HEAL';intent.state='HEAL';intent.mode='hold';return;}
     if(p.hp<=55&&(p.bandages>0||p.medkits>0)&&!danger){if(this.beginHeal(p,'auto')){this.releaseLootReservation(p.id,previousLoot);intent.lootId='';intent.state='HEAL';intent.mode='hold';this.emitAiDialogue(p,'heal_need','heal');return;}}
-    if(early){
-      this.ensureAiSafeSweepTarget(p,intent);
-      const loot=this.findBestLoot(p,intent);
-      if(loot&&(!target||targetDistance>65||!recentlyAttacked)&&this.assignLootIntent(p,intent,loot,true))return;
-      this.releaseLootReservation(p.id,previousLoot);intent.lootId='';intent.itemDetourActive=false;
-      if(target){this.rememberAiTarget(p,target,intent);const dx=p.x-target.x,dy=p.y-target.y,len=Math.hypot(dx,dy)||1;if(targetDistance<=65&&p.hp>35){intent.targetId=target.id;p.aiState='DEFEND';intent.state='DEFEND';intent.mode='hold';this.setEquipped(p,p.melee&&p.melee!=='fists'?p.melee as MeleeId:'fists',true);}else{p.aiState='RETREAT';intent.state='RETREAT';intent.mode='retreat';this.setAiDestination(p,intent,p.x+dx/len*320,p.y+dy/len*320);}return;}
-      this.applyAiSafeSweep(p,intent);return;
-    }
-    if(target&&!this.startAiGoal(intent,'combat',`combat:${target.id}`,1.15))return;
+    if(early){const loot=this.findBestLoot(p);if(loot&&(!target||targetDistance>65||!recentlyAttacked)){this.assignLootIntent(p,intent,loot,true);return;}this.releaseLootReservation(p.id,previousLoot);intent.lootId='';if(target){this.rememberAiTarget(p,target,intent);const dx=p.x-target.x,dy=p.y-target.y,len=Math.hypot(dx,dy)||1;if(targetDistance<=65&&p.hp>35){intent.targetId=target.id;p.aiState='DEFEND';intent.state='DEFEND';intent.mode='hold';this.setEquipped(p,p.melee&&p.melee!=='fists'?p.melee as MeleeId:'fists',true);}else{p.aiState='RETREAT';intent.state='RETREAT';intent.mode='retreat';this.setAiDestination(p,intent,p.x+dx/len*320,p.y+dy/len*320);}return;}p.aiState=this.aiHasUsableGun(p)?'COMBAT_READY':'PATROL';intent.state=p.aiState;const patrol=this.state.zoneActive?{x:this.state.zoneX+(this.lootRandom()-.5)*500,y:this.state.zoneY+(this.lootRandom()-.5)*500}:this.aiPatrolPoint();this.setAiDestination(p,intent,patrol.x,patrol.y);return;}
     this.releaseLootReservation(p.id,previousLoot);intent.lootId='';
     if(target){this.rememberAiTarget(p,target,intent);intent.targetId=target.id;this.chooseAiWeapon(p,targetDistance);const weapon=WEAPONS[p.equipped as WeaponId];if(weapon&&weapon.id!=='fists'){const magazine=this.getWeaponMagazine(p,weapon.id),lowMagazine=magazine>0&&magazine<=Math.max(1,Math.ceil(weapon.magazine*.22));if(magazine<=0||lowMagazine&&targetDistance>this.desiredRange(weapon.id)*.9){if(this.getAmmo(p,weapon.ammoType)>0){const cover=this.findAiCoverPoint(p,target);this.beginReload(p,weapon.id);p.aiState='RELOAD';intent.state='RELOAD';intent.mode='retreat';if(cover)this.setAiDestination(p,intent,cover.x,cover.y);else this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));return;}if(magazine<=0)this.chooseAiWeapon(p,targetDistance,true);}}
-      p.aiState=p.hp<40?'RETREAT':'ENGAGE';intent.state=p.aiState;const desired=this.desiredRange(p.equipped as EquippedId);if(p.hp<40){const cover=this.findAiCoverPoint(p,target);intent.mode='retreat';if(cover)this.setAiDestination(p,intent,cover.x,cover.y);else this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));this.emitAiDialogue(p,p.hp<22?'retreat_hurt':'retreat_back','retreat');}else if(targetDistance<desired*(.42+profile.riskAvoidance*.12)){intent.mode='retreat';this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));}else if(targetDistance>desired*(1.05+profile.aggression*.15)){intent.mode='move';const chaseGoalMoved=distance(intent.routeGoalX,intent.routeGoalY,target.x,target.y)>180;const chaseNeedsRoute=[intent.route.length===0,chaseGoalMoved,intent.stuckFor>.65].some(Boolean);if(chaseNeedsRoute)this.setAiDestination(p,intent,target.x,target.y);}else{intent.mode='hold';intent.route=[];intent.tx=target.x;intent.ty=target.y;if(intent.combatHoldStartedAt<=0)intent.combatHoldStartedAt=now;}return;}
+      p.aiState=p.hp<40?'RETREAT':'ENGAGE';intent.state=p.aiState;const desired=this.desiredRange(p.equipped as EquippedId);if(p.hp<40){const cover=this.findAiCoverPoint(p,target);intent.mode='retreat';if(cover)this.setAiDestination(p,intent,cover.x,cover.y);else this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));this.emitAiDialogue(p,p.hp<22?'retreat_hurt':'retreat_back','retreat');}else if(targetDistance<desired*(.42+profile.riskAvoidance*.12)){intent.mode='retreat';this.setAiDestination(p,intent,p.x-(target.x-p.x),p.y-(target.y-p.y));}else if(targetDistance>desired*(1.05+profile.aggression*.15)){intent.mode='move';const chaseGoalMoved=distance(intent.routeGoalX,intent.routeGoalY,target.x,target.y)>180;const chaseNeedsRoute=[intent.route.length===0,chaseGoalMoved,intent.stuckFor>.65].some(Boolean);if(chaseNeedsRoute)this.setAiDestination(p,intent,target.x,target.y);}else{intent.mode='hold';intent.route=[];intent.tx=target.x;intent.ty=target.y;}return;}
     if(memory.targetVisible)this.markAiTargetLost(p,intent,this.state.players.get(memory.targetId));
-    if(memory.searchUntil>now&&memory.confidence>10){if(!this.startAiGoal(intent,'search',`search:${memory.targetId}`,1.25))return;memory.confidence=Math.max(0,memory.confidence-(now-memory.lastSeenAt)*.6);p.aiState='SEARCH_LAST_SEEN';intent.state='SEARCH_LAST_SEEN';this.setAiDestination(p,intent,memory.lastSeenX,memory.lastSeenY);return;}
-    const noise=this.findRecentNoise(p);if(noise){if(!this.startAiGoal(intent,'sound',`sound:${noise.id}`,1.1))return;p.aiState='INVESTIGATE_SOUND';intent.state='INVESTIGATE_SOUND';this.setAiDestination(p,intent,noise.x,noise.y);this.emitAiDialogue(p,noise.kind==='vehicle'?'vehicle_heard':noise.kind==='footstep'||noise.kind==='running'?'uncertain_steps':'uncertain_sound',noise.kind==='vehicle'?'vehicle':'uncertain');return;}
+    if(memory.searchUntil>now&&memory.confidence>10){memory.confidence=Math.max(0,memory.confidence-(now-memory.lastSeenAt)*.6);p.aiState='SEARCH_LAST_SEEN';intent.state='SEARCH_LAST_SEEN';this.setAiDestination(p,intent,memory.lastSeenX,memory.lastSeenY);return;}
+    const noise=this.findRecentNoise(p);if(noise){p.aiState='INVESTIGATE_SOUND';intent.state='INVESTIGATE_SOUND';this.setAiDestination(p,intent,noise.x,noise.y);this.emitAiDialogue(p,noise.kind==='vehicle'?'vehicle_heard':noise.kind==='footstep'||noise.kind==='running'?'uncertain_steps':'uncertain_sound',noise.kind==='vehicle'?'vehicle':'uncertain');return;}
     if(p.insideBuilding&&(now-memory.buildingEnteredAt>(AI_HUMANIZATION.buildingDwellSeconds[0]+(1-profile.lootPreference)*(AI_HUMANIZATION.buildingDwellSeconds[1]-AI_HUMANIZATION.buildingDwellSeconds[0]))||now-memory.roomEnteredAt>AI_HUMANIZATION.roomIdleSeconds&&intent.stuckCount>=2)){const exit=this.findAiBuildingExitPoint(p,memory);if(exit){p.aiState='EXIT_BUILDING';intent.state='EXIT_BUILDING';intent.mode='move';memory.exitRequestedAt=now;this.setAiDestination(p,intent,exit.x,exit.y,true);this.emitAiDialogue(p,pickDialogue('exit',p.id,Math.floor(now*5)),'exit',true);return;}}
     if(this.tryAssignAiWorldObjective(p,intent,profile))return;
-    this.chooseAiWeapon(p);const current=WEAPONS[p.equipped as WeaponId];if(current&&current.id!=='fists'&&this.getWeaponMagazine(p,current.id)<=0&&this.getAmmo(p,current.ammoType)>0)this.beginReload(p,current.id);
-    this.ensureAiSafeSweepTarget(p,intent);
-    const loot=this.findBestLoot(p,intent);if(loot&&this.assignLootIntent(p,intent,loot,false))return;
-    this.applyAiSafeSweep(p,intent);
+    this.chooseAiWeapon(p);const current=WEAPONS[p.equipped as WeaponId];if(current&&current.id!=='fists'&&this.getWeaponMagazine(p,current.id)<=0&&this.getAmmo(p,current.ammoType)>0)this.beginReload(p,current.id);const loot=this.findBestLoot(p);if(loot){this.assignLootIntent(p,intent,loot,false);return;}p.aiState='PATROL';intent.state='PATROL';const patrol=this.state.zoneActive?{x:this.state.zoneX+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45),y:this.state.zoneY+(this.lootRandom()-.5)*Math.min(650,this.state.zoneRadius*.45)}:this.aiPatrolPoint();this.setAiDestination(p,intent,patrol.x,patrol.y);
   }
 
   private runAi(p:PlayerState,intent:AiIntent,dt:number){
     if(this.healUntil.has(p.id))return;
     const now=this.now(),memory=this.ensureAiMemory(p),profile=this.ensureAiProfile(p),target=intent.targetId?this.state.players.get(intent.targetId):undefined;
-    if(target?.alive){if(now>=memory.nextVisionCheckAt){memory.nextVisionCheckAt=now+AI_HUMANIZATION.visualRefreshSeconds;memory.targetVisible=this.aiCanVisuallyAcquire(p,target,intent);if(memory.targetVisible)this.rememberAiTarget(p,target,intent);else this.markAiTargetLost(p,intent,target);}if(memory.targetVisible){const d=distance(p.x,p.y,target.x,target.y);this.chooseAiWeapon(p,d);const weaponId=p.equipped as WeaponId,movementRatio=intent.mode==='hold'?.3:1;refreshAiAim(memory,profile,p.id+target.id,now,d,movementRatio,weaponId);const aimX=target.x+memory.aimOffsetX,aimY=target.y+memory.aimOffsetY,desiredAngle=Math.atan2(aimY-p.y,aimX-p.x),weaponTurn=weaponId==='pistol'||weaponId==='smg'?1.18:weaponId==='sniper'||weaponId==='bazooka'||weaponId==='silver_crossbow'?.72:1,previousAngle=p.angle;p.angle=turnAngleToward(p.angle,desiredAngle,profile.turnRate*weaponTurn*dt);const aimDelta=Math.abs(this.angleDiff(desiredAngle,p.angle));if(Math.abs(this.angleDiff(p.angle,previousAngle))>.08)memory.reactionReadyAt=Math.max(memory.reactionReadyAt,now+.08);const shotPathBlocked=this.map.bulletObstacles.some((rect)=>this.segmentRect(p.x,p.y,aimX,aimY,rect));const canShoot=[now>=memory.reactionReadyAt,aimDelta<(weaponId==='shotgun'?.22:.14),now>=memory.burstCooldownUntil,!shotPathBlocked].every(Boolean);if(canShoot){if(p.equipped==='fists'||p.equipped in MELEE_WEAPONS){const melee=p.equipped==='fists'?WEAPONS.fists:MELEE_WEAPONS[p.equipped as MeleeId];if(d<=melee.range+4)this.meleePlayer(p);}else{const weapon=WEAPONS[weaponId]!;if(weapon.id==='bazooka'&&d<BAZOOKA_BALANCE.aiMinimumRange){intent.mode='retreat';p.aiState='BAZOOKA_SAFE_DISTANCE';}else if(this.getWeaponMagazine(p,weapon.id)>0){prepareAiBurst(memory,p.id,weapon.id,now);const attackBefore=p.attackSeq;this.firePlayer(p);if(p.attackSeq!==attackBefore){finishAiBurstShot(memory,p.id,weapon.id,now);this.emitAiPersonaDialogue(p,'fire',{casual:false,loggable:false,allowResponse:false});}}else if(this.getAmmo(p,weapon.ammoType)>0)this.beginReload(p,weapon.id);}}}}
+    if(target?.alive){if(now>=memory.nextVisionCheckAt){memory.nextVisionCheckAt=now+AI_HUMANIZATION.visualRefreshSeconds;memory.targetVisible=this.aiCanVisuallyAcquire(p,target,intent);if(memory.targetVisible)this.rememberAiTarget(p,target,intent);else this.markAiTargetLost(p,intent,target);}if(memory.targetVisible){const d=distance(p.x,p.y,target.x,target.y);this.chooseAiWeapon(p,d);const weaponId=p.equipped as WeaponId,movementRatio=intent.mode==='hold'?.3:1;refreshAiAim(memory,profile,p.id+target.id,now,d,movementRatio,weaponId);const aimX=target.x+memory.aimOffsetX,aimY=target.y+memory.aimOffsetY,desiredAngle=Math.atan2(aimY-p.y,aimX-p.x),weaponTurn=weaponId==='pistol'||weaponId==='smg'?1.18:weaponId==='sniper'||weaponId==='bazooka'||weaponId==='silver_crossbow'?.72:1,previousAngle=p.angle;p.angle=turnAngleToward(p.angle,desiredAngle,profile.turnRate*weaponTurn*dt);const aimDelta=Math.abs(this.angleDiff(desiredAngle,p.angle));if(Math.abs(this.angleDiff(p.angle,previousAngle))>.08)memory.reactionReadyAt=Math.max(memory.reactionReadyAt,now+.08);const shotPathBlocked=this.map.bulletObstacles.some((rect)=>this.segmentRect(p.x,p.y,aimX,aimY,rect));const canShoot=[now>=memory.reactionReadyAt,aimDelta<(weaponId==='shotgun'?.22:.14),now>=memory.burstCooldownUntil,!shotPathBlocked].every(Boolean);if(canShoot){if(p.equipped==='fists'||p.equipped in MELEE_WEAPONS){const melee=p.equipped==='fists'?WEAPONS.fists:MELEE_WEAPONS[p.equipped as MeleeId];if(d<=melee.range+4)this.meleePlayer(p);}else{const weapon=WEAPONS[weaponId]!;if(weapon.id==='bazooka'&&d<BAZOOKA_BALANCE.aiMinimumRange){intent.mode='retreat';p.aiState='BAZOOKA_SAFE_DISTANCE';}else if(this.getWeaponMagazine(p,weapon.id)>0){prepareAiBurst(memory,p.id,weapon.id,now);const attackBefore=p.attackSeq;this.firePlayer(p);if(p.attackSeq!==attackBefore)finishAiBurstShot(memory,p.id,weapon.id,now);}else if(this.getAmmo(p,weapon.ammoType)>0)this.beginReload(p,weapon.id);}}}}
 
     const loot=intent.lootId?this.state.loot.get(intent.lootId):undefined;
     if(loot&&distance(p.x,p.y,loot.x,loot.y)<72&&spaceInteractionAllowed(p,loot,this.map.portals)){
@@ -3602,7 +3274,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       let picked=false;
       if(this.aiLootScore(p,loot.kind as LootKind)>0){
         const result=this.applyLoot(p,loot.kind as LootKind,loot);
-        if(result.success){picked=true;const event:AiPersonaEvent=loot.kind==='bazooka'?'loot_bazooka':loot.kind==='sniper'?'loot_sniper':loot.kind==='flamethrower'?'loot_flame':loot.kind==='pipe'?'loot_pipe':'loot';this.emitAiPersonaDialogue(p,event,{casual:true,loggable:false,allowResponse:true});this.state.loot.delete(loot.id);this.lootReservations.delete(loot.id);}
+        if(result.success){picked=true;this.state.loot.delete(loot.id);this.lootReservations.delete(loot.id);}
       }
       this.releaseLootReservation(p.id,completedLootId);
       intent.lootId='';
@@ -3613,51 +3285,58 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
           vehiclePlan.phase='walk';vehiclePlan.objectiveId=nextLoot.id;vehiclePlan.targetX=nextLoot.x;vehiclePlan.targetY=nextLoot.y;vehiclePlan.expiresAt=now+10;
           this.assignLootIntent(p,intent,nextLoot,false);
         }else this.finishAiVehicleObjective(p,intent);
-      }else if(!this.aiVehiclePlans.has(p.id)||this.aiVehiclePlans.get(p.id)?.phase!=='return'){
-        if(!picked)this.failAiGoal(intent,completedLootId,1.8);
-        if(!this.resumeAiSafeSweep(p,intent))intent.route=[];
-      }
+      }else if(!this.aiVehiclePlans.has(p.id)||this.aiVehiclePlans.get(p.id)?.phase!=='return')intent.route=[];
       this.aiThinkAt.set(p.id,0);
     }
 
     if(intent.mode==='hold'){
-      // DROP8_REFACTOR_022_COMBAT_STRAFE_RECOVERY
-      if(target)this.runAiCombatHold(p,intent,target,dt);
-      intent.stuckFor=0;intent.lastX=p.x;intent.lastY=p.y;
+      // DROP8_AI_COMBAT_WALL_GUARD
+      if(target){
+        const combatShotBlocked=this.map.bulletObstacles.some((rect)=>this.segmentRect(p.x,p.y,target.x,target.y,rect));
+        if(combatShotBlocked){
+          const escape=this.findAiEscapePoint(p,intent);
+          if(escape){
+            intent.mode='move';
+            intent.route=[escape];
+            intent.repathAt=now+1.4;
+            intent.lastRepathReason='combat-wall-flank';
+            this.aiThinkAt.set(p.id,now+1.4);
+          }
+        }
+        intent.stuckFor=0;
+        intent.lastX=p.x;
+        intent.lastY=p.y;
+      }
       return;
     }
 
-    intent.combatHoldStartedAt=0;
     if(this.advanceAiRoute(p,intent)||p.isVaulting)return;
     const waypoint=intent.route[0]??{x:intent.tx,y:intent.ty};
-    const beforeWaypoint=distance(p.x,p.y,waypoint.x,waypoint.y),beforeGoal=distance(p.x,p.y,intent.routeGoalX,intent.routeGoalY);
     let angle=Math.atan2(waypoint.y-p.y,waypoint.x-p.x);
     if(intent.mode==='retreat'&&target)angle=Math.atan2(p.y-target.y,p.x-target.x);
     if(!target)p.angle=angle;
     const movementProfile=this.ensureAiProfile(p),baseLandSpeed=this.state.difficulty==='hard'?235:this.state.difficulty==='easy'?175:205,landSpeed=baseLandSpeed*(.93+movementProfile.aggression*.1);
     const aiMovementSlowed=this.now()<p.werewolf.silverSlowUntil,aiAdhesiveMultiplier=adhesivePlayerSpeedMultiplier(p.werewolf.adhesiveSlowStage,this.now(),p.werewolf.adhesiveSlowUntil,p.werewolf.adhesiveRecoveryUntil);const speed=(p.isSwimming?landSpeed*(SWIM_SPEED/PLAYER_SPEED):landSpeed*movementMultiplierAt(p.x,p.y,this.map.shallowWaterZones,this.map.landCrossings))*(aiMovementSlowed?.6:1)*aiAdhesiveMultiplier;
-    this.moveAiWithAvoidance(p,intent,waypoint,angle,speed,dt);
+    const moved=this.moveAiWithAvoidance(p,intent,waypoint,angle,speed,dt);
     this.updateSwimmingState(p);
 
-    this.updateAiProgress(p,intent,dt,beforeWaypoint,beforeGoal,waypoint);
+    const progress=distance(p.x,p.y,intent.lastX,intent.lastY);
+    intent.stuckFor=progress<.7?intent.stuckFor+dt:Math.max(0,intent.stuckFor-dt*2.4);
+    if(moved&&progress>2)intent.stuckCount=Math.max(0,intent.stuckCount-1);
     const unstuckThreshold=Math.min(1.35,AI_HUMANIZATION.unstuckStageSeconds[Math.min(2,intent.stuckCount)]??3);
     if(intent.stuckFor>unstuckThreshold){
       if(!this.isPositionFree(p.x,p.y))this.ensureAiFree(p);
       const blockedWindow=intent.route[0]?.kind==='window'?intent.route[0].windowId??'':'';
       if(blockedWindow){intent.failedWindowId=blockedWindow;intent.failedWindowUntil=this.now()+2.5;}
-      if(p.isSwimming&&intent.swimExitId){intent.failedShoreExitId=intent.swimExitId;intent.failedShoreExitUntil=this.now()+AI_NAVIGATION_RECOVERY.failedShoreExitCooldownSeconds;intent.swimExitId='';intent.swimExitLockedUntil=0;intent.route=[];intent.stuckFor=0;intent.oscillationCount++;intent.lastRepathReason='swim-exit-stuck';this.aiThinkAt.set(p.id,0);intent.lastX=p.x;intent.lastY=p.y;return;}
       intent.avoidSign*=-1;
       intent.stuckCount++;
-      if(intent.goalKind==='patrol'&&intent.goalKey===intent.sweepKey&&intent.stuckCount>=2){
-        this.failAiGoal(intent,intent.sweepKey,AI_NAVIGATION_RECOVERY.failedGoalCooldownSeconds);intent.sweepExpiresAt=0;intent.route=[];intent.stuckFor=0;intent.lastRepathReason='safe-sweep-failed';this.aiThinkAt.set(p.id,0);intent.lastX=p.x;intent.lastY=p.y;return;
-      }
       intent.repathAt=0;
       const memory=this.ensureAiMemory(p);memory.unstuckStage=Math.min(4,memory.unstuckStage+1);const buildingExit=intent.stuckCount>=2?this.findAiBuildingExitPoint(p,memory):undefined;
       const escape=buildingExit??this.findAiEscapePoint(p,intent);
-      const rebuilt=escape?this.buildRoute(escape.x,escape.y,intent.tx,intent.ty,intent):this.buildAiRoute(p,intent.tx,intent.ty,intent);
+      const rebuilt=this.buildRoute(escape?.x??p.x,escape?.y??p.y,intent.tx,intent.ty,intent);
       intent.route=escape?[escape,...rebuilt]:rebuilt;
       intent.lastRepathReason=blockedWindow?'window-stuck':'collision-stuck';
-      intent.stuckFor=0;intent.progressSamples=[];intent.lastProgressSampleAt=0;
+      intent.stuckFor=0;
       if(intent.stuckCount>=2)this.emitAiDialogue(p,'stuck_blocked','stuck');
       if(AI_NAV_DEBUG)console.debug('[DROP8 AI NAV]',p.id,intent.lastRepathReason,intent.stuckCount);
       this.aiThinkAt.set(p.id,now+1.35);
@@ -3722,7 +3401,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
 
   private findVisibleTarget(p:PlayerState,intent:AiIntent){
     let target:PlayerState|undefined,best=Number.POSITIVE_INFINITY;
-    for(const candidate of this.state.players.values()){if(candidate.id===p.id||!candidate.alive||candidate.phase!=='landed'||intent.failedGoalKey===`combat:${candidate.id}`&&this.now()<intent.failedGoalUntil)continue;const d=distance(p.x,p.y,candidate.x,candidate.y);if(d>=best||!this.aiCanVisuallyAcquire(p,candidate,intent))continue;best=d;target=candidate;}
+    for(const candidate of this.state.players.values()){if(candidate.id===p.id||!candidate.alive||candidate.phase!=='landed')continue;const d=distance(p.x,p.y,candidate.x,candidate.y);if(d>=best||!this.aiCanVisuallyAcquire(p,candidate,intent))continue;best=d;target=candidate;}
     return target;
   }
 
@@ -3732,28 +3411,18 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     if(!selected)return undefined;if(memory.heardEventId!==selected.id){const estimate=estimateSoundPoint(p.id,selected.id,selected.x,selected.y,best);memory.heardEventId=selected.id;memory.heardX=clamp(estimate.x,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);memory.heardY=clamp(estimate.y,PLAYER_BODY_RADIUS,this.worldSize-PLAYER_BODY_RADIUS);memory.heardAt=now;memory.heardKind=selected.kind;memory.source='sound';memory.confidence=Math.max(memory.confidence,selected.danger*55+(1-best/Math.max(1,selected.radius))*25);if(AI_HUMAN_DEBUG)console.debug('[DROP8 AI HUMAN] sound',{ai:p.id,kind:selected.kind,source:selected.owner,estimatedX:Math.round(memory.heardX),estimatedY:Math.round(memory.heardY),error:Math.round(distance(memory.heardX,memory.heardY,selected.x,selected.y))});}return{...selected,x:memory.heardX,y:memory.heardY};
   }
 
-  private findBestLoot(p:PlayerState,intent?:AiIntent){
+  private findBestLoot(p:PlayerState){
     let selected:LootState|undefined;
     let best=0;
-    const now=this.now(),sweepActive=Boolean(intent&&this.hasActiveAiSafeSweep(intent,now));
     for(const l of this.state.loot.values()){
-      if(l.pickupLockedForPlayerId===p.id&&now<l.pickupLockedUntil)continue;
+      if(l.pickupLockedForPlayerId===p.id&&this.now()<l.pickupLockedUntil)continue;
       const reservation=this.lootReservations.get(l.id);
       if(reservation&&reservation.aiId!==p.id)continue;
       const d=distance(p.x,p.y,l.x,l.y);
       if(d>950)continue;
-      const kind=l.kind as LootKind,baseScore=this.aiLootScore(p,kind);
-      if(baseScore<=0)continue;
-      let sweepPenalty=0;
-      if(sweepActive&&intent){
-        const metrics=aiSweepDetourMetrics({x:p.x,y:p.y},{x:intent.sweepTargetX,y:intent.sweepTargetY},{x:l.x,y:l.y});
-        const urgent=(!this.aiHasUsableGun(p)&&kind in WEAPONS&&kind!=='fists')||(p.hp<45&&(kind==='bandage'||kind==='medkit'));
-        if(!shouldTakeAiSweepLoot(metrics,urgent))continue;
-        sweepPenalty=metrics.extraDistance*.08+metrics.corridorDistance*.035;
-      }
       const zoneRisk=this.state.zoneActive&&distance(l.x,l.y,this.state.zoneX,this.state.zoneY)>this.state.zoneRadius-100?55:0;
       let enemyRisk=0;const memory=this.ensureAiMemory(p);if(memory.confidence>15){const knownX=memory.source==='visual'?memory.lastSeenX:memory.heardX,knownY=memory.source==='visual'?memory.lastSeenY:memory.heardY,enemyDistance=distance(l.x,l.y,knownX,knownY);if(enemyDistance<180)enemyRisk=55;else if(enemyDistance<360)enemyRisk=22;}
-      const score=baseScore-d*.035-zoneRisk-enemyRisk-sweepPenalty;
+      const score=this.aiLootScore(p,l.kind as LootKind)-d*.035-zoneRisk-enemyRisk;
       if(score>best){best=score;selected=l;}
     }
     return selected;
@@ -3878,38 +3547,34 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private buildAiRoute(p:PlayerState,tx:number,ty:number,intent?:AiIntent):AiRoutePoint[]{
     const river=this.map.rivers[0];
     if(!river)return this.buildRoute(p.x,p.y,tx,ty,intent);
-    if(p.isSwimming){
-      const exit=this.selectAiShoreExit(p,intent??this.newAiIntent(p));
-      if(exit)return[{x:exit.entry.x+exit.entry.w/2,y:exit.entry.y+exit.entry.h/2},exit.landingPoint];
-      return this.buildRoute(p.x,p.y,tx,ty,intent);
-    }
-    const startTerrain=this.terrainKindAt(p.x,p.y),targetTerrain=this.terrainKindAt(tx,ty);
-    const startSide=startTerrain==='deep-water'?'water':riverLandSideAt(p.x,p.y,river),targetSide=targetTerrain==='deep-water'?'water':riverLandSideAt(tx,ty,river);
-    const directCrossesWater=this.segmentCrossesDeepWater(p.x,p.y,tx,ty);
-    if(startSide!=='water'&&targetSide!=='water'&&startSide===targetSide){
-      if(!directCrossesWater)return this.buildRoute(p.x,p.y,tx,ty,intent);
-      return this.sameSideWaterDetour(p.x,p.y,tx,ty,startSide,intent)??this.buildRoute(p.x,p.y,tx,ty,intent);
-    }
-    if(startSide==='water'||targetSide==='water')return this.buildRoute(p.x,p.y,tx,ty,intent);
-    const candidates:Array<{entry:Point;exit:Point;cost:number;mode:'crossing'|'swim'}>=[];
+    const startSide=this.terrainKindAt(p.x,p.y)==='deep-water'?'water':riverLandSideAt(p.x,p.y,river);
+    const targetSide=this.terrainKindAt(tx,ty)==='deep-water'?'water':riverLandSideAt(tx,ty,river);
+    if(startSide==='water'||targetSide==='water'||startSide===targetSide)return this.buildRoute(p.x,p.y,tx,ty,intent);
+    const candidates:Array<{entry:Point;exit:Point;cost:number}>=[];
     for(const crossing of this.map.landCrossings){
       if(!crossing.allowsPlayer)continue;
-      const west={x:crossing.rect.x-42,y:crossing.rect.y+crossing.rect.h/2},east={x:crossing.rect.x+crossing.rect.w+42,y:crossing.rect.y+crossing.rect.h/2};
+      const west={x:crossing.rect.x-36,y:crossing.rect.y+crossing.rect.h/2};
+      const east={x:crossing.rect.x+crossing.rect.w+36,y:crossing.rect.y+crossing.rect.h/2};
       const entry=startSide==='west'?west:east,exit=startSide==='west'?east:west;
       const crossingCost=crossing.rect.w/Math.max(.25,crossing.movementMultiplier);
-      candidates.push({entry,exit,cost:distance(p.x,p.y,entry.x,entry.y)+crossingCost+distance(exit.x,exit.y,tx,ty),mode:'crossing'});
+      candidates.push({entry,exit,cost:distance(p.x,p.y,entry.x,entry.y)+crossingCost+distance(exit.x,exit.y,tx,ty)});
     }
-    if(p.hp>65){
-      const west=this.map.shoreExits.filter((exit)=>exit.normal.x<0),east=this.map.shoreExits.filter((exit)=>exit.normal.x>0);
+    if(p.hp>45){
+      const west=this.map.shoreExits.filter((exit)=>exit.normal.x<0);
+      const east=this.map.shoreExits.filter((exit)=>exit.normal.x>0);
       for(const a of west){
-        const b=east.reduce<typeof east[number]|undefined>((best,candidate)=>!best||Math.abs(candidate.landingPoint.y-a.landingPoint.y)<Math.abs(best.landingPoint.y-a.landingPoint.y)?candidate:best,undefined);if(!b)continue;
-        const entry=startSide==='west'?a.landingPoint:b.landingPoint,exit=startSide==='west'?b.landingPoint:a.landingPoint,swimDistance=distance(entry.x,entry.y,exit.x,exit.y);
-        candidates.push({entry,exit,cost:distance(p.x,p.y,entry.x,entry.y)+swimDistance*(PLAYER_SPEED/SWIM_SPEED)+distance(exit.x,exit.y,tx,ty)+AI_NAVIGATION_RECOVERY.voluntarySwimPenalty,mode:'swim'});
+        const b=east.reduce<typeof east[number]|undefined>((best,candidate)=>!best||Math.abs(candidate.landingPoint.y-a.landingPoint.y)<Math.abs(best.landingPoint.y-a.landingPoint.y)?candidate:best,undefined);
+        if(!b)continue;
+        const entry=startSide==='west'?a.landingPoint:b.landingPoint,exit=startSide==='west'?b.landingPoint:a.landingPoint;
+        const swimDistance=distance(entry.x,entry.y,exit.x,exit.y);
+        candidates.push({entry,exit,cost:distance(p.x,p.y,entry.x,entry.y)+swimDistance*(PLAYER_SPEED/SWIM_SPEED)+distance(exit.x,exit.y,tx,ty)+220});
       }
     }
-    candidates.sort((a,b)=>a.cost-b.cost);const selected=candidates[0];
+    candidates.sort((a,b)=>a.cost-b.cost);
+    const selected=candidates[0];
     if(!selected)return this.buildRoute(p.x,p.y,tx,ty,intent);
-    const toEntry=this.buildRoute(p.x,p.y,selected.entry.x,selected.entry.y,intent),fromExit=this.buildRoute(selected.exit.x,selected.exit.y,tx,ty,intent);
+    const toEntry=this.buildRoute(p.x,p.y,selected.entry.x,selected.entry.y,intent);
+    const fromExit=this.buildRoute(selected.exit.x,selected.exit.y,tx,ty,intent);
     return[...toEntry,selected.exit,...fromExit].filter((point,index,array)=>index===0||distance(point.x,point.y,array[index-1]!.x,array[index-1]!.y)>8);
   }
 
@@ -4156,7 +3821,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       }
     }
     p.hp-=actual;
-    if(p.ai&&!zoneTickDamage)this.emitAiPersonaDialogue(p,p.hp<=35?'low_hp':'hit',{casual:false,loggable:false,allowResponse:false});
     if(attacker)attacker.damageDone+=actual;
     if(p.hp<=0){
       if(p.werewolf.transformed)this.endWerewolfCycle(p,'death');
@@ -4181,7 +3845,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       this.aiDefendUntil.delete(p.id);
       this.aiMemories.delete(p.id);
       this.aiProfiles.delete(p.id);
-      this.aiDialogueResponses=this.aiDialogueResponses.filter((job)=>job.speakerId!==p.id&&job.responderId!==p.id);
       this.aiMovementSamples.delete(p.id);
       this.bushRevealUntil.delete(p.id);
       p.inBush=false;
@@ -4191,7 +3854,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       this.state.placements.unshift(p.name);
       if(attacker&&attacker.id!==p.id){
         attacker.kills++;
-        if(attacker.ai)this.emitAiPersonaDialogue(attacker,'kill',{casual:false,loggable:false,allowResponse:true,force:true});
         this.emitAudioEvent('kill_confirm',{sourceId:attacker.id,targetId:p.id,variant:cause},this.playerClient(attacker.id));
         this.broadcast('killfeed',{killer:attacker.name,victim:p.name,reason});
       }else this.broadcast('killfeed',{killer:reason,victim:p.name,reason});

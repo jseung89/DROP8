@@ -1,16 +1,5 @@
 # 패치 노트
 
-## Refactor 023 — AI Safe-Zone Sweep & Live Spectator Dialogue
-
-<!-- DROP8_REFACTOR_023_AI_SAFE_ZONE_SWEEP_LIVE_SPECTATOR_DIALOGUE -->
-- 공격 대상이 없는 AI는 매 판단마다 무작위 좌표를 다시 뽑지 않고, 자기장 진행 방향과 AI별 수색 섹터를 반영한 장기 `SAFE_SWEEP` 목적지를 유지합니다.
-- 자기장 단계·중심이 바뀌거나 목적지 도착·만료·실패가 발생할 때만 다음 수색 구간을 생성해 짧은 왕복과 방향 흔들림을 줄였습니다.
-- 수색 중 아이템은 진행 경로와의 거리 및 추가 우회 거리를 계산해 필요한 물품만 잠깐 획득하고, 완료 후 기존 수색 목표로 복귀합니다.
-- 사망한 관전자에게도 새로운 AI 대사 이벤트를 전달하되 `loggable:false`로 보내 화면 밖 대사가 왼쪽 채팅 로그에 노출되지 않게 했습니다.
-- 관전 말풍선은 더 이상 마지막 문장을 영구 보존하지 않으며 서버의 `durationMs` 동안만 표시되고 만료 후 사라집니다.
-- 관전 중에는 현재 카메라 안에 있고 기존 캐릭터 가시성 규칙을 통과한 AI의 새 말풍선만 표시합니다.
-- Refactor 021 페르소나 대사 데이터·발화 빈도, Refactor 022 수영 탈출·강 횡단·정체 복구, 기존 수동 무기·차량 밸런스를 유지합니다.
-
 ## Refactor 014 — Plane Visibility, Bazooka & Weapon Slot Swap
 
 <!-- DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP -->
@@ -747,24 +736,3 @@
 - Adds three accumulating adhesive stages for players, AI and werewolves, with 72% / 55% / 38% movement multipliers and a gradual recovery tail instead of instant full-speed recovery.
 - Strengthens motorcycle adhesive slowdown to 45% maximum speed with weaker acceleration and steering for a longer duration.
 - Adds synchronized adhesive stage fields and client prediction/visual feedback.
-
-## Refactor 021 — AI Persona Fast Dialogue
-
-- Added seven fixed AI cast members: 준희커, 대성(빅생), 양정횬, 페이커, 케리아, 윤석10, 락승타.
-- Replaced 손흥민 and the previous 대성 display name with the fixed cast names.
-- Added 150+ unique lines per persona, signature phrases, nearby response combinations, recent-line memory, and a 40-second repeat guard.
-- Existing Refactor 019 perception/combat behavior now selects persona-specific tactical lines without changing weapon, vehicle, werewolf, map, or player-chat balance.
-- Added server-side casual chatter scheduling, staggered 0.4–1.5 second replies, and distance-limited AI voice delivery.
-- Casual AI speech uses the existing overhead bubble but does not flood the left field-chat log; tactical messages remain loggable.
-- Player chat input and Space key handling are unchanged.
-
-## Refactor 022 — AI Navigation & Tactical Recovery
-
-- AI 정체 판정을 단순 이동량이 아니라 waypoint/최종 목표 진척도로 변경했다.
-- 최근 위치 이력으로 A-B-A-B 왕복과 좁은 반경 맴돌기를 감지한다.
-- 수영 중에는 전투·파밍보다 shore exit 탈출을 우선하고 실패한 출구는 잠시 재선택하지 않는다.
-- 강을 가로지르는 직선 경로를 탐지해 다리·여울을 우선하는 terrain-aware 경로를 구성한다.
-- 전투 적정 거리에서 영구 정지하지 않고 무기별 간격으로 짧은 좌우 전술 이동을 수행한다.
-- 막힌 사격 위치에서 측면 이동을 시도하고 반복 실패 시 해당 교전을 잠시 포기한다.
-- 목표 잠금·우선순위·실패 목표 쿨다운을 추가해 짧은 주기의 목표 진동을 줄였다.
-- AI 페르소나 대사, 플레이어 이동, 무기 수치, 차량·늑대인간·맵 가시성은 변경하지 않았다.

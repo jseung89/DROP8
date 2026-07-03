@@ -1,16 +1,5 @@
 # 패치 노트
 
-## Refactor 023 — AI Safe-Zone Sweep & Live Spectator Dialogue
-
-<!-- DROP8_REFACTOR_023_AI_SAFE_ZONE_SWEEP_LIVE_SPECTATOR_DIALOGUE -->
-- 공격 대상이 없는 AI는 매 판단마다 무작위 좌표를 다시 뽑지 않고, 자기장 진행 방향과 AI별 수색 섹터를 반영한 장기 `SAFE_SWEEP` 목적지를 유지합니다.
-- 자기장 단계·중심이 바뀌거나 목적지 도착·만료·실패가 발생할 때만 다음 수색 구간을 생성해 짧은 왕복과 방향 흔들림을 줄였습니다.
-- 수색 중 아이템은 진행 경로와의 거리 및 추가 우회 거리를 계산해 필요한 물품만 잠깐 획득하고, 완료 후 기존 수색 목표로 복귀합니다.
-- 사망한 관전자에게도 새로운 AI 대사 이벤트를 전달하되 `loggable:false`로 보내 화면 밖 대사가 왼쪽 채팅 로그에 노출되지 않게 했습니다.
-- 관전 말풍선은 더 이상 마지막 문장을 영구 보존하지 않으며 서버의 `durationMs` 동안만 표시되고 만료 후 사라집니다.
-- 관전 중에는 현재 카메라 안에 있고 기존 캐릭터 가시성 규칙을 통과한 AI의 새 말풍선만 표시합니다.
-- Refactor 021 페르소나 대사 데이터·발화 빈도, Refactor 022 수영 탈출·강 횡단·정체 복구, 기존 수동 무기·차량 밸런스를 유지합니다.
-
 ## Refactor 014 — Plane Visibility, Bazooka & Weapon Slot Swap
 
 <!-- DROP8_REFACTOR_014_PLANE_VISIBILITY_BAZOOKA_SLOT_SWAP -->
