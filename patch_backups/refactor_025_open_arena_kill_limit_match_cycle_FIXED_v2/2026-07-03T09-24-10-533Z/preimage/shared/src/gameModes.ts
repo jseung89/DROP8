@@ -1,9 +1,6 @@
-// DROP8_REFACTOR_025_OPEN_ARENA_KILL_LIMIT_MATCH_CYCLE
 // DROP8_REFACTOR_024A_OPEN_ARENA_FOUNDATION
 export type GameMode='battleRoyale'|'openArena';
 export type OpenArenaLifecycle='active'|'emptyGrace'|'disposed';
-export type OpenArenaKillLimit=0|10|20|30;
-export const OPEN_ARENA_KILL_LIMIT_OPTIONS=[10,20,30,0] as const;
 
 export const OPEN_ARENA_LIMITS={
   minHumans:1,
@@ -19,7 +16,6 @@ export interface OpenArenaConfig{
   maxHumans:number;
   configuredAiCount:number;
   maxTotalCombatants:number;
-  killLimit:OpenArenaKillLimit;
 }
 
 function finiteInteger(value:unknown,fallback:number){
@@ -31,16 +27,11 @@ export function normalizeGameMode(value:unknown):GameMode{
   return value==='openArena'?'openArena':'battleRoyale';
 }
 
-export function normalizeOpenArenaKillLimit(value:unknown):OpenArenaKillLimit{
-  const parsed=finiteInteger(value,20);
-  return parsed===0||parsed===10||parsed===20||parsed===30?parsed:20;
-}
-
-export function normalizeOpenArenaConfig(maxHumansValue:unknown,aiCountValue:unknown,killLimitValue:unknown=20):OpenArenaConfig{
+export function normalizeOpenArenaConfig(maxHumansValue:unknown,aiCountValue:unknown):OpenArenaConfig{
   const maxHumans=Math.max(OPEN_ARENA_LIMITS.minHumans,Math.min(OPEN_ARENA_LIMITS.maxHumans,finiteInteger(maxHumansValue,OPEN_ARENA_LIMITS.defaultHumans)));
   const configuredAiCount=Math.max(OPEN_ARENA_LIMITS.minAi,Math.min(OPEN_ARENA_LIMITS.maxAi,finiteInteger(aiCountValue,OPEN_ARENA_LIMITS.defaultAi)));
   if(maxHumans+configuredAiCount>OPEN_ARENA_LIMITS.maxTotalCombatants){
     throw new Error(`인간과 AI를 합친 최대 전투 인원은 ${OPEN_ARENA_LIMITS.maxTotalCombatants}명입니다.`);
   }
-  return{maxHumans,configuredAiCount,maxTotalCombatants:OPEN_ARENA_LIMITS.maxTotalCombatants,killLimit:normalizeOpenArenaKillLimit(killLimitValue)};
+  return{maxHumans,configuredAiCount,maxTotalCombatants:OPEN_ARENA_LIMITS.maxTotalCombatants};
 }

@@ -1,0 +1,33 @@
+
+### TypeScript typecheck
+> pnpm run typecheck
+exit=0
+
+$ pnpm --filter @drop8/shared typecheck && pnpm --filter @drop8/shared build && pnpm --filter @drop8/client typecheck && pnpm --filter @drop8/server typecheck
+$ tsc -p tsconfig.json --noEmit
+$ tsc -p tsconfig.json
+$ tsc --noEmit
+$ tsc -p tsconfig.json --noEmit
+
+
+### ESLint
+> pnpm run lint
+exit=1
+
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\client\src\GameScene.ts
+  1522:178  warning  'wolfAttackPulse' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\client\src\main.ts
+  394:131  error  Unnecessary escape character: \'  no-useless-escape
+
+C:\Users\Playdata\Downloads\DROP8_SOURCE_ONLY\DROP8_SOURCE\server\src\rooms\Drop8Room.ts
+    41:3   warning  'BUSH_HIDE_DISTANCE' is defined but never used                            @typescript-eslint/no-unused-vars
+  1219:11  warning  'aliveAfterCycle' is assigned a value but never used                      @typescript-eslint/no-unused-vars
+  3174:49  warning  'memory' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 5 problems (1 error, 4 warnings)
+
+[ELIFECYCLE] Command failed with exit code 1.
+
+$ eslint --config eslint.config.ts shared/src shared/tests client/src server/src server/tests
+

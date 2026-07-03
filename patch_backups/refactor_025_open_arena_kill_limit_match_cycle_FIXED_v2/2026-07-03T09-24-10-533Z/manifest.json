@@ -1,0 +1,119 @@
+{
+  "patchId": "DROP8 Refactor 025 Open Arena Kill Limit & Match Cycle FIXED v2",
+  "patchFile": "DROP8_refactor_025_open_arena_kill_limit_match_cycle_patch_FIXED_v2.ts",
+  "createdAt": "2026-07-03T09:24:10.535Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "shared/src/gameModes.ts",
+      "existed": true,
+      "beforeSha256": "2439d28f6a8004f233f8af86eabd4041af6b1016e6d0b50ddaac8a419b7882e1",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "shared/src/index.ts",
+      "existed": true,
+      "beforeSha256": "0d5cddbd3860277e09885417bb88cee324fc92f514c3d587f39ca2d803a51f47",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/openArenaRound.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/roomRegistry.ts",
+      "existed": true,
+      "beforeSha256": "6edeab3b15048e88fa41e6960d99188ff2c42db2244aed3f6e513d8e6e57be8c",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "120d992081fef61388f95ba6a8b41d9067ceee03614b3cf03acad97a3ecd36ab",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/index.html",
+      "existed": true,
+      "beforeSha256": "7d7d4e63b9fefc5e97363a51df4b0a2e074822659eaaa94ff6485567ad8148dd",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true,
+      "beforeSha256": "d5426d2eb7a9b1cece12374ea5ed6ae68afd5f0f2a57e9d14219ca73d7c56ba2",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true,
+      "beforeSha256": "1776182333a5d0912d802e047421b99d480c0303d493578124f49deb9579417d",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/style.css",
+      "existed": true,
+      "beforeSha256": "a43195c44755fb5ad07691bed3af41b9a36ea841a3d1880a09611d09e4c99367",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor025-open-arena-kill-limit.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor025-open-arena-round-source.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor025-open-arena-ux-source.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "b9cd0ee6386d3626eb6a81f1e7ea3777f4abbc5ccc5f96474d1728ed8c5fe0cd",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/src/rooms/openArenaRound.ts",
+    "server/tests/refactor025-open-arena-kill-limit.test.ts",
+    "server/tests/refactor025-open-arena-round-source.test.ts",
+    "server/tests/refactor025-open-arena-ux-source.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

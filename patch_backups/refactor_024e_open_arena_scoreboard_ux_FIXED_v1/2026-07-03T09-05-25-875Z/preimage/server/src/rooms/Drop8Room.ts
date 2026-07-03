@@ -1,5 +1,3 @@
-// DROP8_REFACTOR_025_OPEN_ARENA_KILL_LIMIT_MATCH_CYCLE
-// DROP8_REFACTOR_024E_OPEN_ARENA_SCOREBOARD_UX
 // DROP8_REFACTOR_024D_OPEN_ARENA_PERSISTENT_WORLD
 // DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN
 // DROP8_REFACTOR_024B_OPEN_ARENA_LIFECYCLE_HOST_MIGRATION
@@ -160,7 +158,6 @@ import {
   type MapSizeMode,
   type GameMode,
   type OpenArenaConfig,
-  type OpenArenaKillLimit,
   type OpenArenaLifecycle,
   type MeleeId,
   type RegionId,
@@ -176,7 +173,6 @@ import { awarenessForState, createAiMemory, createAiProfile, estimateSoundPoint,
 import { AI_PERSONA_NAMES, aiDialogueProfileForName, aiPersonaEventFromLegacy, selectAiPersonaLine, selectAiPersonaResponse, type AiPersonaEvent, type AiPersonaLine } from './aiDialogueProfiles.js';
 import { AI_NAVIGATION_RECOVERY, AI_SAFE_ZONE_SWEEP, aiDialogueAudience, aiSweepDetourMetrics, canReplaceAiGoal, createAiSafeZoneSweepTarget, detectAiOscillation, nextAiStallSeconds, pushAiProgressSample, shouldTakeAiSweepLoot, type AiGoalKind, type AiProgressSample, type AiSweepZone } from './aiNavigation.js';
 import { chooseOpenArenaSpawn, type OpenArenaAiSlot, type RecentArenaSpawn } from './openArenaRespawn.js';
-import { OPEN_ARENA_ROUND_COUNTDOWN_SECONDS, OPEN_ARENA_ROUND_TOTAL_SECONDS, shouldFinishOpenArenaRound, sortOpenArenaHumanRows, type ArenaScoreRow, type OpenArenaRoundState } from './openArenaRound.js';
 import { OPEN_ARENA_DROP_TTL_SECONDS, OPEN_ARENA_VEHICLE_RESPAWN_SECONDS, OPEN_ARENA_WORLD_CLEANUP_INTERVAL_SECONDS, arenaLootRespawnSeconds, type ArenaLootSlot, type ArenaVehicleSlot } from './openArenaWorld.js';
 
 type Input = { x:number; y:number; aimX:number; aimY:number; angle:number; seq:number; aiming:boolean; huntSprint:boolean; accelerate:boolean; brake:boolean; turnLeft:boolean; turnRight:boolean };
@@ -266,7 +262,7 @@ type VehicleMotionState={movementHeldMs:number;previousInputX:number;previousInp
 type AdhesiveExposure={ownerId:string;accumulated:number;lastHitAt:number};
 type WerewolfAuraContact={startedAt:number;lastAt:number};
 type DamageKind='bullet'|'explosion'|'silver'|'melee'|'fire'|'zone'|'vehicle'|'other';
-type Drop8RoomMetadata={roomCode:string;hostName:string;players:number;humans:number;phase:'LOBBY'|'PLANE'|'DROP'|'ACTIVE'|'FINISHED';fillAi:boolean;publicRoom:boolean;mapSizeMode:MapSizeMode;mapDisplayName:string;createdAt:number;updatedAt:number;gameMode:GameMode;maxHumans:number;configuredAiCount:number;joinInProgress:boolean;lifecycle:'lobby'|'active'|'emptyGrace'|'disposed';killLimit:OpenArenaKillLimit;roundState:OpenArenaRoundState};
+type Drop8RoomMetadata={roomCode:string;hostName:string;players:number;humans:number;phase:'LOBBY'|'PLANE'|'DROP'|'ACTIVE'|'FINISHED';fillAi:boolean;publicRoom:boolean;mapSizeMode:MapSizeMode;mapDisplayName:string;createdAt:number;updatedAt:number;gameMode:GameMode;maxHumans:number;configuredAiCount:number;joinInProgress:boolean;lifecycle:'lobby'|'active'|'emptyGrace'|'disposed'};
 type VaultJob={startX:number;startY:number;targetX:number;targetY:number;startedAt:number;duration:number;windowId:string;targetBuildingId:string;targetRoomIndex:number;startBuildingId:string;startRoomIndex:number;transitioned:boolean};
 type JoinOptions = {
   nickname?:unknown;
@@ -281,7 +277,6 @@ type JoinOptions = {
   gameMode?:unknown;
   maxHumans?:unknown;
   aiCount?:unknown;
-  killLimit?:unknown;
 };
 
 const AI_NAMES=[...AI_PERSONA_NAMES];
@@ -339,18 +334,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private arenaDropExpiresAt=new Map<string,number>();
   private arenaVehicleSlots=new Map<string,ArenaVehicleSlot>();
   private arenaWorldCleanupAt=0;
-  private arenaKillStreak=new Map<string,number>();
-  private arenaBestStreak=new Map<string,number>();
-  private arenaHumanKills=new Map<string,number>();
-  private arenaAiKills=new Map<string,number>();
-  private arenaScoreboardAt=0;
-  private openArenaRoundState:OpenArenaRoundState='active';
-  private openArenaRoundEndsAt=0;
-  private openArenaRoundResettingAt=0;
-  private openArenaRoundGeneration=0;
-  private openArenaRoundWinnerId='';
-  private openArenaRoundRows:ArenaScoreRow[]=[];
-  private arenaKillReachedAt=new Map<string,number>();
   private elapsed=0;
   private bulletSeq=0;
   private rocketSeq=0;
@@ -404,7 +387,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.roomId=code;
     this.state.roomCode=code;
     this.gameMode=normalizeGameMode(options.gameMode);
-    this.openArenaConfig=this.gameMode==='openArena'?normalizeOpenArenaConfig(options.maxHumans,options.aiCount,options.killLimit):undefined;
+    this.openArenaConfig=this.gameMode==='openArena'?normalizeOpenArenaConfig(options.maxHumans,options.aiCount):undefined;
     this.maxClients=this.openArenaConfig?.maxHumans??MAX_PLAYERS;
     if(this.gameMode==='openArena')this.autoDispose=false;
     this.state.fillAi=this.gameMode==='openArena'?(this.openArenaConfig?.configuredAiCount??0)>0:options.fillAi!==false;
@@ -470,8 +453,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     if(p.host)this.state.hostId=p.id;
     client.send('roomConfig',this.roomConfigPayload());
     if(this.gameMode==='openArena'&&this.state.phase==='ACTIVE'){
-      if(this.openArenaRoundState==='active')this.resetOpenArenaCombatant(p,[...this.state.players.values()].filter((player)=>!player.ai).length-1,false);
-      else{p.hp=0;p.alive=false;p.phase='dead';p.aiState='DEAD';client.send('arenaRoundResult',this.openArenaRoundPayload());}
+      this.resetOpenArenaCombatant(p,[...this.state.players.values()].filter((player)=>!player.ai).length-1,false);
       this.state.aliveCount=[...this.state.players.values()].filter((player)=>player.alive).length;
       client.send('arenaStatus',this.arenaStatusPayload());
       this.system(`${p.name}님이 진행 중인 상시 전장에 난입했습니다.`);
@@ -495,7 +477,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     if(!p)return;
     const wasHost=p.host;
     this.humanJoinedAt.delete(playerId);
-    this.humanRespawnAt.delete(playerId);this.spawnProtectionUntil.delete(playerId);this.openArenaDeaths.delete(playerId);this.arenaKillStreak.delete(playerId);this.arenaBestStreak.delete(playerId);this.arenaHumanKills.delete(playerId);this.arenaAiKills.delete(playerId);this.arenaKillReachedAt.delete(playerId);
+    this.humanRespawnAt.delete(playerId);this.spawnProtectionUntil.delete(playerId);this.openArenaDeaths.delete(playerId);
     if(p.werewolf.transformed)this.endWerewolfCycle(p,'disconnect');
     else if(p.werewolf.hasCurse)this.dropWerewolfCurse(p,Math.max(WEREWOLF_BALANCE.curseMinimumTransferSeconds,p.werewolf.curseExpiresAt-this.now()));
     this.detachPlayerFromVehicle(p);
@@ -553,7 +535,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     targetClient.leave(CloseCode.CONSENTED,'kicked');
   }
 
-  onDispose(){this.openArenaLifecycle='disposed';this.humanJoinedAt.clear();this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.openArenaDeaths.clear();this.openArenaAiSlots.clear();this.recentArenaSpawns=[];this.arenaLootSlots.clear();this.arenaLootToSlot.clear();this.arenaDropExpiresAt.clear();this.arenaVehicleSlots.clear();this.arenaKillStreak.clear();this.arenaBestStreak.clear();this.arenaHumanKills.clear();this.arenaAiKills.clear();this.arenaKillReachedAt.clear();this.openArenaRoundRows=[];for(const p of this.state.players.values())if(p.werewolf.transformed)this.endWerewolfCycle(p,'round_end');this.clearCountermeasureState();this.werewolfMoveVectors.clear();this.aiProfiles.clear();this.aiMemories.clear();this.aiLineCooldown.clear();this.aiMovementSamples.clear();this.aiVehiclePlans.clear();this.aiWorldObjectives.clear();this.aiObjectiveCooldown.clear();void this.presence.del(`drop8:${this.roomId}`);}
+  onDispose(){this.openArenaLifecycle='disposed';this.humanJoinedAt.clear();this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.openArenaDeaths.clear();this.openArenaAiSlots.clear();this.recentArenaSpawns=[];this.arenaLootSlots.clear();this.arenaLootToSlot.clear();this.arenaDropExpiresAt.clear();this.arenaVehicleSlots.clear();for(const p of this.state.players.values())if(p.werewolf.transformed)this.endWerewolfCycle(p,'round_end');this.clearCountermeasureState();this.werewolfMoveVectors.clear();this.aiProfiles.clear();this.aiMemories.clear();this.aiLineCooldown.clear();this.aiMovementSamples.clear();this.aiVehiclePlans.clear();this.aiWorldObjectives.clear();this.aiObjectiveCooldown.clear();void this.presence.del(`drop8:${this.roomId}`);}
 
   private system(text:string){const now=Date.now();this.broadcast('chat',{channel:'system',sender:'시스템',nickname:'시스템',text,time:now,sentAt:now});}
   private emitAudioEvent(type:string,data:Record<string,unknown>={},target?:Client){
@@ -567,8 +549,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private arenaStatusPayload(){
     const humans=this.connectedHumanCount();
     const ai=[...this.state.players.values()].filter((player)=>player.ai);
-    const aliveAi=ai.filter((player)=>player.alive).length;
-    return{lifecycle:this.openArenaLifecycle,humans,maxHumans:this.openArenaConfig?.maxHumans??MAX_PLAYERS,aliveAi,respawningAi:Math.max(0,(this.openArenaConfig?.configuredAiCount??0)-aliveAi),configuredAiCount:this.openArenaConfig?.configuredAiCount??0,totalCombatants:humans+(this.openArenaConfig?.configuredAiCount??0),hostId:this.state.hostId,killLimit:this.openArenaConfig?.killLimit??0,roundState:this.openArenaRoundState,roundEndsAt:this.openArenaRoundEndsAt,roundGeneration:this.openArenaRoundGeneration};
+    return{lifecycle:this.openArenaLifecycle,humans,maxHumans:this.openArenaConfig?.maxHumans??MAX_PLAYERS,aliveAi:ai.filter((player)=>player.alive).length,configuredAiCount:this.openArenaConfig?.configuredAiCount??0,hostId:this.state.hostId};
   }
 
   private migrateHost(){
@@ -668,8 +649,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       zoneEnabled:this.gameMode==='battleRoyale',
       respawnEnabled:this.gameMode==='openArena',
       lifecycle:this.gameMode==='openArena'?this.openArenaLifecycle:'lobby',
-      killLimit:this.openArenaConfig?.killLimit??0,
-      roundState:this.openArenaRoundState,
     };
   }
 
@@ -719,14 +698,14 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.clearTransient();
     this.elapsed=0;
     this.lootRandom=createSeededRandom((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
-    this.state.phase='ACTIVE';this.state.winner='';this.state.placements.clear();this.state.worldSize=this.map.width;this.openArenaRoundState='active';this.openArenaRoundEndsAt=0;this.openArenaRoundResettingAt=0;this.openArenaRoundWinnerId='';this.openArenaRoundRows=[];this.openArenaRoundGeneration=1;this.clearOpenArenaRoundScores();
+    this.state.phase='ACTIVE';this.state.winner='';this.state.placements.clear();this.state.worldSize=this.map.width;
     this.state.zoneX=this.worldSize/2;this.state.zoneY=this.worldSize/2;this.state.zoneRadius=this.worldSize;this.state.zoneStartX=this.state.zoneX;this.state.zoneStartY=this.state.zoneY;this.state.zoneStartRadius=this.state.zoneRadius;
     this.state.nextZoneX=this.state.zoneX;this.state.nextZoneY=this.state.zoneY;this.state.nextZoneRadius=this.state.zoneRadius;this.state.zoneTimer=0;this.state.zoneStage=0;this.state.zoneProgress=0;this.state.zoneActive=false;this.state.zoneState='DISABLED';this.state.supplySpawned=false;this.state.supplyDropId='';
     this.state.planeStartX=0;this.state.planeStartY=0;this.state.planeX=0;this.state.planeY=0;this.state.planeEndX=0;this.state.planeEndY=0;this.state.planeAngle=0;this.state.planeProgress=1;
     let index=0;for(const player of this.state.players.values())this.resetOpenArenaCombatant(player,index++,true);
     this.state.aliveCount=this.state.players.size;this.spawnLoot();this.spawnMotorcycles();
     this.broadcast('roomConfig',this.roomConfigPayload());
-    this.system(`상시 개방 전장이 시작되었습니다. 인간 ${this.openArenaConfig?.maxHumans??0}명 · AI ${this.openArenaConfig?.configuredAiCount??0}명 · ${this.openArenaConfig?.killLimit?`${this.openArenaConfig.killLimit}킬 제한`:'무제한'} · 자기장 없음`);
+    this.system(`상시 개방 전장이 시작되었습니다. 인간 ${this.openArenaConfig?.maxHumans??0}명 · AI ${this.openArenaConfig?.configuredAiCount??0}명 · 자기장 없음`);
   }
 
   private beginMatch(){
@@ -1176,7 +1155,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   }
 
   private werewolfRitualStart(c:Client){
-    if(this.openArenaRoundLocked())return;
     const p=this.state.players.get(c.sessionId);if(!p||!p.alive||p.phase!=='landed'||p.ai)return;
     const season=this.state.werewolfSeason;
     if(season.enabled&&season.altarPhase==='active'&&!season.curseOwnerId&&!season.werewolfPlayerId&&distance(p.x,p.y,season.altarX,season.altarY)<=WEREWOLF_BALANCE.ritualRadius){
@@ -1318,7 +1296,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private fire(c:Client){const p=this.state.players.get(c.sessionId);if(p)this.firePlayer(p);}
 
   private firePlayer(p:PlayerState){
-    if(this.openArenaRoundLocked())return;
     this.clearOpenArenaSpawnProtection(p.id);
     if(!p.alive||p.phase!=='landed'||p.isSwimming||p.isVaulting||p.werewolf.transformed||p.werewolf.transformPreparing||p.werewolf.ritualizing||this.now()<p.werewolf.actionLockedUntil)return;
     if(this.healUntil.has(p.id)){this.cancelHeal(p);return;}
@@ -1467,7 +1444,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   }
 
   private placeStripTrap(c:Client){
-    if(this.openArenaRoundLocked())return;
     const p=this.state.players.get(c.sessionId);
     if(p)this.clearOpenArenaSpawnProtection(p.id);
     if(!p||p.ai||!p.alive||p.phase!=='landed'||p.isDriving||p.isSwimming||p.isVaulting||p.werewolf.transformed||p.werewolf.transformPreparing||p.werewolf.ritualizing)return;
@@ -1522,7 +1498,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private melee(c:Client){const p=this.state.players.get(c.sessionId);if(p)this.meleePlayer(p);}
 
   private meleePlayer(p:PlayerState){
-    if(this.openArenaRoundLocked())return;
     this.clearOpenArenaSpawnProtection(p.id);
     if(p.werewolf.transformed){this.werewolfClaw(p);return;}
     if(!p.alive||p.phase!=='landed'||p.isSwimming||p.isVaulting||p.werewolf.transformPreparing||p.werewolf.ritualizing||this.now()<p.werewolf.actionLockedUntil)return;
@@ -1890,7 +1865,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private cancelThrow(p:PlayerState){p.isPreparingThrow=false;p.throwCharge=0;this.throwPrepareAt.delete(p.id);}
 
   private throwEquipped(c:Client,m:any){
-    if(this.openArenaRoundLocked())return;
     const p=this.state.players.get(c.sessionId),started=p?this.throwPrepareAt.get(p.id):undefined;
     if(p)this.clearOpenArenaSpawnProtection(p.id);
     if(!p||started===undefined||!p.isPreparingThrow||!p.alive||p.phase!=='landed'||p.isSwimming||p.isVaulting||p.werewolf.transformed||p.werewolf.transformPreparing||p.werewolf.ritualizing||this.now()<p.werewolf.actionLockedUntil||!isThrowableType(p.equipped)||p.throwableType!==p.equipped||!isThrowableType(p.throwableType)||p.throwableCount<=0){if(p)this.cancelThrow(p);return;}
@@ -1975,7 +1949,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private tick(dt:number){
     if(this.state.phase==='LOBBY'||this.state.phase==='FINISHED')return;
     if(this.gameMode==='openArena'&&this.openArenaLifecycle==='emptyGrace'){this.updateOpenArenaLifecycle();if(String(this.openArenaLifecycle)!=='active')return;}
-    if(this.gameMode==='openArena'&&this.openArenaRoundState!=='active'){this.state.serverTime=this.now();this.updateOpenArenaRound();this.broadcastOpenArenaScoreboard();if(this.now()-this.registryLastSync>=2){this.registryLastSync=this.now();this.syncRoomRegistry();}return;}
     const tickStarted=performance.now();
     this.elapsed+=dt;
     this.state.serverTime=this.now();
@@ -2001,7 +1974,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     for(const player of this.state.players.values())if(player.isPreparingThrow){const started=this.throwPrepareAt.get(player.id);player.throwCharge=started===undefined?0:clamp((this.now()-started)*1000/THROWABLE_MAX_CHARGE_MS,0,1);}
     this.updateThrowables(dt);
     this.updateThrowableFields();
-    if(this.gameMode==='openArena'){this.updateOpenArenaRespawns();this.updateOpenArenaWorld();this.broadcastOpenArenaScoreboard();}
+    if(this.gameMode==='openArena'){this.updateOpenArenaRespawns();this.updateOpenArenaWorld();}
     this.state.serverCollisionMs=performance.now()-collisionStarted;
     const zoneStarted=performance.now();
     if(this.gameMode==='battleRoyale')this.updateZone(dt);
@@ -4373,7 +4346,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   }
 
   private damage(p:PlayerState,amount:number,attackerId:string,reason:string,knockbackOverride=0,hitAngleOverride?:number,kind:DamageKind='other'){
-    if(this.openArenaRoundLocked()||!p.alive)return;
+    if(!p.alive)return;
     if(this.gameMode==='openArena'&&this.now()<(this.spawnProtectionUntil.get(p.id)??0))return;
     const zoneTickDamage=kind==='zone'||reason==='자기장';
     if(!zoneTickDamage){
@@ -4442,66 +4415,16 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       this.cancelReload(p);
       this.lastSafePositions.delete(p.id);
       if(this.gameMode==='battleRoyale')this.state.placements.unshift(p.name);
-      else{this.openArenaDeaths.set(p.id,(this.openArenaDeaths.get(p.id)??0)+1);this.arenaKillStreak.set(p.id,0);}
+      else this.openArenaDeaths.set(p.id,(this.openArenaDeaths.get(p.id)??0)+1);
       if(attacker&&attacker.id!==p.id){
         attacker.kills++;
-        if(this.gameMode==='openArena')this.recordOpenArenaKill(attacker,p);
         if(attacker.ai)this.emitAiPersonaDialogue(attacker,'kill',{casual:false,loggable:false,allowResponse:true,force:true});
         this.emitAudioEvent('kill_confirm',{sourceId:attacker.id,targetId:p.id,variant:cause},this.playerClient(attacker.id));
         this.broadcast('killfeed',{killer:attacker.name,victim:p.name,reason});
       }else this.broadcast('killfeed',{killer:reason,victim:p.name,reason});
-      if(this.gameMode==='openArena'){if(this.openArenaRoundState==='active'){this.dropOpenArenaDeathLoot(p);this.scheduleOpenArenaRespawn(p);}this.broadcastOpenArenaScoreboard(true);}
+      if(this.gameMode==='openArena'){this.dropOpenArenaDeathLoot(p);this.scheduleOpenArenaRespawn(p);}
       else this.dropInventory(p);
     }
-  }
-
-  private openArenaRoundLocked(){return this.gameMode==='openArena'&&this.openArenaRoundState!=='active';}
-
-  private clearOpenArenaRoundScores(){
-    this.openArenaDeaths.clear();this.arenaKillStreak.clear();this.arenaBestStreak.clear();this.arenaHumanKills.clear();this.arenaAiKills.clear();this.arenaKillReachedAt.clear();
-    for(const player of this.state.players.values()){player.kills=0;player.damageDone=0;}
-  }
-
-  private openArenaHumanRows():ArenaScoreRow[]{
-    const rows=[...this.state.players.values()].map((player)=>{const deaths=this.openArenaDeaths.get(player.id)??0;return{id:player.id,name:player.name,ai:player.ai,kills:player.kills,deaths,kd:deaths>0?Number((player.kills/deaths).toFixed(2)):player.kills,streak:this.arenaKillStreak.get(player.id)??0,bestStreak:this.arenaBestStreak.get(player.id)??0,humanKills:this.arenaHumanKills.get(player.id)??0,aiKills:this.arenaAiKills.get(player.id)??0,damageDone:Number(player.damageDone??0),alive:player.alive,reachedAt:this.arenaKillReachedAt.get(player.id)??Number.MAX_SAFE_INTEGER};});
-    return sortOpenArenaHumanRows(rows).slice(0,20);
-  }
-
-  private recordOpenArenaKill(attacker:PlayerState,victim:PlayerState){
-    if(attacker.id===victim.id)return;
-    const streak=(this.arenaKillStreak.get(attacker.id)??0)+1;this.arenaKillStreak.set(attacker.id,streak);this.arenaBestStreak.set(attacker.id,Math.max(streak,this.arenaBestStreak.get(attacker.id)??0));
-    const targetMap=victim.ai?this.arenaAiKills:this.arenaHumanKills;targetMap.set(attacker.id,(targetMap.get(attacker.id)??0)+1);this.arenaKillReachedAt.set(attacker.id,this.now());
-    const row=this.openArenaHumanRows().find((candidate)=>candidate.id===attacker.id);if(row&&shouldFinishOpenArenaRound(this.openArenaConfig?.killLimit??0,row))this.finishOpenArenaRound(attacker,row);
-  }
-
-  private openArenaRoundPayload(){const winner=this.state.players.get(this.openArenaRoundWinnerId);return{roundState:this.openArenaRoundState,roundEndsAt:this.openArenaRoundEndsAt,resettingAt:this.openArenaRoundResettingAt,roundGeneration:this.openArenaRoundGeneration,killLimit:this.openArenaConfig?.killLimit??0,winnerId:this.openArenaRoundWinnerId,winnerName:winner?.name??'',rows:this.openArenaRoundRows};}
-
-  private finishOpenArenaRound(winner:PlayerState,winnerRow:ArenaScoreRow){
-    if(this.gameMode!=='openArena'||this.openArenaRoundState!=='active')return;
-    const now=this.now();this.openArenaRoundState='result';this.openArenaRoundEndsAt=now+OPEN_ARENA_ROUND_TOTAL_SECONDS;this.openArenaRoundResettingAt=this.openArenaRoundEndsAt-OPEN_ARENA_ROUND_COUNTDOWN_SECONDS;this.openArenaRoundWinnerId=winner.id;this.openArenaRoundRows=this.openArenaHumanRows();this.openArenaRoundGeneration++;
-    this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.inputs.clear();for(const slot of this.openArenaAiSlots.values()){slot.respawnAt=0;slot.generation++;}for(const player of this.state.players.values()){this.cancelHeal(player);this.cancelReload(player);this.cancelThrow(player);player.isSniperScoped=false;}
-    const payload={...this.openArenaRoundPayload(),winnerName:winner.name,winner:winnerRow};this.broadcast('arenaRoundResult',payload);this.system(`${winner.name}님이 ${this.openArenaConfig?.killLimit??0}킬을 달성했습니다. 8초 후 다음 라운드가 시작됩니다.`);this.syncRoomRegistry();
-  }
-
-  private updateOpenArenaRound(){
-    if(this.openArenaRoundState==='active')return;const now=this.now();
-    if(this.openArenaRoundState==='result'&&now>=this.openArenaRoundResettingAt){this.openArenaRoundState='resetting';this.broadcast('arenaStatus',this.arenaStatusPayload());this.syncRoomRegistry();}
-    if(now>=this.openArenaRoundEndsAt)this.resetOpenArenaRound();
-  }
-
-  private resetOpenArenaRound(){
-    if(this.gameMode!=='openArena')return;this.openArenaRoundGeneration++;this.clearTransient();this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.clearOpenArenaRoundScores();this.openArenaRoundWinnerId='';this.openArenaRoundRows=[];this.openArenaRoundEndsAt=0;this.openArenaRoundResettingAt=0;
-    let index=0;for(const player of this.state.players.values()){this.resetOpenArenaCombatant(player,index++,true);this.giveOpenArenaStarterKit(player);if(player.ai){const slot=this.openArenaAiSlots.get(player.id);if(slot){slot.state='alive';slot.respawnAt=0;slot.generation++;}}}
-    this.state.aliveCount=[...this.state.players.values()].filter((player)=>player.alive).length;this.spawnLoot();this.spawnMotorcycles();this.openArenaRoundState='active';this.broadcast('arenaRoundStarted',{roundGeneration:this.openArenaRoundGeneration,startedAt:this.now(),killLimit:this.openArenaConfig?.killLimit??0});this.broadcast('arenaStatus',this.arenaStatusPayload());this.broadcastOpenArenaScoreboard(true);this.system('다음 상시 전장 라운드가 시작되었습니다.');this.syncRoomRegistry();
-  }
-
-  private openArenaScoreboardPayload(){
-    const rows=this.openArenaRoundState==='active'?this.openArenaHumanRows():this.openArenaRoundRows;
-    return{generatedAt:this.now(),rows,status:this.arenaStatusPayload(),round:this.openArenaRoundPayload()};
-  }
-
-  private broadcastOpenArenaScoreboard(force=false){
-    if(this.gameMode!=='openArena')return;const now=this.now();if(!force&&now<this.arenaScoreboardAt)return;this.arenaScoreboardAt=now+1;this.broadcast('arenaScoreboard',this.openArenaScoreboardPayload());
   }
 
   private markOpenArenaLootConsumed(lootId:string){
@@ -4708,8 +4631,6 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       configuredAiCount:this.openArenaConfig?.configuredAiCount??0,
       joinInProgress:this.gameMode==='openArena'&&this.state.phase==='ACTIVE'&&this.openArenaLifecycle==='active',
       lifecycle:this.gameMode==='openArena'?this.openArenaLifecycle:this.state.phase==='LOBBY'?'lobby':'active',
-      killLimit:this.openArenaConfig?.killLimit??0,
-      roundState:this.openArenaRoundState,
     };
     const arenaHidden=this.gameMode==='openArena'&&this.openArenaLifecycle!=='active';
     const settings={metadata,private:!this.state.publicRoom||arenaHidden,unlisted:!this.state.publicRoom||arenaHidden,maxClients:this.maxClients};

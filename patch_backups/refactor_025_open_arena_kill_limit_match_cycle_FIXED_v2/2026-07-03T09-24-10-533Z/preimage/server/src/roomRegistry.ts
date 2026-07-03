@@ -1,8 +1,7 @@
-// DROP8_REFACTOR_025_OPEN_ARENA_KILL_LIMIT_MATCH_CYCLE
 // DROP8_REFACTOR_024A_OPEN_ARENA_FOUNDATION
 // DROP8_REFACTOR_017_ADHESIVE_STRIP_LOBBY_BAZOOKA_WATER
 import { matchMaker } from '@colyseus/core';
-import type { GameMode, OpenArenaKillLimit } from '@drop8/shared';
+import type { GameMode } from '@drop8/shared';
 
 export type PublicRoomStatus='LOBBY'|'PLANE'|'DROP'|'ACTIVE'|'FINISHED';
 export type PublicRoomInfo={
@@ -25,8 +24,6 @@ export type PublicRoomInfo={
   configuredAiCount:number;
   joinInProgress:boolean;
   lifecycle:'lobby'|'active'|'emptyGrace'|'disposed';
-  killLimit:OpenArenaKillLimit;
-  roundState:'active'|'result'|'resetting';
 };
 
 type RoomListing={roomId:string;clients:number;maxClients:number;locked?:boolean;private?:boolean;unlisted?:boolean;createdAt?:Date|string|number;metadata?:Partial<Omit<PublicRoomInfo,'roomId'|'maxPlayers'|'locked'>>};
@@ -60,8 +57,6 @@ export function publicRoomInfoFromListing(listing:RoomListing):PublicRoomInfo|nu
     configuredAiCount:Number(metadata.configuredAiCount)||0,
     joinInProgress:Boolean(metadata.joinInProgress),
     lifecycle:(['lobby','active','emptyGrace','disposed'].includes(String(metadata.lifecycle))?metadata.lifecycle:'lobby') as PublicRoomInfo['lifecycle'],
-    killLimit:([0,10,20,30].includes(Number(metadata.killLimit))?Number(metadata.killLimit):20) as OpenArenaKillLimit,
-    roundState:(['active','result','resetting'].includes(String(metadata.roundState))?metadata.roundState:'active') as PublicRoomInfo['roundState'],
   };
 }
 

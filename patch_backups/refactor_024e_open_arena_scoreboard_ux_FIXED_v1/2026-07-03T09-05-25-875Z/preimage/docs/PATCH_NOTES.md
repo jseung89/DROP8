@@ -1,20 +1,3 @@
-<!-- DROP8_REFACTOR_025_OPEN_ARENA_KILL_LIMIT_MATCH_CYCLE -->
-## Refactor 025 — Open Arena Kill Limit & Match Cycle
-
-- Open Arena 방 생성 시 10킬·20킬·30킬·무제한을 선택하며 서버가 허용값만 정규화합니다.
-- 인간만 목표 킬과 정산 순위에 참여하고, 인간이 AI를 처치한 킬도 목표에 포함합니다. AI는 실시간·정산 순위에서 제외됩니다.
-- 목표 달성 후 총 8초 동안 결과와 3초 카운트다운을 표시한 뒤 같은 방·방장·AI 설정을 유지하고 다음 라운드를 시작합니다.
-- 정산 중 공격·피해·AI·리스폰을 정지하고 이전 라운드 타이머와 임시 월드 객체를 초기화합니다.
-- Battle Royale의 마지막 생존자 승리와 결과 화면은 변경하지 않습니다.
-
-<!-- DROP8_REFACTOR_024E_OPEN_ARENA_SCOREBOARD_UX -->
-## Refactor 024E — Open Arena Scoreboard & UX
-
-- Open Arena 전용 킬·데스·K/D·현재 및 최고 연속 처치·인간/AI 처치 통계를 서버 내부 Map으로 집계합니다.
-- 기존 64필드 Schema 한도를 건드리지 않고 1초 저빈도 `arenaScoreboard` 메시지로 최대 20개 행을 전달합니다.
-- HUD에 인간 정원, 살아 있는 AI/설정 슬롯, 상위 8명 순위와 리스폰·스폰 보호 상태를 표시합니다.
-- Battle Royale 자기장·생존 HUD와 결과 흐름은 기존 동작을 유지합니다.
-
 <!-- DROP8_REFACTOR_024D_OPEN_ARENA_PERSISTENT_WORLD -->
 ## Refactor 024D — Persistent Loot, Vehicle Respawn & World Cleanup
 

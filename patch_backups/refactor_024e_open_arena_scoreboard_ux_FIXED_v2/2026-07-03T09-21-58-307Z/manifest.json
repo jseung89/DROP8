@@ -1,0 +1,82 @@
+{
+  "patchId": "DROP8 Refactor 024E Open Arena Scoreboard & UX FIXED v2",
+  "patchFile": "DROP8_refactor_024E_open_arena_scoreboard_ux_patch_FIXED_v2.ts",
+  "createdAt": "2026-07-03T09:21:58.309Z",
+  "projectRoot": "C:\\Users\\Playdata\\Downloads\\DROP8_SOURCE_ONLY\\DROP8_SOURCE",
+  "files": [
+    {
+      "path": "client/index.html",
+      "existed": true,
+      "beforeSha256": "389a0f77c3a5d02709d7c1aad2d8fcd225d6a14bb3aa7395dc6e52cec8230410",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/main.ts",
+      "existed": true,
+      "beforeSha256": "ff0c0865401d243da947c794b51c3cd54cad66c517eae90b7b195293547f0685",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/network.ts",
+      "existed": true,
+      "beforeSha256": "d595dbf8a26bade687b6808bcd9156f9e2c535dacdf1145757fd6f26c9ee9cf1",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "client/src/style.css",
+      "existed": true,
+      "beforeSha256": "254a4a2b8c08013142ecace6f2f0acbf0f171879677cc06969ab2dfe71eb188d",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "docs/PATCH_NOTES.md",
+      "existed": true,
+      "beforeSha256": "2dc925726dfe9bd90acb2fb63efc77874625b89287f4eb28ced93476958184cb",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/src/rooms/Drop8Room.ts",
+      "existed": true,
+      "beforeSha256": "da4334841c7ace920724c447436435dca909e369ce517af0032a1bdd84b328df",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024e-arena-scoreboard.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    },
+    {
+      "path": "server/tests/refactor024e-arena-ux-source.test.ts",
+      "existed": false,
+      "beforeSha256": "",
+      "eol": "LF",
+      "bom": false
+    }
+  ],
+  "createdFiles": [
+    "server/tests/refactor024e-arena-scoreboard.test.ts",
+    "server/tests/refactor024e-arena-ux-source.test.ts"
+  ],
+  "generatedDirs": [
+    {
+      "path": "shared/dist",
+      "existed": true
+    },
+    {
+      "path": "client/dist",
+      "existed": true
+    },
+    {
+      "path": "server/build",
+      "existed": true
+    }
+  ]
+}

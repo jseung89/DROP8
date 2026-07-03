@@ -1,4 +1,3 @@
-// DROP8_REFACTOR_025_OPEN_ARENA_KILL_LIMIT_MATCH_CYCLE
 // DROP8_REFACTOR_024E_OPEN_ARENA_SCOREBOARD_UX
 // DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN
 // DROP8_REFACTOR_024B_OPEN_ARENA_LIFECYCLE_HOST_MIGRATION
@@ -100,7 +99,7 @@ async function connect(create:boolean){
   error.textContent='연결 중...';
   try{
     const gameMode=$<HTMLSelectElement>('gameMode').value;
-    const opts={nickname:nick(),password:password.value,roomPassword:password.value,publicRoom:$<HTMLInputElement>('publicRoom').checked,fillAi:true,difficulty:'normal',zoneSpeed:'normal',mapSizeMode:'small',mapId:'small',gameMode,maxHumans:Number($<HTMLSelectElement>('maxHumans').value),aiCount:Number($<HTMLSelectElement>('arenaAiCount').value),killLimit:Number($<HTMLSelectElement>('arenaKillLimit').value)};
+    const opts={nickname:nick(),password:password.value,roomPassword:password.value,publicRoom:$<HTMLInputElement>('publicRoom').checked,fillAi:true,difficulty:'normal',zoneSpeed:'normal',mapSizeMode:'small',mapId:'small',gameMode,maxHumans:Number($<HTMLSelectElement>('maxHumans').value),aiCount:Number($<HTMLSelectElement>('arenaAiCount').value)};
     if(create)await net.create(opts);
     else await net.join(roomCode.value.trim(),opts);
     home.classList.add('hidden');
@@ -139,17 +138,15 @@ $('roomMapFilter').onchange=()=>renderRoomList(cachedRooms);
 const gameModeSelect=$<HTMLSelectElement>('gameMode');
 const maxHumansSelect=$<HTMLSelectElement>('maxHumans');
 const arenaAiCountSelect=$<HTMLSelectElement>('arenaAiCount');
-const arenaKillLimitSelect=$<HTMLSelectElement>('arenaKillLimit');
 function updateCreateModeUi(){
   const arena=gameModeSelect.value==='openArena';
-  maxHumansSelect.disabled=!arena;arenaAiCountSelect.disabled=!arena;arenaKillLimitSelect.disabled=!arena;
+  maxHumansSelect.disabled=!arena;arenaAiCountSelect.disabled=!arena;
   const total=Number(maxHumansSelect.value)+Number(arenaAiCountSelect.value);
   const valid=!arena||total<=OPEN_ARENA_LIMITS.maxTotalCombatants;
   $('createBtn').toggleAttribute('disabled',!valid);
-  const killLabel=arenaKillLimitSelect.value==='0'?'무제한':`${arenaKillLimitSelect.value}킬`;
-  $('arenaCreateHint').textContent=arena?`상시 개방 전장 · ${killLabel} · 자기장 없음 · 인간 ${maxHumansSelect.value}명 + AI ${arenaAiCountSelect.value}명 = 총 ${total}명${valid?'':' · 총원 16명 초과'}`:'배틀로얄 · 비행기 · 자기장 · 최후의 생존자';
+  $('arenaCreateHint').textContent=arena?`상시 개방 전장 · 자기장 없음 · 인간 ${maxHumansSelect.value}명 + AI ${arenaAiCountSelect.value}명 = 총 ${total}명${valid?'':' · 총원 16명 초과'}`:'배틀로얄 · 비행기 · 자기장 · 최후의 생존자';
 }
-gameModeSelect.onchange=updateCreateModeUi;maxHumansSelect.onchange=updateCreateModeUi;arenaAiCountSelect.onchange=updateCreateModeUi;arenaKillLimitSelect.onchange=updateCreateModeUi;updateCreateModeUi();
+gameModeSelect.onchange=updateCreateModeUi;maxHumansSelect.onchange=updateCreateModeUi;arenaAiCountSelect.onchange=updateCreateModeUi;updateCreateModeUi();
 
 function sendSettings(){
   net.send('settings',{
@@ -280,7 +277,6 @@ net.messages.add((type,p)=>{
   if(type==='notice')showGameNotice(p?.message??p,p?.type??'warning',Number(p?.duration)||undefined);
   if(type==='hostChanged')showGameNotice(`${String(p?.hostName??'다른 플레이어')}님이 새로운 방장이 되었습니다.`,'info',2200);
   if(type==='respawned')showGameNotice('상시 전장에 다시 투입되었습니다.','info',1500);
-  if(type==='arenaRoundResult'){const me=net.snapshot?.players.find((player)=>player.id===net.sessionId);audio.playLocal(p?.winnerId===me?.id?'victory':'defeat');}
   if(type==='error'){const message=String(p?.message??p??'오류가 발생했습니다.');if(gameEl.classList.contains('hidden')&&lobby.classList.contains('hidden'))error.textContent=message;else showGameNotice(message,'error');}
 });
 
@@ -398,10 +394,9 @@ function renderInventory(me:any){
 function escapeArenaHtml(value:string){return value.replace(/[&<>"']/g,(char)=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]??char));}
 
 function renderArenaScoreboard(){
-  const panel=$('arenaScoreboardPanel');const arena=net.roomConfig.gameMode==='openArena';panel.classList.toggle('hidden',!arena);if(!arena){$('arenaRoundResult').classList.add('hidden');return;}
-  const status=net.arenaStatus??{};const limit=Number(net.roomConfig.killLimit??status.killLimit??0);$('arenaPopulationText').textContent=`인간 ${Number(status.humans??0)}/${net.roomConfig.maxHumans} · AI ${Number(status.aliveAi??0)} 생존 / ${net.roomConfig.configuredAiCount} 슬롯 · ${limit?`${limit}킬 제한`:'무제한'}`;
-  const rows=net.arenaScoreboard.slice(0,8);$('arenaScoreboardRows').innerHTML=rows.map((row:any,index:number)=>`<div class="arena-score-row ${row.id===net.sessionId?'me':''}"><b>${index+1}</b><span>${escapeArenaHtml(String(row.name??''))}</span><em>${Number(row.kills??0)}킬 ${Number(row.deaths??0)}데스 · 인간 ${Number(row.humanKills??0)} / AI ${Number(row.aiKills??0)}</em></div>`).join('')||'<p class="muted">인간 전투 기록 집계 중</p>';
-  const round=net.arenaRound;const overlay=$('arenaRoundResult');const roundState=String(round?.roundState??status.roundState??'active');overlay.classList.toggle('hidden',roundState==='active');if(roundState!=='active'){const serverTime=Number(net.snapshot?.serverTime??0),left=Math.max(0,Math.ceil(Number(round?.roundEndsAt??status.roundEndsAt??0)-serverTime));$('arenaRoundTitle').textContent=round?.winnerName?`${String(round.winnerName)} 승리!`:'다음 라운드 준비';const resultRows=Array.isArray(round?.rows)?round.rows:rows;$('arenaRoundRows').innerHTML=resultRows.map((row:any,index:number)=>`<div class="arena-result-row"><b>${index+1}위 ${escapeArenaHtml(String(row.name??''))}</b><span>${Number(row.kills??0)}킬 · ${Number(row.deaths??0)}데스 · K/D ${Number(row.kd??0).toFixed(2)} · 인간 ${Number(row.humanKills??0)} / AI ${Number(row.aiKills??0)} · 피해 ${Math.round(Number(row.damageDone??0))}</span></div>`).join('');$('arenaRoundCountdown').textContent=left>0?`다음 전투까지 ${left}초`:'전투 재개';}
+  const panel=$('arenaScoreboardPanel');const arena=net.roomConfig.gameMode==='openArena';panel.classList.toggle('hidden',!arena);if(!arena)return;
+  const status=net.arenaStatus??{};$('arenaPopulationText').textContent=`인간 ${Number(status.humans??0)}/${net.roomConfig.maxHumans} · AI ${Number(status.aliveAi??0)} 생존 / ${net.roomConfig.configuredAiCount} 슬롯`;
+  const rows=net.arenaScoreboard.slice(0,8);$('arenaScoreboardRows').innerHTML=rows.map((row:any,index:number)=>`<div class="arena-score-row ${row.id===net.sessionId?'me':''}"><b>${index+1}</b><span>${escapeArenaHtml(String(row.name??''))}${row.ai?' <small>AI</small>':''}</span><em>${Number(row.kills??0)}킬 ${Number(row.deaths??0)}데스 · 연속 ${Number(row.streak??0)}</em></div>`).join('')||'<p class="muted">전투 기록 집계 중</p>';
 }
 
 function render(){
@@ -524,7 +519,7 @@ function renderLobby(s:any){
   $<HTMLSelectElement>('mapSizeMode').value=s.mapId??s.mapSizeMode??'small';
 }
 
-type PublicRoomInfo={roomId:string;roomCode:string;hostName:string;players:number;humans:number;maxPlayers:number;phase:string;fillAi:boolean;publicRoom:boolean;locked:boolean;mapSizeMode:'small'|'large'|'dock8';mapDisplayName:string;gameMode:'battleRoyale'|'openArena';maxHumans:number;configuredAiCount:number;joinInProgress:boolean;lifecycle:string;killLimit:number;roundState:string};
+type PublicRoomInfo={roomId:string;roomCode:string;hostName:string;players:number;humans:number;maxPlayers:number;phase:string;fillAi:boolean;publicRoom:boolean;locked:boolean;mapSizeMode:'small'|'large'|'dock8';mapDisplayName:string;gameMode:'battleRoyale'|'openArena';maxHumans:number;configuredAiCount:number;joinInProgress:boolean;lifecycle:string};
 
 async function refreshRooms(){
   if(home.classList.contains('hidden'))return;
@@ -555,7 +550,7 @@ function renderRoomList(rooms:PublicRoomInfo[]){
     const arena=room.gameMode==='openArena';
     const full=room.humans>=room.maxHumans;
     const status=room.phase==='LOBBY'?(room.locked?'잠김':full?'인원 가득 참':'대기 중'):room.phase==='FINISHED'?'종료 중':arena?'전장 진행 중':'게임 중';
-    info.innerHTML=`<b>#${escapeText(room.roomCode)}</b><span>${escapeText(room.hostName)} · ${arena?'상시 개방 전장':'배틀로얄'} · 인간 ${room.humans}/${room.maxHumans}${arena?` · AI ${room.configuredAiCount} · ${room.killLimit?`${room.killLimit}킬`:'무제한'}`:''} · ${escapeText(room.mapDisplayName||'작은 맵')} · ${status}</span>`;
+    info.innerHTML=`<b>#${escapeText(room.roomCode)}</b><span>${escapeText(room.hostName)} · ${arena?'상시 개방 전장':'배틀로얄'} · 인간 ${room.humans}/${room.maxHumans}${arena?` · AI ${room.configuredAiCount}`:''} · ${escapeText(room.mapDisplayName||'작은 맵')} · ${status}</span>`;
     const join=document.createElement('button');join.type='button';join.textContent='참가';
     join.disabled=room.locked||full||(arena?room.lifecycle!=='active'&&room.phase!=='LOBBY':room.phase!=='LOBBY');
     join.onclick=()=>{roomCode.value=room.roomCode;void connect(false);};
@@ -594,7 +589,7 @@ async function exitRoom(message='',ask=false){
   await net.leave(true);
   game?.destroy(true);game=null;
   lobby.classList.add('hidden');gameEl.classList.add('hidden');home.classList.remove('hidden');
-  $('result').classList.add('hidden');$('arenaRoundResult').classList.add('hidden');$('scopeOverlay').classList.add('hidden');$('vehicleHud').classList.add('hidden');gameEl.classList.remove('scope-active');$('lobbyMessages').innerHTML='';$('gameMessages').innerHTML='';$('killfeed').innerHTML='';
+  $('result').classList.add('hidden');$('scopeOverlay').classList.add('hidden');$('vehicleHud').classList.add('hidden');gameEl.classList.remove('scope-active');$('lobbyMessages').innerHTML='';$('gameMessages').innerHTML='';$('killfeed').innerHTML='';
   history.replaceState(null,'',location.pathname);
   error.textContent=message;
   startRoomListPolling();
