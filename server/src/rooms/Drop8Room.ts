@@ -1,3 +1,5 @@
+// DROP8_REFACTOR_028_RECURRING_WEREWOLF_RITUAL_CYCLE
+// DROP8_REFACTOR_027_OPEN_ARENA_RECURRING_SUPPLY_DROPS
 // DROP8_REFACTOR_025_OPEN_ARENA_KILL_LIMIT_MATCH_CYCLE
 // DROP8_REFACTOR_024E_OPEN_ARENA_SCOREBOARD_UX
 // DROP8_REFACTOR_024D_OPEN_ARENA_PERSISTENT_WORLD
@@ -177,7 +179,7 @@ import { AI_PERSONA_NAMES, aiDialogueProfileForName, aiPersonaEventFromLegacy, s
 import { AI_NAVIGATION_RECOVERY, AI_SAFE_ZONE_SWEEP, aiDialogueAudience, aiSweepDetourMetrics, canReplaceAiGoal, createAiSafeZoneSweepTarget, detectAiOscillation, nextAiStallSeconds, pushAiProgressSample, shouldTakeAiSweepLoot, type AiGoalKind, type AiProgressSample, type AiSweepZone } from './aiNavigation.js';
 import { chooseOpenArenaSpawn, type OpenArenaAiSlot, type RecentArenaSpawn } from './openArenaRespawn.js';
 import { OPEN_ARENA_ROUND_COUNTDOWN_SECONDS, OPEN_ARENA_ROUND_TOTAL_SECONDS, shouldFinishOpenArenaRound, sortOpenArenaHumanRows, type ArenaScoreRow, type OpenArenaRoundState } from './openArenaRound.js';
-import { OPEN_ARENA_DROP_TTL_SECONDS, OPEN_ARENA_VEHICLE_RESPAWN_SECONDS, OPEN_ARENA_WORLD_CLEANUP_INTERVAL_SECONDS, arenaLootRespawnSeconds, type ArenaLootSlot, type ArenaVehicleSlot } from './openArenaWorld.js';
+import { OPEN_ARENA_DROP_TTL_SECONDS, OPEN_ARENA_MAX_ACTIVE_SUPPLY_DROPS, OPEN_ARENA_RITUAL_ACTIVE_SECONDS, OPEN_ARENA_RITUAL_COMPLETION_SECONDS, OPEN_ARENA_RITUAL_COOLDOWN_SECONDS, OPEN_ARENA_RITUAL_FIRST_DELAY_SECONDS, OPEN_ARENA_RITUAL_SUPPLY_CLEARANCE, OPEN_ARENA_RITUAL_WARNING_SECONDS, OPEN_ARENA_SUPPLY_DROP_FIRST_DELAY_SECONDS, OPEN_ARENA_SUPPLY_DROP_INTERVAL_SECONDS, OPEN_ARENA_SUPPLY_DROP_RETRY_SECONDS, OPEN_ARENA_VEHICLE_RESPAWN_SECONDS, OPEN_ARENA_WORLD_CLEANUP_INTERVAL_SECONDS, arenaLootRespawnSeconds, type ArenaLootSlot, type ArenaVehicleSlot } from './openArenaWorld.js';
 
 type Input = { x:number; y:number; aimX:number; aimY:number; angle:number; seq:number; aiming:boolean; huntSprint:boolean; accelerate:boolean; brake:boolean; turnLeft:boolean; turnRight:boolean };
 type Point = { x:number; y:number };
@@ -339,6 +341,10 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private arenaDropExpiresAt=new Map<string,number>();
   private arenaVehicleSlots=new Map<string,ArenaVehicleSlot>();
   private arenaWorldCleanupAt=0;
+  private openArenaNextSupplyDropAt=0;
+  private openArenaNextRitualWarningAt=0;
+  private openArenaRitualActiveEndsAt=0;
+  private openArenaLastRitualPoint:Point|null=null;
   private arenaKillStreak=new Map<string,number>();
   private arenaBestStreak=new Map<string,number>();
   private arenaHumanKills=new Map<string,number>();
@@ -553,7 +559,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     targetClient.leave(CloseCode.CONSENTED,'kicked');
   }
 
-  onDispose(){this.openArenaLifecycle='disposed';this.humanJoinedAt.clear();this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.openArenaDeaths.clear();this.openArenaAiSlots.clear();this.recentArenaSpawns=[];this.arenaLootSlots.clear();this.arenaLootToSlot.clear();this.arenaDropExpiresAt.clear();this.arenaVehicleSlots.clear();this.arenaKillStreak.clear();this.arenaBestStreak.clear();this.arenaHumanKills.clear();this.arenaAiKills.clear();this.arenaKillReachedAt.clear();this.openArenaRoundRows=[];for(const p of this.state.players.values())if(p.werewolf.transformed)this.endWerewolfCycle(p,'round_end');this.clearCountermeasureState();this.werewolfMoveVectors.clear();this.aiProfiles.clear();this.aiMemories.clear();this.aiLineCooldown.clear();this.aiMovementSamples.clear();this.aiVehiclePlans.clear();this.aiWorldObjectives.clear();this.aiObjectiveCooldown.clear();void this.presence.del(`drop8:${this.roomId}`);}
+  onDispose(){this.openArenaLifecycle='disposed';this.humanJoinedAt.clear();this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.openArenaDeaths.clear();this.openArenaAiSlots.clear();this.recentArenaSpawns=[];this.arenaLootSlots.clear();this.arenaLootToSlot.clear();this.arenaDropExpiresAt.clear();this.arenaVehicleSlots.clear();this.arenaKillStreak.clear();this.arenaBestStreak.clear();this.arenaHumanKills.clear();this.arenaAiKills.clear();this.arenaKillReachedAt.clear();this.openArenaRoundRows=[];this.openArenaNextSupplyDropAt=0;this.openArenaNextRitualWarningAt=0;this.openArenaRitualActiveEndsAt=0;this.openArenaLastRitualPoint=null;for(const p of this.state.players.values())if(p.werewolf.transformed)this.endWerewolfCycle(p,'round_end');this.clearCountermeasureState();this.werewolfMoveVectors.clear();this.aiProfiles.clear();this.aiMemories.clear();this.aiLineCooldown.clear();this.aiMovementSamples.clear();this.aiVehiclePlans.clear();this.aiWorldObjectives.clear();this.aiObjectiveCooldown.clear();void this.presence.del(`drop8:${this.roomId}`);}
 
   private system(text:string){const now=Date.now();this.broadcast('chat',{channel:'system',sender:'시스템',nickname:'시스템',text,time:now,sentAt:now});}
   private emitAudioEvent(type:string,data:Record<string,unknown>={},target?:Client){
@@ -721,7 +727,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.lootRandom=createSeededRandom((Date.now()^Math.floor(Math.random()*0xffffffff))>>>0);
     this.state.phase='ACTIVE';this.state.winner='';this.state.placements.clear();this.state.worldSize=this.map.width;this.openArenaRoundState='active';this.openArenaRoundEndsAt=0;this.openArenaRoundResettingAt=0;this.openArenaRoundWinnerId='';this.openArenaRoundRows=[];this.openArenaRoundGeneration=1;this.clearOpenArenaRoundScores();
     this.state.zoneX=this.worldSize/2;this.state.zoneY=this.worldSize/2;this.state.zoneRadius=this.worldSize;this.state.zoneStartX=this.state.zoneX;this.state.zoneStartY=this.state.zoneY;this.state.zoneStartRadius=this.state.zoneRadius;
-    this.state.nextZoneX=this.state.zoneX;this.state.nextZoneY=this.state.zoneY;this.state.nextZoneRadius=this.state.zoneRadius;this.state.zoneTimer=0;this.state.zoneStage=0;this.state.zoneProgress=0;this.state.zoneActive=false;this.state.zoneState='DISABLED';this.state.supplySpawned=false;this.state.supplyDropId='';
+    this.state.nextZoneX=this.state.zoneX;this.state.nextZoneY=this.state.zoneY;this.state.nextZoneRadius=this.state.zoneRadius;this.state.zoneTimer=0;this.state.zoneStage=0;this.state.zoneProgress=0;this.state.zoneActive=false;this.state.zoneState='DISABLED';this.state.supplySpawned=false;this.state.supplyDropId='';this.openArenaNextSupplyDropAt=this.now()+OPEN_ARENA_SUPPLY_DROP_FIRST_DELAY_SECONDS;this.openArenaNextRitualWarningAt=this.now()+OPEN_ARENA_RITUAL_FIRST_DELAY_SECONDS;this.openArenaRitualActiveEndsAt=0;this.openArenaLastRitualPoint=null;
     this.state.planeStartX=0;this.state.planeStartY=0;this.state.planeX=0;this.state.planeY=0;this.state.planeEndX=0;this.state.planeEndY=0;this.state.planeAngle=0;this.state.planeProgress=1;
     let index=0;for(const player of this.state.players.values())this.resetOpenArenaCombatant(player,index++,true);
     this.state.aliveCount=this.state.players.size;this.spawnLoot();this.spawnMotorcycles();
@@ -1015,6 +1021,9 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.noises=[];
     this.werewolfMoveVectors.clear();
     this.adhesivePlayerExposure.clear();
+    this.openArenaNextRitualWarningAt=0;
+    this.openArenaRitualActiveEndsAt=0;
+    this.openArenaLastRitualPoint=null;
     this.werewolfAuraDamageAt.clear();
     this.werewolfAuraVehicleContact.clear();
     const season=this.state.werewolfSeason;season.enabled=false;season.altarPhase='disabled';season.curseOwnerId='';season.werewolfPlayerId='';season.curseDropActive=false;season.armoryActive=false;season.armoryOpened=false;season.disabledForEndgame=false;
@@ -1159,7 +1168,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.werewolfMoveVectors.delete(p.id);
   }
 
-  private initializeWerewolfSeason(){
+  private initializeWerewolfSeason(firstDelaySeconds=WEREWOLF_BALANCE.altarWakeSeconds){
     const season=this.state.werewolfSeason;
     season.enabled=false;season.altarPhase='disabled';season.altarX=0;season.altarY=0;season.altarActivatesAt=0;season.altarReactivateAt=0;season.armoryX=0;season.armoryY=0;season.armoryActive=false;season.armoryOpened=false;season.armoryOpenedBy='';season.curseOwnerId='';season.werewolfPlayerId='';season.curseDropActive=false;season.curseDropX=0;season.curseDropY=0;season.curseDropRemaining=0;season.cycle=0;season.initialNoticeSent=false;season.disabledForEndgame=false;
     const selected=chooseWerewolfSeasonPoints(this.map.id,this.lootRandom,(point)=>{
@@ -1167,7 +1176,35 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       return seasonPointStructurallyValid(this.map,point,this.terrainKindAt(point.x,point.y),space.outdoors);
     });
     if(!selected){console.error('[DROP8 Refactor 018] no valid werewolf season points',this.map.id);return;}
-    season.enabled=true;season.altarPhase='dormant';season.altarX=selected.altar.x;season.altarY=selected.altar.y;season.altarActivatesAt=this.now()+WEREWOLF_BALANCE.altarWakeSeconds;season.armoryX=selected.armory.x;season.armoryY=selected.armory.y;
+    season.enabled=true;season.altarPhase='dormant';season.altarX=selected.altar.x;season.altarY=selected.altar.y;season.altarActivatesAt=this.now()+firstDelaySeconds;season.armoryX=selected.armory.x;season.armoryY=selected.armory.y;
+  }
+
+  private openArenaRitualPositionClear(point:Point){
+    if(this.openArenaLastRitualPoint&&distance(point.x,point.y,this.openArenaLastRitualPoint.x,this.openArenaLastRitualPoint.y)<OPEN_ARENA_RITUAL_SUPPLY_CLEARANCE)return false;
+    for(const drop of this.state.supplyDrops.values())if(!drop.opened&&distance(point.x,point.y,drop.x,drop.y)<OPEN_ARENA_RITUAL_SUPPLY_CLEARANCE)return false;
+    return true;
+  }
+
+  private startOpenArenaRitualWarning(now=this.now()){
+    if(this.gameMode!=='openArena'||this.state.phase!=='ACTIVE'||this.openArenaRoundState!=='active')return false;
+    const selected=chooseWerewolfSeasonPoints(this.map.id,this.lootRandom,(point)=>{
+      const space=spaceAt(point.x,point.y,this.map.buildingVisibilityZones,this.map.rooms,0);
+      return seasonPointStructurallyValid(this.map,point,this.terrainKindAt(point.x,point.y),space.outdoors)&&this.openArenaRitualPositionClear(point);
+    });
+    if(!selected){this.openArenaNextRitualWarningAt=now+OPEN_ARENA_RITUAL_WARNING_SECONDS;return false;}
+    const season=this.state.werewolfSeason;
+    for(const p of this.state.players.values())this.cancelWerewolfRitual(p);
+    season.enabled=true;season.altarPhase='dormant';season.altarX=selected.altar.x;season.altarY=selected.altar.y;season.altarActivatesAt=now+OPEN_ARENA_RITUAL_WARNING_SECONDS;season.altarReactivateAt=0;season.armoryX=selected.armory.x;season.armoryY=selected.armory.y;season.armoryActive=false;season.armoryOpened=false;season.armoryOpenedBy='';season.curseOwnerId='';season.werewolfPlayerId='';season.curseDropActive=false;season.curseDropX=0;season.curseDropY=0;season.curseDropRemaining=0;season.cycle++;season.initialNoticeSent=true;season.disabledForEndgame=false;
+    this.openArenaLastRitualPoint={x:selected.altar.x,y:selected.altar.y};this.openArenaRitualActiveEndsAt=0;this.openArenaNextRitualWarningAt=0;
+    this.system('늑대인간 의식 장소가 드러났습니다. 곧 제단이 깨어납니다.');
+    return true;
+  }
+
+  private endOpenArenaRitualAttempt(message:string){
+    const season=this.state.werewolfSeason;
+    for(const p of this.state.players.values())this.cancelWerewolfRitual(p);
+    season.altarPhase='recharging';season.altarReactivateAt=this.now()+OPEN_ARENA_RITUAL_COOLDOWN_SECONDS;season.armoryActive=false;season.armoryOpened=true;season.curseDropActive=false;this.openArenaRitualActiveEndsAt=0;
+    if(message)this.system(message);
   }
 
   private disableWerewolfSeason(){
@@ -1182,8 +1219,8 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     if(season.enabled&&season.altarPhase==='active'&&!season.curseOwnerId&&!season.werewolfPlayerId&&distance(p.x,p.y,season.altarX,season.altarY)<=WEREWOLF_BALANCE.ritualRadius){
       if(p.isDriving||p.isSwimming||p.isVaulting||p.werewolf.transformed||p.werewolf.transformPreparing){c.send('notice',{type:'warning',message:'차량·수영·변신 상태에서는 의식을 시작할 수 없습니다.'});return;}
       this.cancelHeal(p);this.cancelReload(p);this.cancelThrow(p);p.isSniperScoped=false;
-      const now=this.now(),w=p.werewolf;w.ritualizing=true;w.ritualStartedAt=now;w.ritualCompletesAt=now+WEREWOLF_BALANCE.ritualSeconds;w.ritualOriginX=p.x;w.ritualOriginY=p.y;
-      c.send('notice',{type:'warning',message:'제단 의식 중... 3초 동안 움직이지 마세요.'});return;
+      const now=this.now(),w=p.werewolf,ritualSeconds=this.gameMode==='openArena'?OPEN_ARENA_RITUAL_COMPLETION_SECONDS:WEREWOLF_BALANCE.ritualSeconds;w.ritualizing=true;w.ritualStartedAt=now;w.ritualCompletesAt=now+ritualSeconds;w.ritualOriginX=p.x;w.ritualOriginY=p.y;
+      c.send('notice',{type:'warning',message:`제단 의식 중... ${ritualSeconds.toFixed(0)}초 동안 움직이지 마세요.`});return;
     }
     this.interact(c);
   }
@@ -1206,13 +1243,13 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private completeWerewolfTransform(p:PlayerState){
     if(!p.alive||!p.werewolf.hasCurse)return;
     const season=this.state.werewolfSeason;if(season.werewolfPlayerId&&season.werewolfPlayerId!==p.id)return;
-    const now=this.now(),w=p.werewolf;w.hasCurse=false;w.curseExpiresAt=0;w.transformPreparing=false;w.transformReadyAt=0;w.transformed=true;w.transformEndsAt=now+WEREWOLF_BALANCE.transformDurationSeconds;w.sprintGauge=1;w.sprinting=false;w.sprintRechargeAt=now;w.silverSlowUntil=0;season.curseOwnerId='';season.werewolfPlayerId=p.id;season.altarPhase='claimed';
+    const now=this.now(),w=p.werewolf;w.hasCurse=false;w.curseExpiresAt=0;w.transformPreparing=false;w.transformReadyAt=0;w.transformed=true;w.transformEndsAt=now+WEREWOLF_BALANCE.transformDurationSeconds;w.sprintGauge=1;w.sprinting=false;w.sprintRechargeAt=now;w.silverSlowUntil=0;season.curseOwnerId='';season.werewolfPlayerId=p.id;season.altarPhase='claimed';if(this.gameMode==='openArena')this.openArenaRitualActiveEndsAt=0;
     this.system('늑대인간이 나타났습니다!');this.emitAudioEvent('werewolf_transform',{sourceId:p.id,x:p.x,y:p.y,buildingId:p.buildingId,variant:'werewolf'});
   }
 
   private grantWerewolfCurse(p:PlayerState,seconds:number=WEREWOLF_BALANCE.curseUseSeconds){
     const season=this.state.werewolfSeason;if(!p.alive||p.werewolf.hasCurse||p.werewolf.transformed||season.curseOwnerId||season.werewolfPlayerId)return false;
-    const now=this.now();p.werewolf.hasCurse=true;p.werewolf.curseExpiresAt=now+Math.max(1,seconds);season.curseOwnerId=p.id;season.altarPhase='claimed';season.curseDropActive=false;this.cancelWerewolfRitual(p);this.system('누군가 제단의 저주를 손에 넣었습니다.');this.playerClient(p.id)?.send('notice',{type:'success',message:'늑대의 저주를 얻었습니다. F키로 변신하거나 제한시간이 끝나면 강제 변신합니다.'});return true;
+    const now=this.now();p.werewolf.hasCurse=true;p.werewolf.curseExpiresAt=now+Math.max(1,seconds);season.curseOwnerId=p.id;season.altarPhase='claimed';season.curseDropActive=false;if(this.gameMode==='openArena')this.openArenaRitualActiveEndsAt=0;this.cancelWerewolfRitual(p);this.system('누군가 제단의 저주를 손에 넣었습니다.');this.playerClient(p.id)?.send('notice',{type:'success',message:'늑대의 저주를 얻었습니다. F키로 변신하거나 제한시간이 끝나면 강제 변신합니다.'});return true;
   }
 
   private dropWerewolfCurse(p:PlayerState,remaining:number){
@@ -1233,7 +1270,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     this.system(reason==='death'?'늑대인간이 쓰러졌습니다.':'늑대의 밤이 끝났습니다.');this.system('제단이 새로운 주인을 기다립니다.');
     const aliveAfterCycle=[...this.state.players.values()].filter((candidate)=>candidate.alive&&!((reason==='death'||reason==='disconnect')&&candidate.id===p.id)).length;
     if(this.state.zoneState==='FINAL'||this.state.zoneStage>=6||this.state.phase==='FINISHED'){this.disableWerewolfSeason();return;}
-    season.altarPhase='recharging';season.altarReactivateAt=this.now()+WEREWOLF_BALANCE.rechargeSeconds;
+    season.altarPhase='recharging';season.altarReactivateAt=this.now()+(this.gameMode==='openArena'?OPEN_ARENA_RITUAL_COOLDOWN_SECONDS:WEREWOLF_BALANCE.rechargeSeconds);if(this.gameMode==='openArena'){season.armoryActive=false;season.armoryOpened=true;this.openArenaRitualActiveEndsAt=0;}
   }
 
   private openSilverArmory(p:PlayerState,c?:Client){
@@ -1250,10 +1287,12 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private ensureSilverCountermeasures(initial=false){const season=this.state.werewolfSeason;if(!season.enabled||season.disabledForEndgame)return;if(initial){season.armoryActive=true;season.armoryOpened=false;return;}if(this.countSilverCrossbows()===0)this.spawnWerewolfLoot('silver_crossbow',season.armoryX-24,season.armoryY);if(this.countSilverBolts()<2)this.spawnWerewolfLoot('silver_bolt',season.armoryX+24,season.armoryY,WEREWOLF_BALANCE.rechargeSilverBolts);}
 
   private updateWerewolfSeason(dt:number){
-    const season=this.state.werewolfSeason;if(!season.enabled)return;const now=this.now();
+    const season=this.state.werewolfSeason;const now=this.now();
+    if(!season.enabled){if(this.gameMode==='openArena'&&this.state.phase==='ACTIVE'&&this.openArenaRoundState==='active'&&this.openArenaNextRitualWarningAt>0&&now>=this.openArenaNextRitualWarningAt)this.startOpenArenaRitualWarning(now);return;}
     if(this.state.zoneState==='FINAL'||this.state.zoneStage>=6){season.disabledForEndgame=true;if(!season.werewolfPlayerId&&!season.curseOwnerId)this.disableWerewolfSeason();}
-    if(season.altarPhase==='dormant'&&now>=season.altarActivatesAt){season.altarPhase='active';season.armoryActive=true;season.initialNoticeSent=true;this.system('늑대인간의 제단이 깨어났습니다.');this.system('누군가가 늑대인간이 될지 모릅니다.');this.system('은빛 사냥 무기가 나타났습니다.');this.emitAudioEvent('werewolf_altar_wake',{x:season.altarX,y:season.altarY,buildingId:'',variant:'werewolf'});this.ensureSilverCountermeasures(true);}
-    if(season.altarPhase==='recharging'&&now>=season.altarReactivateAt&&!season.disabledForEndgame){season.altarPhase='active';season.cycle++;this.system('늑대인간의 제단이 다시 깨어났습니다.');this.ensureSilverCountermeasures(false);}
+    if(season.altarPhase==='dormant'&&now>=season.altarActivatesAt){season.altarPhase='active';season.armoryActive=true;season.initialNoticeSent=true;if(this.gameMode==='openArena')this.openArenaRitualActiveEndsAt=now+OPEN_ARENA_RITUAL_ACTIVE_SECONDS;this.system('늑대인간의 제단이 깨어났습니다.');this.system('누군가가 늑대인간이 될지 모릅니다.');this.system('은빛 사냥 무기가 나타났습니다.');this.emitAudioEvent('werewolf_altar_wake',{x:season.altarX,y:season.altarY,buildingId:'',variant:'werewolf'});this.ensureSilverCountermeasures(true);}
+    if(season.altarPhase==='recharging'&&now>=season.altarReactivateAt&&!season.disabledForEndgame){if(this.gameMode==='openArena')this.startOpenArenaRitualWarning(now);else{season.altarPhase='active';season.cycle++;this.system('늑대인간의 제단이 다시 깨어났습니다.');this.ensureSilverCountermeasures(false);}}
+    if(this.gameMode==='openArena'&&season.altarPhase==='active'&&!season.curseOwnerId&&!season.werewolfPlayerId&&this.openArenaRitualActiveEndsAt>0&&now>=this.openArenaRitualActiveEndsAt)this.endOpenArenaRitualAttempt('늑대인간 의식이 실패했습니다. 제단이 다시 잠잠해집니다.');
     for(const p of this.state.players.values()){
       const w=p.werewolf;
       if(w.ritualizing){const invalid=!p.alive||p.phase!=='landed'||p.isDriving||p.isSwimming||p.isVaulting||season.altarPhase!=='active'||distance(p.x,p.y,w.ritualOriginX,w.ritualOriginY)>WEREWOLF_BALANCE.ritualMoveTolerance||distance(p.x,p.y,season.altarX,season.altarY)>WEREWOLF_BALANCE.ritualRadius;if(invalid)this.cancelWerewolfRitual(p);else if(now>=w.ritualCompletesAt){if(!season.curseOwnerId&&!season.werewolfPlayerId)this.grantWerewolfCurse(p);else this.cancelWerewolfRitual(p);}}
@@ -2944,8 +2983,19 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
     return candidate(true)??candidate(false);
   }
 
-  private spawnSupplyDrop(){
-    if(this.state.supplySpawned)return false;const pos=this.findSupplyPosition();if(!pos)return false;const now=this.now(),drop=new SupplyDropState();drop.id=`supply-${++this.supplySeq}`;drop.x=pos.x;drop.y=pos.y;drop.altitude=SUPPLY_DROP_BALANCE.initialAltitude;drop.spawnedAt=now;drop.landedAt=now+SUPPLY_DROP_BALANCE.descentSeconds;drop.landed=false;drop.opened=false;drop.specialWeapon=this.lootRandom()*100<SUPPLY_DROP_BALANCE.flamethrowerWeight?'flamethrower':'bazooka';drop.mapId=this.map.id;drop.zoneStage=this.state.zoneStage;this.state.supplyDrops.set(drop.id,drop);this.state.supplySpawned=true;this.state.supplyDropId=drop.id;this.emitAudioEvent('supply_incoming',{sourceId:drop.id,x:drop.x,y:drop.y,buildingId:'',variant:drop.specialWeapon});this.system('보급 상자가 투하되었습니다.');return true;
+  private activeSupplyDropCount(){let count=0;for(const drop of this.state.supplyDrops.values())if(!drop.opened)count++;return count;}
+
+  private spawnSupplyDrop(options:{allowMultiple?:boolean;openArenaRecurring?:boolean}={}){
+    const recurring=Boolean(options.allowMultiple);if(!recurring&&this.state.supplySpawned)return false;if(recurring&&this.activeSupplyDropCount()>=OPEN_ARENA_MAX_ACTIVE_SUPPLY_DROPS)return false;
+    const pos=this.findSupplyPosition();if(!pos)return false;const now=this.now(),drop=new SupplyDropState();drop.id=`supply-${++this.supplySeq}`;drop.x=pos.x;drop.y=pos.y;drop.altitude=SUPPLY_DROP_BALANCE.initialAltitude;drop.spawnedAt=now;drop.landedAt=now+SUPPLY_DROP_BALANCE.descentSeconds;drop.landed=false;drop.opened=false;drop.specialWeapon=this.lootRandom()*100<SUPPLY_DROP_BALANCE.flamethrowerWeight?'flamethrower':'bazooka';drop.mapId=this.map.id;drop.zoneStage=this.state.zoneStage;this.state.supplyDrops.set(drop.id,drop);if(!recurring)this.state.supplySpawned=true;this.state.supplyDropId=drop.id;this.emitAudioEvent('supply_incoming',{sourceId:drop.id,x:drop.x,y:drop.y,buildingId:'',variant:drop.specialWeapon});this.system(options.openArenaRecurring?'상시 전장 보급상자가 투하되었습니다.':'보급 상자가 투하되었습니다.');return true;
+  }
+
+  private updateOpenArenaRecurringSupplyDrops(now=this.now()){
+    if(this.gameMode!=='openArena'||this.state.phase!=='ACTIVE'||this.openArenaRoundState!=='active')return;
+    if(this.openArenaNextSupplyDropAt<=0)this.openArenaNextSupplyDropAt=now+OPEN_ARENA_SUPPLY_DROP_FIRST_DELAY_SECONDS;
+    if(now<this.openArenaNextSupplyDropAt)return;
+    if(this.activeSupplyDropCount()>=OPEN_ARENA_MAX_ACTIVE_SUPPLY_DROPS){this.openArenaNextSupplyDropAt=now+OPEN_ARENA_SUPPLY_DROP_INTERVAL_SECONDS;return;}
+    const spawned=this.spawnSupplyDrop({allowMultiple:true,openArenaRecurring:true});this.openArenaNextSupplyDropAt=now+(spawned?OPEN_ARENA_SUPPLY_DROP_INTERVAL_SECONDS:OPEN_ARENA_SUPPLY_DROP_RETRY_SECONDS);
   }
 
   private openNearbySupplyDrop(p:PlayerState){
@@ -3214,6 +3264,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       if(!drop?.landed||drop.opened){this.aiWorldObjectives.delete(p.id);return undefined;}
       objective.x=drop.x;objective.y=drop.y;
     }else{
+      if(this.gameMode==='openArena'){this.aiWorldObjectives.delete(p.id);return undefined;}
       const season=this.state.werewolfSeason;
       if(season.altarPhase!=='active'||season.curseOwnerId||season.werewolfPlayerId){this.aiWorldObjectives.delete(p.id);return undefined;}
       objective.x=season.altarX;objective.y=season.altarY;
@@ -3243,7 +3294,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
       if(score>35)candidates.push({score,objective:{kind:'supply',id:drop.id,x:drop.x,y:drop.y,expiresAt:now+22}});
     }
     const season=this.state.werewolfSeason;
-    if(season.altarPhase==='active'&&!season.curseOwnerId&&!season.werewolfPlayerId){
+    if(this.gameMode!=='openArena'&&season.altarPhase==='active'&&!season.curseOwnerId&&!season.werewolfPlayerId){
       const d=distance(p.x,p.y,season.altarX,season.altarY);
       const threshold=.22+profile.aggression*.26+(1-profile.riskAvoidance)*.08;
       const interested=this.aiObjectiveRoll(p.id,`altar-${season.cycle}`)<threshold;
@@ -3265,7 +3316,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
 
   private beginAiWerewolfRitual(p:PlayerState){
     const season=this.state.werewolfSeason,w=p.werewolf;
-    if(!p.ai||!p.alive||p.phase!=='landed'||p.isDriving||p.isSwimming||p.isVaulting||w.hasCurse||w.transformed||w.transformPreparing||w.ritualizing)return false;
+    if(this.gameMode==='openArena'||!p.ai||!p.alive||p.phase!=='landed'||p.isDriving||p.isSwimming||p.isVaulting||w.hasCurse||w.transformed||w.transformPreparing||w.ritualizing)return false;
     if(season.altarPhase!=='active'||season.curseOwnerId||season.werewolfPlayerId||distance(p.x,p.y,season.altarX,season.altarY)>WEREWOLF_BALANCE.ritualRadius)return false;
     this.cancelHeal(p);this.cancelReload(p);this.cancelThrow(p);p.isSniperScoped=false;
     const now=this.now();w.ritualizing=true;w.ritualStartedAt=now;w.ritualCompletesAt=now+WEREWOLF_BALANCE.ritualSeconds;w.ritualOriginX=p.x;w.ritualOriginY=p.y;
@@ -4479,7 +4530,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   private finishOpenArenaRound(winner:PlayerState,winnerRow:ArenaScoreRow){
     if(this.gameMode!=='openArena'||this.openArenaRoundState!=='active')return;
     const now=this.now();this.openArenaRoundState='result';this.openArenaRoundEndsAt=now+OPEN_ARENA_ROUND_TOTAL_SECONDS;this.openArenaRoundResettingAt=this.openArenaRoundEndsAt-OPEN_ARENA_ROUND_COUNTDOWN_SECONDS;this.openArenaRoundWinnerId=winner.id;this.openArenaRoundRows=this.openArenaHumanRows();this.openArenaRoundGeneration++;
-    this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.inputs.clear();for(const slot of this.openArenaAiSlots.values()){slot.respawnAt=0;slot.generation++;}for(const player of this.state.players.values()){this.cancelHeal(player);this.cancelReload(player);this.cancelThrow(player);player.isSniperScoped=false;}
+    this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.inputs.clear();for(const slot of this.openArenaAiSlots.values()){slot.respawnAt=0;slot.generation++;}for(const player of this.state.players.values()){this.cancelHeal(player);this.cancelReload(player);this.cancelThrow(player);player.isSniperScoped=false;}this.disableWerewolfSeason();this.openArenaNextRitualWarningAt=0;this.openArenaRitualActiveEndsAt=0;
     const payload={...this.openArenaRoundPayload(),winnerName:winner.name,winner:winnerRow};this.broadcast('arenaRoundResult',payload);this.system(`${winner.name}님이 ${this.openArenaConfig?.killLimit??0}킬을 달성했습니다. 8초 후 다음 라운드가 시작됩니다.`);this.syncRoomRegistry();
   }
 
@@ -4490,7 +4541,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   }
 
   private resetOpenArenaRound(){
-    if(this.gameMode!=='openArena')return;this.openArenaRoundGeneration++;this.clearTransient();this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.clearOpenArenaRoundScores();this.openArenaRoundWinnerId='';this.openArenaRoundRows=[];this.openArenaRoundEndsAt=0;this.openArenaRoundResettingAt=0;
+    if(this.gameMode!=='openArena')return;this.openArenaRoundGeneration++;this.clearTransient();this.humanRespawnAt.clear();this.spawnProtectionUntil.clear();this.clearOpenArenaRoundScores();this.openArenaRoundWinnerId='';this.openArenaRoundRows=[];this.openArenaRoundEndsAt=0;this.openArenaRoundResettingAt=0;this.openArenaNextSupplyDropAt=this.now()+OPEN_ARENA_SUPPLY_DROP_FIRST_DELAY_SECONDS;this.openArenaNextRitualWarningAt=this.now()+OPEN_ARENA_RITUAL_FIRST_DELAY_SECONDS;this.openArenaRitualActiveEndsAt=0;this.openArenaLastRitualPoint=null;
     let index=0;for(const player of this.state.players.values()){this.resetOpenArenaCombatant(player,index++,true);this.giveOpenArenaStarterKit(player);if(player.ai){const slot=this.openArenaAiSlots.get(player.id);if(slot){slot.state='alive';slot.respawnAt=0;slot.generation++;}}}
     this.state.aliveCount=[...this.state.players.values()].filter((player)=>player.alive).length;this.spawnLoot();this.spawnMotorcycles();this.openArenaRoundState='active';this.broadcast('arenaRoundStarted',{roundGeneration:this.openArenaRoundGeneration,startedAt:this.now(),killLimit:this.openArenaConfig?.killLimit??0});this.broadcast('arenaStatus',this.arenaStatusPayload());this.broadcastOpenArenaScoreboard(true);this.system('다음 상시 전장 라운드가 시작되었습니다.');this.syncRoomRegistry();
   }
@@ -4535,7 +4586,7 @@ export class Drop8Room extends Room<{ state: Drop8State; metadata: Drop8RoomMeta
   }
 
   private updateOpenArenaWorld(){
-    const now=this.now();if(now<this.arenaWorldCleanupAt)return;this.arenaWorldCleanupAt=now+OPEN_ARENA_WORLD_CLEANUP_INTERVAL_SECONDS;
+    const now=this.now();if(now<this.arenaWorldCleanupAt)return;this.arenaWorldCleanupAt=now+OPEN_ARENA_WORLD_CLEANUP_INTERVAL_SECONDS;this.updateOpenArenaRecurringSupplyDrops(now);
     for(const [lootId] of this.state.loot)if(!this.arenaLootToSlot.has(lootId)&&!this.arenaDropExpiresAt.has(lootId))this.arenaDropExpiresAt.set(lootId,now+OPEN_ARENA_DROP_TTL_SECONDS);
     for(const [lootId,expiresAt] of [...this.arenaDropExpiresAt])if(now>=expiresAt){this.state.loot.delete(lootId);this.lootReservations.delete(lootId);this.arenaDropExpiresAt.delete(lootId);}
     for(const slot of this.arenaLootSlots.values()){

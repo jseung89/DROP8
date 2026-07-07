@@ -1,3 +1,4 @@
+// DROP8_REFACTOR_028_RECURRING_WEREWOLF_RITUAL_CYCLE
 // DROP8_REFACTOR_025A_OPEN_ARENA_HUD_LAYOUT_HOTFIX
 // DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN
 // DROP8_REFACTOR_023_AI_SAFE_ZONE_SWEEP_LIVE_SPECTATOR_DIALOGUE
@@ -1685,7 +1686,7 @@ export class GameScene extends Phaser.Scene {
     if(me.werewolf?.transformed){this.pickupText.setText('좌클릭 할퀴기 · 우클릭 사냥 질주').setVisible(true);return;}
     const season=s.werewolfSeason;
     if(season?.curseDropActive&&Math.hypot(Number(season.curseDropX)-me.x,Number(season.curseDropY)-me.y)<=72){this.pickupText.setText('E  늑대의 저주 획득').setVisible(true);return;}
-    if(season?.altarPhase==='active'&&Math.hypot(Number(season.altarX)-me.x,Number(season.altarY)-me.y)<=WEREWOLF_BALANCE.ritualRadius+8){this.pickupText.setText('E 유지  늑대의 제단 의식 (3초)').setVisible(true);return;}
+    if(season?.altarPhase==='active'&&Math.hypot(Number(season.altarX)-me.x,Number(season.altarY)-me.y)<=WEREWOLF_BALANCE.ritualRadius+8){this.pickupText.setText('E 유지  늑대의 제단 의식').setVisible(true);return;}
     if(season?.armoryActive&&!season.armoryOpened&&Math.hypot(Number(season.armoryX)-me.x,Number(season.armoryY)-me.y)<=100){this.pickupText.setText('E  은빛 무기함 열기').setVisible(true);return;}
     if(me.werewolf?.hasCurse){this.pickupText.setText('F  늑대인간 변신').setVisible(true);return;}
     if(me.isDriving){this.pickupText.setText('E  오토바이 내리기').setVisible(true);return;}

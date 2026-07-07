@@ -1,3 +1,25 @@
+<!-- DROP8_REFACTOR_028_RECURRING_WEREWOLF_RITUAL_CYCLE -->
+## Refactor 028 — Recurring Werewolf Ritual Cycle
+
+- Open Arena 전용 반복 늑대인간 의식 사이클을 추가했다.
+- 첫 예고 90초, 예고 15초, 활성 45초, 쿨다운 120초 상수로 관리한다.
+- 기존 늑대인간 제단/저주/변신/은빛 무기함 구조를 재사용한다.
+- 인간 플레이어만 Open Arena 반복 의식을 완료할 수 있고 AI는 기존 전투/루팅 행동을 유지한다.
+- Refactor 027 보급상자 기능은 변경하지 않는다.
+- Battle Royale 늑대인간·보급·비행기·자기장·전리품·라운드 로직은 보존한다.
+- 무기 데미지, 발사속도, 이동속도, AI 판단 주기, 서버 Tick, 네트워크 주기는 변경하지 않았다.
+
+<!-- DROP8_REFACTOR_027_OPEN_ARENA_RECURRING_SUPPLY_DROPS -->
+## Refactor 027 — Open Arena Recurring Supply Drops
+
+- Open Arena 전용 반복 보급상자 사이클을 추가했습니다.
+- 첫 보급은 상시 전장 라운드 시작 후 60초, 이후 보급은 90초 간격으로 시도합니다.
+- 활성 보급상자는 최대 3개로 제한하며, 최대치에 도달하면 해당 주기의 새 보급을 스킵합니다.
+- 보급 위치 선정은 기존 보급 위치 검증과 지형·충돌·건물·플레이어 이격 검사를 재사용합니다.
+- Battle Royale의 기존 단일 보급, 비행기, 자기장, 전리품 흐름은 유지합니다.
+- 라운드 정산/리셋 중에는 새 보급이 발생하지 않으며, 다음 라운드 시작 시 타이머가 다시 예약됩니다.
+- 무기 데미지, 발사속도, 이동속도, AI 판단 주기, 서버 Tick, 네트워크 주기는 변경하지 않았습니다.
+
 <!-- DROP8_REFACTOR_025A_OPEN_ARENA_HUD_LAYOUT_HOTFIX -->
 ## Refactor 025A — Open Arena HUD Layout Hotfix
 
