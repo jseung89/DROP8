@@ -1,3 +1,4 @@
+// DROP8_REFACTOR_025A_OPEN_ARENA_HUD_LAYOUT_HOTFIX
 // DROP8_REFACTOR_025_OPEN_ARENA_KILL_LIMIT_MATCH_CYCLE
 // DROP8_REFACTOR_024E_OPEN_ARENA_SCOREBOARD_UX
 // DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN
@@ -413,18 +414,21 @@ function render(){
   if(s.phase==='LOBBY'){
     lobby.classList.remove('hidden');
     gameEl.classList.add('hidden');
+    gameEl.classList.remove('open-arena-layout','map-open');
     renderLobby(s);
     return;
   }
 
   lobby.classList.add('hidden');
   gameEl.classList.remove('hidden');
+  const arena=net.roomConfig.gameMode==='openArena';
+  gameEl.classList.toggle('open-arena-layout',arena);
+  if(!arena)gameEl.classList.remove('map-open');
   if(!game)createGame();
   const now=performance.now();
   if(now-lastHudAt<100)return;
   lastHudAt=now;
   const me=s.players.find((p)=>p.id===net.sessionId);
-  const arena=net.roomConfig.gameMode==='openArena';
   $('modeText').textContent=arena?'상시 개방 전장':'배틀로얄';
   renderArenaScoreboard();
   $('phaseText').textContent=me&&!me.alive?'관전 중 · ← → 대상 변경':s.phase;

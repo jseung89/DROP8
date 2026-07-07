@@ -1,3 +1,13 @@
+<!-- DROP8_REFACTOR_025A_OPEN_ARENA_HUD_LAYOUT_HOTFIX -->
+## Refactor 025A — Open Arena HUD Layout Hotfix
+
+- Open Arena 전투 HUD에 'open-arena-layout' 클래스를 부여해 Battle Royale과 별도 레이아웃만 적용합니다.
+- 실시간 순위표를 미니맵 우측 상단 영역에서 분리해 좌측 상단 독립 패널로 배치하고, 작은 화면에서는 높이와 행 정보를 축약합니다.
+- 미니맵은 기존 우측 영역을 유지하며, Open Arena에서는 자기장 원·다음 원·안전구역 라벨을 그리지 않습니다.
+- Open Arena의 자기장 DOM 항목과 Phaser 자기장 경고음은 숨기되, Battle Royale 자기장 HUD·월드 원·미니맵 라벨은 기존 경로를 유지합니다.
+- 킬피드는 미니맵 아래로 내려 충돌을 줄이고, 확장 지도 상태에서는 전투 화면 침범을 피하도록 숨깁니다.
+- 중앙 정산창은 독립 모달 계층으로 유지하며 킬 제한·정산·라운드 재시작 로직은 변경하지 않았습니다.
+
 <!-- DROP8_REFACTOR_025_OPEN_ARENA_KILL_LIMIT_MATCH_CYCLE -->
 ## Refactor 025 — Open Arena Kill Limit & Match Cycle
 

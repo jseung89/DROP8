@@ -1,3 +1,4 @@
+// DROP8_REFACTOR_025A_OPEN_ARENA_HUD_LAYOUT_HOTFIX
 // DROP8_REFACTOR_024C_OPEN_ARENA_RESPAWN
 // DROP8_REFACTOR_023_AI_SAFE_ZONE_SWEEP_LIVE_SPECTATOR_DIALOGUE
 // DROP8_REFACTOR_021_AI_PERSONA_DIALOGUE
@@ -191,7 +192,7 @@ export class GameScene extends Phaser.Scene {
     this.keys.FIVE.on('down',()=>{const me=this.local();if(!this.isTyping()&&me?.alive&&me.phase==='landed'&&!me.isDriving&&!me.isSwimming&&!me.isVaulting){this.cancelLocalThrow();this.net.send('placeStripTrap');}});
     this.keys.Q.on('down',()=>{const me=this.local();if(!this.isTyping()&&!me?.isSwimming){this.cancelLocalThrow();this.net.send('heal',{kind:'auto'});}});
     this.keys.SPACE.on('down',()=>{if(this.isTyping())return;const me=this.local();if(me?.isSwimming)return;this.net.send(me?.phase==='landed'?'vaultWindow':'jump');});
-    this.keys.M.on('down',()=>{this.mapOpen=!this.mapOpen;this.lastMiniDraw=0;});
+    this.keys.M.on('down',()=>{this.mapOpen=!this.mapOpen;this.lastMiniDraw=0;document.getElementById('game')?.classList.toggle('map-open',this.mapOpen);});
     this.keys.F3.on('down',()=>{if(this.isTyping())return;this.perfVisible=!this.perfVisible;this.perfText.setVisible(this.perfVisible);});
     this.scale.on('resize',(size:Phaser.Structs.Size)=>{
       this.pickupText.setPosition(size.width/2,size.height-118);
@@ -203,6 +204,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
       this.net.messages.delete(this.chatMessageHandler);
       window.removeEventListener('drop8-chat-state',this.chatStateHandler as EventListener);
+      document.getElementById('game')?.classList.remove('map-open');
       for(const overlay of this.playerOverlays.values())overlay.container.destroy(true);
       this.playerOverlays.clear();
       this.crosshairG.clear();this.throwGuideG.clear();this.cancelLocalThrow();
@@ -1414,8 +1416,9 @@ export class GameScene extends Phaser.Scene {
     g.clear();
     const view=this.cameras.main.worldView;
     const visible=(x:number,y:number,m=120)=>x>=view.x-m&&x<=view.right+m&&y>=view.y-m&&y<=view.bottom+m;
-    if(s.zoneActive)g.lineStyle(6,0x4db5ff,.72).strokeCircle(s.zoneX,s.zoneY,s.zoneRadius);
-    if(s.zoneActive||s.zoneState==='ANNOUNCING')g.lineStyle(3,0xffffff,.36).strokeCircle(s.nextZoneX,s.nextZoneY,s.nextZoneRadius);
+    const arena=this.net.roomConfig.gameMode==='openArena';
+    if(!arena&&s.zoneActive)g.lineStyle(6,0x4db5ff,.72).strokeCircle(s.zoneX,s.zoneY,s.zoneRadius);
+    if(!arena&&(s.zoneActive||s.zoneState==='ANNOUNCING'))g.lineStyle(3,0xffffff,.36).strokeCircle(s.nextZoneX,s.nextZoneY,s.nextZoneRadius);
     for(const drop of s.supplyDrops??[])if(drop.landed&&visible(drop.x,drop.y,100))g.lineStyle(3,drop.opened?0x8c755f:0xff6b4a,.9).strokeRect(drop.x-25,drop.y-17,50,34);
     const viewer=this.viewerEntity();if(viewer?.alive&&viewer?.phase==='landed')for(const l of s.loot){if(this.spaceVisible(l)&&visible(l.x,l.y,80)&&this.pointInsideScopeView(l.x,l.y))this.drawLootIcon(g,l.kind as LootKind,l.x,l.y,1);}
   }
@@ -1859,12 +1862,14 @@ export class GameScene extends Phaser.Scene {
 
   private updateZoneAudio(s:any,time:number){
     const me=this.local();if(!me)return;
+    const playLowHealth=()=>{const hp=Number(me.hp??0);if(hp<=25&&hp>0&&time-this.lastLowHealthAt>1400){this.lastLowHealthAt=time;audio.playLocal('low_health');}};
+    if(this.net.roomConfig.gameMode==='openArena'){this.lastZoneState='';this.zoneWarningStage='';playLowHealth();return;}
     const zoneState=String(s.zoneState??'');if(zoneState!==this.lastZoneState){if(this.lastZoneState&&zoneState==='SHRINKING')audio.playLocal('zone_start');if(zoneState==='ANNOUNCING')audio.playLocal('zone_warning');if(zoneState==='FINAL')audio.playLocal('zone_final');this.lastZoneState=zoneState;this.zoneWarningStage='';}
     if(zoneState==='WAITING'||zoneState==='ANNOUNCING'){
       const timer=Math.ceil(Number(s.zoneTimer??0)),stage=timer<=3?'3':timer<=10?'10':'';
       if(stage&&stage!==this.zoneWarningStage){this.zoneWarningStage=stage;audio.playLocal('zone_warning');}
     }
-    const hp=Number(me.hp??0);if(hp<=25&&hp>0&&time-this.lastLowHealthAt>1400){this.lastLowHealthAt=time;audio.playLocal('low_health');}
+    playLowHealth();
   }
 
   private drawTransportPlane(g:Phaser.GameObjects.Graphics,x:number,y:number,angle:number,scale:number,layer:'shadow'|'body'='body'){
@@ -1917,6 +1922,7 @@ export class GameScene extends Phaser.Scene {
     g.clear();
     if(this.scopeRequested){this.miniLabel?.setVisible(false);return;}
     const w=this.mapOpen?420:160,h=this.mapOpen?420:160,x=this.scale.width-w-14,y=this.mapOpen?70:82,sc=w/this.mapConfig.width;
+    const arena=this.net.roomConfig.gameMode==='openArena';
     g.fillStyle(0x061018,.92).fillRoundedRect(x,y,w,h,12);
     g.lineStyle(2,0xffffff,.18).strokeRoundedRect(x,y,w,h,12);
     for(const r of this.mapConfig.regions)g.fillStyle(REGION_THEMES[r.id].ground,.62).fillRect(x+r.x*sc,y+r.y*sc,r.w*sc,r.h*sc);
@@ -1930,8 +1936,8 @@ export class GameScene extends Phaser.Scene {
     for(const exit of this.mapConfig.shoreExits)g.fillStyle(0xcfe4a8,.7).fillCircle(x+exit.landingPoint.x*sc,y+exit.landingPoint.y*sc,Math.max(1.2,4*sc));
     for(const b of this.mapConfig.buildings)g.fillStyle(REGION_THEMES[b.regionId].roof,.68).fillRect(x+b.x*sc,y+b.y*sc,Math.max(1,b.w*sc),Math.max(1,b.h*sc));
     for(const bush of this.mapConfig.bushes)g.fillStyle(0x3f8c4c,.42).fillCircle(x+bush.x*sc,y+bush.y*sc,Math.max(1.5,bush.radius*sc));
-    if(s.zoneActive)g.lineStyle(2,0x4db5ff,.95).strokeCircle(x+s.zoneX*sc,y+s.zoneY*sc,s.zoneRadius*sc);
-    if(s.zoneActive||s.zoneState==='ANNOUNCING')g.lineStyle(2,0xffffff,.72).strokeCircle(x+s.nextZoneX*sc,y+s.nextZoneY*sc,s.nextZoneRadius*sc);
+    if(!arena&&s.zoneActive)g.lineStyle(2,0x4db5ff,.95).strokeCircle(x+s.zoneX*sc,y+s.zoneY*sc,s.zoneRadius*sc);
+    if(!arena&&(s.zoneActive||s.zoneState==='ANNOUNCING'))g.lineStyle(2,0xffffff,.72).strokeCircle(x+s.nextZoneX*sc,y+s.nextZoneY*sc,s.nextZoneRadius*sc);
     if(['PLANE','DROP'].includes(s.phase)){
       g.lineStyle(2,0xffffff,.35).lineBetween(x+s.planeStartX*sc,y+s.planeStartY*sc,x+s.planeEndX*sc,y+s.planeEndY*sc);
       const px=x+s.planeX*sc,py=y+s.planeY*sc,a=s.planeAngle;
@@ -1952,6 +1958,7 @@ export class GameScene extends Phaser.Scene {
       const color=p.id===this.net.sessionId?0x54dcff:p.bushRevealed?0xff424f:0xff686e;
       g.fillStyle(color).fillCircle(x+position.x*sc,y+position.y*sc,p.id===this.net.sessionId?5:3);
     }
+    if(arena){this.miniLabel?.setVisible(false);return;}
     const direction=zoneDirection(s.nextZoneX-s.zoneX,s.nextZoneY-s.zoneY);
     const zoneLabel=s.zoneState==='FREE'
       ?`안전구역 생성까지 · ${Math.max(0,Math.ceil(s.zoneTimer))}초`

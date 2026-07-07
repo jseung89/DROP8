@@ -102,3 +102,18 @@ html,body,#app{width:100%;height:100%;overflow:hidden}
 
 /* DROP8_REFACTOR_025_OPEN_ARENA_KILL_LIMIT_MATCH_CYCLE */
 .arena-round-result{padding:28px;overflow:auto}.arena-round-result h2{margin:0 0 18px}.arena-result-row{display:grid;gap:6px;min-width:min(620px,86vw);padding:12px 16px;margin:8px auto;border:1px solid #ffffff24;border-radius:12px;background:#0c1721}.arena-result-row:first-child{border-color:var(--accent);box-shadow:0 0 24px #ffce4830}.arena-result-row span{color:#b9c6d0}.arena-round-result p{font-size:24px;color:var(--accent);font-weight:800}
+
+/* DROP8_REFACTOR_025A_OPEN_ARENA_HUD_LAYOUT_HOTFIX */
+#game.open-arena-layout #arenaScoreboardPanel{left:14px;right:auto;top:66px;width:min(310px,calc(100vw - 456px));max-height:calc(100vh - 214px);overflow:hidden;display:flex;flex-direction:column;gap:4px;z-index:56}
+#game.open-arena-layout #arenaScoreboardPanel.hidden{display:none}
+#game.open-arena-layout #arenaPopulationText{line-height:1.35}
+#game.open-arena-layout #arenaScoreboardRows{overflow:auto;max-height:min(330px,calc(100vh - 318px));padding-right:2px}
+#game.open-arena-layout #killfeed{right:14px;top:276px;max-width:270px;pointer-events:none}
+#game.open-arena-layout.map-open #killfeed{display:none}
+#game.open-arena-layout #topHud{max-width:calc(100vw - 680px);flex-wrap:wrap;justify-content:center;row-gap:6px}
+#game.open-arena-layout #zoneHudItem{display:none!important}
+#game.open-arena-layout .arena-round-result{z-index:86;padding:28px;width:100%;height:100%;place-content:center}
+#game.open-arena-layout .arena-round-result.hidden{display:none}
+@media(max-width:1180px){#game.open-arena-layout #arenaScoreboardPanel{top:64px;width:min(292px,calc(100vw - 28px));max-height:190px}#game.open-arena-layout #arenaScoreboardRows{max-height:112px}#game.open-arena-layout #killfeed{top:276px;max-width:240px}#game.open-arena-layout #topHud{max-width:calc(100vw - 340px)}}
+@media(max-width:900px){#game.open-arena-layout #arenaScoreboardPanel{left:14px;top:62px;width:min(270px,calc(100vw - 214px));max-height:174px}#game.open-arena-layout #arenaScoreboardRows{max-height:92px}#game.open-arena-layout #arenaScoreboardPanel .arena-score-row{grid-template-columns:20px 1fr}#game.open-arena-layout #arenaScoreboardPanel .arena-score-row em{display:none}#game.open-arena-layout #killfeed{right:8px;top:272px;max-width:210px}#game.open-arena-layout #topHud{max-width:calc(100vw - 300px);font-size:12px;gap:8px;padding:8px 10px}}
+@media(max-width:620px){#game.open-arena-layout #arenaScoreboardPanel{top:58px;width:min(226px,calc(100vw - 200px));padding:9px;max-height:152px}#game.open-arena-layout #arenaScoreboardRows{max-height:78px}#game.open-arena-layout #arenaScoreboardPanel h3{font-size:12px}#game.open-arena-layout #arenaPopulationText{font-size:10px}#game.open-arena-layout #killfeed{display:none}#game.open-arena-layout #topHud{left:50%;max-width:calc(100vw - 236px)}}
